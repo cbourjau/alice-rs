@@ -1,4 +1,4 @@
-use ffi;
+use alice_sys::CEsd;
 use primary_vertex::PrimaryVertex;
 use track::Track;
 
@@ -10,7 +10,7 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn new_from_esd(esd: *const ffi::CEsd) -> Event {
+    pub fn new_from_esd(esd: *const CEsd) -> Event {
         Event {
             primary_vertex: PrimaryVertex::new(esd),
             tracks: Track::read_tracks_from_esd(esd),

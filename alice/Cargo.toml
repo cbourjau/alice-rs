@@ -4,5 +4,7 @@ version = "0.1.0"
 authors = ["cbourjau <christian.bourjau@cern.ch>"]
 
 [dependencies]
+libc = "*"
 bitflags = "0.9.1"
-histogram = {path = "../histogram" }
+histogram = {path = "../histogram"}
+alice-sys = {path = "../alice-sys"}

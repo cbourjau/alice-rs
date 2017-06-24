@@ -1,4 +1,4 @@
-use ffi;
+use alice_sys::{track_t, CEsd, get_n_tracks, get_ext_tracks_parameters, ext_track_parameters_t};
 use std::f64::consts::PI;
 
 bitflags! {
@@ -42,7 +42,7 @@ bitflags! {
 #[derive(Debug)]
 pub struct Track {
     // The raw ESD track data
-    esd_track: ffi::track_t,
+    esd_track: track_t,
     // Flags set for this track; wrapped with bitflag class for safety
     pub flags: Flags,
 }
@@ -51,10 +51,10 @@ impl Track {
     /// Create a humanly useful track from the "external" track parameters
     /// This is copied from AliExternalTrackParam.cxx
     /// Returns None if the track had 1/pt <= 0
-    pub fn read_tracks_from_esd(esd: *const ffi::CEsd) -> Vec<Track> {
-        let n_tracks = unsafe {ffi::get_n_tracks(esd)};
-        let mut esd_tracks = vec![<ffi::track_t>::new(); n_tracks];
-        unsafe {ffi::get_ext_tracks_parameters(esd, esd_tracks.as_mut_ptr(), n_tracks)}
+    pub fn read_tracks_from_esd(esd: *const CEsd) -> Vec<Track> {
+        let n_tracks = unsafe {get_n_tracks(esd)};
+        let mut esd_tracks = vec![new_track(); n_tracks];
+        unsafe {get_ext_tracks_parameters(esd, esd_tracks.as_mut_ptr(), n_tracks)}
         esd_tracks.into_iter()
             .map(|t| {
                 Track {
@@ -104,16 +104,16 @@ impl Track {
     }
 }
 
-impl ffi::track_t {
-    pub fn new() -> ffi::track_t {
-        ffi::track_t {ext_track_paras: ffi::ext_track_parameters_t {loc_y: 0.,
-                                                                    loc_z: 0.,
-                                                                    loc_sin: 0.,
-                                                                    tang: 0.,
-                                                                    one_over_pt: 0.},
-                      alpha: 0.,
-                      flags: 0,
-                      x: 0.,
-        }
+
+fn new_track() -> track_t {
+    track_t {ext_track_paras: ext_track_parameters_t {loc_y: 0.,
+                                                      loc_z: 0.,
+                                                      loc_sin: 0.,
+                                                      tang: 0.,
+                                                      one_over_pt: 0.},
+             alpha: 0.,
+             flags: 0,
+             x: 0.,
     }
 }
+

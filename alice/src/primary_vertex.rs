@@ -1,4 +1,4 @@
-use ffi::{primary_vertex_get_pos, CEsd};
+use alice_sys::{primary_vertex_get_pos, CEsd};
 
 #[derive(Debug)]
 pub struct PrimaryVertex {
