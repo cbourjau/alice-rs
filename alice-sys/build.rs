@@ -7,9 +7,9 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    let root_inc = format!("{}/{}",
-                           env::var("ROOTSYS").expect("ROOT include not found!"),
-                           "include");
+    let root_base = env::var("ROOTSYS").expect("ROOT include not found!");
+    let root_inc = format!("{}/include", root_base);
+    let root_lib = format!("{}/lib", root_base);
     // We need to libs from the AliROOT side: STEERBase and ESD
     // The needed files where extreacted building the respective par
     // files, which are .tar.gz archives with the sources.
@@ -21,40 +21,24 @@ fn main() {
     cfg
         .cpp(true) // Switch to C++ library compilation.
         .include(&root_inc)
-        .include("src/ffi/cpp_src/STEERBase");
+        .include("src/ffi/cpp_src/STEERBase")
+        .include("src/ffi/cpp_src/ESD");
     
     // The two AliRoot classes needed to read the data
     let files = glob("src/ffi/cpp_src/STEERBase/*.cxx").unwrap().filter_map(|a| a.ok());
     for file in files {
         cfg.file(file);
     }
-    cfg.compile("libSTEERBase.a");
 
     // libESD: It was necessary to copy `event.h` by hand. YOLO!
-    let mut cfg = gcc::Config::new();
-    cfg
-        .cpp(true) // Switch to C++ library compilation.
-        .include(&root_inc)
-        .include("src/ffi/cpp_src/ESD")
-        .include("src/ffi/cpp_src/STEERBase");
-
     let files = glob("src/ffi/cpp_src/ESD/*.cxx").unwrap().filter_map(|a| a.ok());
     for file in files {
         cfg.file(file);
     }
-    cfg.compile("libESD.a");
-
-    let mut cfg = gcc::Config::new();
-    cfg
-        .cpp(true) // Switch to C++ library compilation.
-        .include(&root_inc)
-        .include("src/ffi/cpp_src/ESD")
-        .include("src/ffi/cpp_src/STEERBase")
-        // The file describing the datastructure in the files
-        .file("src/ffi/cpp_src/ESD.cxx");
+    // The auto-generated file for the ESD root tree
+    cfg.file("src/ffi/cpp_src/ESD.cxx");
 
     // ROOT libraries
-    let root_lib = "/home/christian/repos/alice/sw/ubuntu1604_x86-64/ROOT/c2208a7e68-1/lib";
     for lib in ["Tree", "Physics", "EG", "Geom", "Minuit", "VMC"].iter() {
         cfg.object(format!("{}/lib{}.so", root_lib, lib));
     }
