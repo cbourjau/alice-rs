@@ -1,0 +1,8 @@
+[package]
+name = "alice"
+version = "0.1.0"
+authors = ["cbourjau <christian.bourjau@cern.ch>"]
+
+[dependencies]
+bitflags = "0.9.1"
+histogram = {path = "../histogram" }

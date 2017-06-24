@@ -1,4 +1,4 @@
-use ffi;
+
 use event::Event;
 
 #[derive(Debug)]

@@ -6,8 +6,6 @@ build = "build.rs"
 
 [dependencies]
 libc = "*"
-bitflags = "0.9.1"
-histogram = {path = "../histogram" }
 
 [build-dependencies]
 gcc = { version = "0.3", features = ["parallel"] }
