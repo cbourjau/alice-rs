@@ -1,0 +1,6 @@
+[package]
+name = "histogram"
+version = "0.1.0"
+authors = ["cbourjau <christian.bourjau@cern.ch>"]
+
+[dependencies]
