@@ -1,0 +1,10 @@
+[package]
+name = "alice-analysis"
+version = "0.1.0"
+authors = ["cbourjau <christian.bourjau@cern.ch>"]
+
+[dependencies]
+alice = {path = "alice" }
+alice-sys = {path = "alice-sys" }
+histogram = {path = "histogram" }
+gnuplot = "0.0.22"
