@@ -1,0 +1,15 @@
+[package]
+name = "alice-sys"
+version = "0.1.0"
+authors = ["cbourjau <christian.bourjau@cern.ch>"]
+build = "build.rs"
+
+[dependencies]
+libc = "*"
+bitflags = "0.9.1"
+histogram = {path = "../histogram" }
+
+[build-dependencies]
+gcc = { version = "0.3", features = ["parallel"] }
+bindgen = "0.25.3"
+glob = "0.2.11"
