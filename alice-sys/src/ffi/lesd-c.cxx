@@ -1,4 +1,6 @@
 #include "stdlib.h"
+#include "TTree.h"
+
 #include "cpp_src/ESDmerged.h"
 #include "lesd-c.h"
 
