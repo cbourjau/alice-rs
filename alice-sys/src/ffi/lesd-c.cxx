@@ -51,6 +51,11 @@ extern "C" {
     esd->fChain->Delete();
     delete esd;
   }
+
+  int get_multiplicity(const CEsd* cesd) {
+    ESD* esd = (ESD*)cesd;
+    return esd->AliMultiplicity_fNtracks;
+  }
 #ifdef __cplusplus
 }
 #endif

@@ -40,6 +40,8 @@ extern "C" {
   size_t get_n_tracks(const CEsd* cesd);
   // Destructor
   void esd_destroy(const CEsd* cesd);
+  // Get the multiplicity of the current event
+  int get_multiplicity(const CEsd* cesd);
 #ifdef __cplusplus
 }
 #endif
