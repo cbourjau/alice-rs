@@ -26,13 +26,21 @@ impl Histogram {
         self.counts[idx] += 1.0;
     }
 
+    /// The center position of each bin
     pub fn centers(&self) -> Vec<f64>{
-        let x: f64 = 0.0;
-        x.is_nan();
         self.edges.iter()
             .skip(1)
             .zip(self.edges.iter().take(self.edges.len() - 1))
             .map(|(low, high)| {low + 0.5 * (high - low)})
+            .collect()
+    }
+
+    /// The width of each bin
+    pub fn widths(&self) -> Vec<f64>{
+        self.edges.iter()
+            .skip(1)
+            .zip(self.edges.iter().take(self.edges.len() - 1))
+            .map(|(low, high)| {high - low})
             .collect()
     }
 }
