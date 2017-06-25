@@ -7,8 +7,8 @@ typedef void CEsd;
 #ifdef __cplusplus
 extern "C" {
 #endif
-  CEsd * esd_new() {
-    ESD* esd = new ESD;
+  CEsd * esd_new(const char* path) {
+    ESD* esd = new ESD(path);
     return (CEsd *)esd;
   }
   int esd_load_next(const CEsd* cesd, const long ievent) {

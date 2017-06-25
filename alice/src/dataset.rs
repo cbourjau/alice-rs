@@ -1,3 +1,4 @@
+use std::ffi::CString;
 use alice_sys as ffi;
 use event::Event;
 
@@ -9,7 +10,11 @@ pub struct Dataset {
 
 impl Dataset {
     pub fn new() -> Dataset {
-        let ptr = unsafe {ffi::esd_new()};
+        // let eos_url = "root://eospublic.cern.ch/";
+        // let eos_path = "/eos/opendata/alice/2010/LHC10h/000139437/ESD/0153/AliESDs.root";
+        // let path = CString::new(format!("{}{}", eos_url, eos_path)).unwrap();
+        let local_path = CString::new("/home/christian/Downloads/AliESDs.root").unwrap();
+        let ptr = unsafe {ffi::esd_new(local_path.as_ptr())};
         Dataset {esd: ptr,
                  current_event: -1}
     }

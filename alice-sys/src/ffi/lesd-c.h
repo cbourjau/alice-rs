@@ -30,7 +30,7 @@ struct track_t {
 #ifdef __cplusplus
 extern "C" {
 #endif
-  CEsd * esd_new();
+  CEsd * esd_new(const char*);
   int esd_load_next(const CEsd* cesd, const long ievent);
   // Primary Vertex
   primary_vertex_t primary_vertex_get_pos(const CEsd* cesd);
