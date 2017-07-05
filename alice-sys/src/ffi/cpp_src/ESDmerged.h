@@ -8,12 +8,13 @@
 #ifndef ESD_h
 #define ESD_h
 
-#include <TROOT.h>
-#include <TString.h>
-#include <TObjArray.h>
-#include <TRef.h>
 #include <TArrayI.h>
 #include <TArrayL64.h>
+#include <TObjArray.h>
+#include <TROOT.h>
+#include <TRef.h>
+#include <TString.h>
+#include <TTree.h>
 
 // Fixed size dimensions of array or collections stored in the TTree if any.
 const Int_t kMaxAliESDRun = 1;
@@ -57,7 +58,6 @@ const Int_t kMaxAliESDFIT = 1;
 const Int_t kMaxHLTGlobalTrigger = 1;
 const Int_t kMaxHLTGlobalTrigger_fInputObjectInfo = 1;
 
-class TTree;
 class TBranch;
 
 class ESD {
