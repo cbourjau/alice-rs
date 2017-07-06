@@ -24,6 +24,7 @@ struct track_t {
   ext_track_parameters_t ext_track_paras;
   double alpha;
   double x;
+  double kinkIndices[3];
   uint32_t flags;
 };
 

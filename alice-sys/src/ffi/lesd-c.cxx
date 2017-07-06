@@ -40,6 +40,7 @@ extern "C" {
       tracks[i].alpha = esd->Tracks_fAlpha[i];
       tracks[i].flags = esd->Tracks_fFlags[i];
       tracks[i].x = esd->Tracks_fX[i];
+      tracks[i].kinkIndices[0] = *esd->Tracks_fKinkIndexes[i];
     }
   }
 
