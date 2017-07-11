@@ -31,11 +31,14 @@ impl<D> Histogram<D>
 where
     D: nd::Dimension
 {
-    /// Create a new 3-dimensional histogram
-    pub fn new(nbins: &[usize; 3], mins: &[f64; 3], maxs: &[f64; 3]) -> Histogram<nd::Ix3> {
+    /// Create a new n-dimensional histogram
+    pub fn new<Sh>(nbins: Sh, mins: &[f64], maxs: &[f64]) -> Histogram<D>
+        where Sh: nd::ShapeBuilder<Dim=D>
+    {
+        let counts: nd::Array<f64, D> = nd::Array::zeros(nbins);
         Histogram {
-            edges: calculate_edges(nbins, mins, maxs),
-            counts: nd::Array::zeros((nbins[0], nbins[1], nbins[2])),
+            edges: calculate_edges(counts.shape(), mins, maxs),
+            counts: counts,
         }
     }
 
