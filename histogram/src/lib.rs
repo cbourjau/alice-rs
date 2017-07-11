@@ -1,54 +1,77 @@
-use std::f64::INFINITY;
+extern crate ndarray as nd;
+extern crate itertools;
 
+
+use std::f64::INFINITY;
+use nd::Dimension;
+
+use itertools::{multizip};
 
 #[derive(Debug)]
-pub struct Histogram {
-    pub edges: Vec<f64>,
-    pub counts: Vec<f64>,
+pub struct Histogram<D>
+where D: Dimension {
+    pub edges: Vec<Vec<f64>>,
+    pub counts: nd::Array<f64, D>,
 }
 
-impl Histogram {
-    pub fn new(nbins: usize, min: f64, max: f64) -> Histogram {
-        let width = (max - min) / nbins as f64;
-        let edges: Vec<f64> =
-            vec![-INFINITY].into_iter()
-            .chain((0..nbins+1).map(|idx| {min + width * idx as f64}))
-            .chain(vec![INFINITY].into_iter())
+
+impl<D> Histogram<D>
+where D: nd::Dimension {
+    pub fn new(nbins: &[usize; 3], mins: &[f64; 3], maxs: &[f64; 3]) -> Histogram<nd::Ix3> {
+        let widths = multizip((nbins, mins, maxs))
+            .map(|(&nbin, &min, &max)| {(max - min) / nbin as f64});
+        let edges: Vec<Vec<f64>> = multizip((nbins, widths, mins))
+            .map(|(nbin, width, min)| {
+                vec![-INFINITY].into_iter()
+                    .chain((0..nbin+1).map(|idx| {min + width * idx as f64}))
+                    .chain(vec![INFINITY].into_iter())
+                    .collect::<Vec<f64>>()
+            })
             .collect();
+
         Histogram {
             edges: edges,
-            counts: vec![0f64; nbins + 2],
+            counts: nd::Array::zeros((nbins[0], nbins[1], nbins[2])),
         }
     }
 
-    pub fn fill(&mut self, value: f64) {
-        let idx = self.edges.iter().rposition(|e| {e <= &value}).expect("No bin found!");
-        self.counts[idx] += 1.0;
+    pub fn fill(&mut self, values: &[f64; 3])
+        where [usize; 3]: nd::NdIndex<D>
+    {
+        let indices: Vec<usize> = self.edges.iter().zip(values)
+            .map(|(edges1d, value)| {
+                edges1d.iter().rposition(|e| {e <= value}).expect("No bin found!")
+            })
+            .collect();
+        self.counts[[indices[0], indices[1], indices[2]]] += 1.0;
     }
 
-    /// The center position of each bin
-    pub fn centers(&self) -> Vec<f64>{
-        self.edges.iter()
+    /// The center position of each bin along axis
+    pub fn centers(&self, axis: usize) -> Vec<f64>{
+        self.edges[axis].iter()
             .skip(1)
-            .zip(self.edges.iter().take(self.edges.len() - 1))
+            .zip(self.edges[axis].iter().take(self.edges[axis].len() - 1))
             .map(|(low, high)| {low + 0.5 * (high - low)})
             .collect()
     }
 
-    /// The width of each bin
-    pub fn widths(&self) -> Vec<f64>{
-        self.edges.iter()
+    /// The width of each bin along `axis`
+    pub fn widths(&self, axis:usize) -> Vec<f64>{
+        self.edges[axis].iter()
             .skip(1)
-            .zip(self.edges.iter().take(self.edges.len() - 1))
+            .zip(self.edges[axis].iter().take(self.edges[axis].len() - 1))
             .map(|(low, high)| {high - low})
             .collect()
     }
 }
 
-impl Extend<f64> for Histogram {
-    fn extend<T: IntoIterator<Item=f64>>(&mut self, values: T) {
+impl<D> Extend<[f64; 3]> for Histogram<D>
+where D: nd::Dimension, [usize; 3]: nd::NdIndex<D> {
+    fn extend<T: IntoIterator<Item=[f64; 3]>>(&mut self, values: T)
+        where [usize; 3]: nd::NdIndex<D>
+    {
         for value in values {
-            self.fill(value);
+            self.fill(&value);
         }
     }
 }
