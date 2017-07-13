@@ -16,6 +16,65 @@
 #include <TString.h>
 #include <TTree.h>
 
+/**
+ * <div rustbindgen replaces="TString"></div>
+ */
+template<typename T>
+class TString_Simple {
+  T* mBuffer;
+public:
+  const char* Data();
+};
+
+
+/**
+ * <div rustbindgen replaces="TArrayI"></div>
+ */
+template<typename T>
+class TArrayI_Simple {
+  T* mBuffer;
+};
+
+/**
+ * <div rustbindgen replaces="TArrayL64"></div>
+ */
+template<typename T>
+class TArrayL64_Simple {
+  T* mBuffer;
+};
+
+/**
+ * <div rustbindgen replaces="TRef"></div>
+ */
+template<typename T>
+class TRef_Simple {
+  T* mBuffer;
+};
+
+/**
+ * <div rustbindgen replaces="TObjArray"></div>
+ */
+template<typename T>
+class TObjArray_Simple {
+  T* mBuffer;
+};
+
+/**
+ * <div rustbindgen replaces="TTree"></div>
+ */
+template<typename T>
+class TTree_Simple {
+  T* mBuffer;
+};
+
+/**
+ * <div rustbindgen replaces="TBranch"></div>
+ */
+template<typename T>
+class TBranch_Simple {
+  T* mBuffer;
+};
+
 // Fixed size dimensions of array or collections stored in the TTree if any.
 const Int_t kMaxAliESDRun = 1;
 const Int_t kMaxAliESDHeader = 1;
@@ -1821,5 +1880,21 @@ public :
   virtual Bool_t   Notify();
   virtual void     Show(Long64_t entry = -1);
 };
+
+// C wrapper to construct ESD
+extern "C" {
+  ESD * esd_new(const char* path) {
+    ESD* esd = new ESD(path);
+    return esd;
+  }
+  int esd_load_next(ESD* esd, const long ievent) {
+    return esd->GetEntry(ievent);
+  }
+  void esd_destroy(ESD* esd) {
+    esd->fChain->Delete();
+    delete esd;
+  }
+}
+
 
 #endif
