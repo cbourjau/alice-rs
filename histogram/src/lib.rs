@@ -40,14 +40,14 @@ where
         }
     }
 
-    pub fn fill(&mut self, values: &[f64; 3])
-        where [usize; 3]: nd::NdIndex<D>
-    {
-        if let Some(indices) = self.find_bin_indices(values) {
-            self.counts[[indices[0], indices[1], indices[2]]] += 1.0;
-        }
-    }
-    
+    // pub fn fill<'a>(&mut self, values: &[f64; 3])
+    //     where &'a[nd::Ix]: nd::NdIndex<D>
+    // {
+    //     if let Some(indices) = self.find_bin_indices(values) {
+    //         let slice_idxs = indices.as_slice();
+    //         self.counts[slice_idxs] += 1.0;
+    //     }
+    // }
     /// Find indices of bins along each axis
     fn find_bin_indices(&self, values: &[f64]) -> Option<Vec<usize>> {
         self.edges.iter().zip(values)
@@ -63,6 +63,38 @@ where
             .collect()
     }
 }
+
+impl<D> Histogram<D>
+where
+    D: nd::Dimension
+{
+    pub fn fill_1(&mut self, values: &[f64; 1])
+        where
+        [usize; 1]: nd::NdIndex<D>
+    {
+        if let Some(idxs) = self.find_bin_indices(values) {
+            self.counts[[idxs[0]]] += 1.0;
+        }
+    }
+
+    pub fn fill_2(&mut self, values: &[f64; 2])
+        where
+        [usize; 2]: nd::NdIndex<D>
+    {
+        if let Some(idxs) = self.find_bin_indices(values) {
+            self.counts[[idxs[0], idxs[1]]] += 1.0;
+        }
+    }
+    pub fn fill_3(&mut self, values: &[f64; 3])
+        where
+        [usize; 3]: nd::NdIndex<D>
+    {
+        if let Some(idxs) = self.find_bin_indices(values) {
+            self.counts[[idxs[0], idxs[1], idxs[2]]] += 1.0;
+        }
+    }
+}
+
 pub trait Centers {
     fn centers (&self, axis: usize) -> Vec<f64>;
 }
@@ -102,7 +134,17 @@ impl<D> Extend<[f64; 3]> for Histogram<D>
 {
     fn extend<T: IntoIterator<Item=[f64; 3]>>(&mut self, values: T) {
         for value in values {
-            self.fill(&value);
+            self.fill_3(&value);
+        }
+    }
+}
+
+impl<D> Extend<[f64; 1]> for Histogram<D>
+    where D: nd::Dimension, [usize; 1]: nd::NdIndex<D>
+{
+    fn extend<T: IntoIterator<Item=[f64; 1]>>(&mut self, values: T) {
+        for value in values {
+            self.fill_1(&value);
         }
     }
 }
@@ -113,9 +155,14 @@ mod tests {
 
     #[test]
     fn init_histogram() {
+        let mut h = Histogram::new((1, 1), &[0., 0.], &[1., 1.]);
+        assert_eq!(h.counts, nd::arr2(&[[0.]]));
+        h.fill_2(&[0.5, 0.5]);
+        assert_eq!(h.counts, nd::arr2(&[[1.]]));
+
         let mut h = Histogram::new((1, 1, 1), &[0., 0., 0.], &[1., 1., 1.]);
         assert_eq!(h.counts, nd::arr3(&[[[0.]]]));
-        h.fill(&[0.5, 0.5, 0.5]);
+        h.fill_3(&[0.5, 0.5, 0.5]);
         assert_eq!(h.counts, nd::arr3(&[[[1.]]]));
     }
 }

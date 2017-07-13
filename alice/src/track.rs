@@ -1,9 +1,9 @@
-use alice_sys::{track_t, CEsd, get_n_tracks, get_ext_tracks_parameters, ext_track_parameters_t};
+use alice_sys::ESD;
 use std::f64::consts::PI;
 
 bitflags! {
     /// Trackflags based on AliVTrack
-    pub struct Flags: u32 {
+    pub struct Flags: u64 {
         const ITS_IN = 0x1;
         const ITS_OUT = 0x2;
         const ITS_REFIT = 0x4;
@@ -40,9 +40,32 @@ bitflags! {
 }
 
 #[derive(Debug)]
+struct TrackParameters {
+    loc_y: f64,
+    loc_z: f64,
+    loc_sin: f64,
+    tang: f64,
+    one_over_pt: f64,
+}
+
+impl TrackParameters {
+    fn new(paras: &[f64; 5usize]) -> TrackParameters {
+        TrackParameters {
+            loc_y: paras[0],
+            loc_z: paras[1],
+            loc_sin: paras[2],
+            tang: paras[3],
+            one_over_pt: paras[4],
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Track {
-    // The raw ESD track data
-    esd_track: track_t,
+    // So called external track parameters
+    parameters: TrackParameters,
+    x: f64,
+    alpha: f64,
     // Flags set for this track; wrapped with bitflag class for safety
     pub flags: Flags,
 }
@@ -51,21 +74,25 @@ impl Track {
     /// Create a humanly useful track from the "external" track parameters
     /// This is copied from AliExternalTrackParam.cxx
     /// Returns None if the track had 1/pt <= 0
-    pub fn read_tracks_from_esd(esd: *const CEsd) -> Vec<Track> {
-        let n_tracks = unsafe {get_n_tracks(esd)};
-        let mut esd_tracks = vec![new_track(); n_tracks];
-        unsafe {get_ext_tracks_parameters(esd, esd_tracks.as_mut_ptr(), n_tracks)}
-        esd_tracks.into_iter()
-            .map(|t| {
+    pub fn read_tracks_from_esd(esd: &ESD) -> Vec<Track> {
+        let mut tracks = Vec::<Track>::new();
+        let n_tracks = esd.Tracks_ as usize;
+        for i in 0..n_tracks {
+            tracks.push(
                 Track {
-                    esd_track: t,
-                    flags: Flags::from_bits(t.flags).expect("Unknown flag observed!"),
-                }  
-            })
-            .collect()
+                    parameters: TrackParameters::new(&esd.Tracks_fP[i]),
+                    x: esd.Tracks_fX[i],
+                    alpha: esd.Tracks_fAlpha[i],
+                    flags: Flags::from_bits(esd.Tracks_fFlags[i])
+                        .expect("Unknown flag observed!"),
+                }
+            )
+        }
+        tracks
     }
+
     pub fn phi(&self) -> f64 {
-        let mut phi = self.esd_track.ext_track_paras.loc_sin.asin() + self.esd_track.alpha;
+        let mut phi = self.parameters.loc_sin.asin() + self.alpha;
         if phi < 0. {
             phi += 2. * PI;
         } else if phi >= 2. * PI {
@@ -75,45 +102,31 @@ impl Track {
     }
     pub fn theta(&self) -> f64 {
         // 0.5*TMath::Pi() - TMath::ATan(fP[3]);
-        0.5 * PI - self.esd_track.ext_track_paras.tang.atan()
+        0.5 * PI - self.parameters.tang.atan()
     }
     pub fn eta(&self) -> f64 {
         // -TMath::Log(TMath::Tan(0.5 * Theta()))
         -((0.5 * self.theta()).tan()).ln()
     }
     pub fn pt(&self) -> f64 {
-        1.0 / self.esd_track.ext_track_paras.one_over_pt.abs()
+        1.0 / self.parameters.one_over_pt.abs()
     }
     /// Estimate the distance of closest approach of this track to a given point
     /// neglecting the track curvature. This returns the closest approach in the xy plane
     pub fn dca_to_point_xy(&self, x: f64, y: f64) -> f64 {
         // Double_t sn=TMath::Sin(alpha), cs=TMath::Cos(alpha);
         // x= GetX(), y=GetParameter()[0], snp=GetParameter()[2];
-        let xv = x * self.esd_track.alpha.cos() + y * self.esd_track.alpha.sin();
-        let yv = -x * self.esd_track.alpha.sin() + y * self.esd_track.alpha.cos();
-        let diff_x = self.esd_track.x - xv;
-        let diff_y = self.esd_track.ext_track_paras.loc_y - yv;
-        let loc_sin = self.esd_track.ext_track_paras.loc_sin;
+        let xv = x * self.alpha.cos() + y * self.alpha.sin();
+        let yv = -x * self.alpha.sin() + y * self.alpha.cos();
+        let diff_x = self.x - xv;
+        let diff_y = self.parameters.loc_y - yv;
+        let loc_sin = self.parameters.loc_sin;
         let ret = (diff_x * loc_sin
                    - diff_y * ((1. - loc_sin) * (1. + loc_sin)).sqrt()).abs();
         ret
     }
     // Distance of closes approch of this track in z
     pub fn dca_to_point_z(&self, z: f64) -> f64 {
-        self.esd_track.ext_track_paras.loc_z - z
+        self.parameters.loc_z - z
     }
 }
-
-
-fn new_track() -> track_t {
-    track_t {ext_track_paras: ext_track_parameters_t {loc_y: 0.,
-                                                      loc_z: 0.,
-                                                      loc_sin: 0.,
-                                                      tang: 0.,
-                                                      one_over_pt: 0.},
-             alpha: 0.,
-             flags: 0,
-             x: 0.,
-    }
-}
-

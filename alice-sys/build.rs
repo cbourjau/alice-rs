@@ -24,17 +24,17 @@ fn main() {
         .include("src/ffi/cpp_src/STEERBase")
         .include("src/ffi/cpp_src/ESD");
     
-    // The two AliRoot classes needed to read the data
-    let files = glob("src/ffi/cpp_src/STEERBase/*.cxx").unwrap().filter_map(|a| a.ok());
-    for file in files {
-        cfg.file(file);
-    }
+    // // The two AliRoot classes needed to read the data
+    // let files = glob("src/ffi/cpp_src/STEERBase/*.cxx").unwrap().filter_map(|a| a.ok());
+    // for file in files {
+    //     cfg.file(file);
+    // }
 
-    // libESD: It was necessary to copy `event.h` by hand. YOLO!
-    let files = glob("src/ffi/cpp_src/ESD/*.cxx").unwrap().filter_map(|a| a.ok());
-    for file in files {
-        cfg.file(file);
-    }
+    // // libESD: It was necessary to copy `event.h` by hand. YOLO!
+    // let files = glob("src/ffi/cpp_src/ESD/*.cxx").unwrap().filter_map(|a| a.ok());
+    // for file in files {
+    //     cfg.file(file);
+    // }
     // The auto-generated file for the ESD root tree
     cfg.file("src/ffi/cpp_src/ESD.cxx");
 
@@ -42,6 +42,8 @@ fn main() {
     for lib in ["Tree", "Physics", "EG", "Geom", "Minuit", "VMC"].iter() {
         cfg.object(format!("{}/lib{}.so", root_lib, lib));
     }
+    cfg.object("/home/christian/repos/alice/sw/ubuntu1604_x86-64/AliRoot/latest/lib/libESD.so");
+    cfg.object("/home/christian/repos/alice/sw/ubuntu1604_x86-64/AliRoot/latest/lib/libSTEER.so");
     cfg.compile("libMyESD.a");
 
     // A file with the functions for wich we actual want the bindings
@@ -72,36 +74,43 @@ fn main() {
     //     .write_to_file(out_path.join("bindings.rs"))
     //     .expect("Couldn't write bindings!");
 
-    // let bindings = bindgen::Builder::default()
-    //     .clang_arg("-x")
-    //     .clang_arg("c++")
-    //     .clang_arg("-std=c++11")
-    //     .clang_arg("-I/home/christian/repos/alice/sw/ubuntu1604_x86-64/ROOT/latest/include/")
-    //     .whitelisted_type("ESD")
-    //     .whitelisted_function("esd_new")
-    //     .whitelisted_function("esd_load_next")
-    //     .whitelisted_function("esd_destroy")
-    //     .opaque_type(r"T\w+")
-    //     // Do not generate unstable Rust code that
-    //     // requires a nightly rustc and enabling
-    //     // unstable features.
-    //     .unstable_rust(false)
-    //     // Don't generate comments
-    //     .generate_comments(false)
-    //     // The input header we would like to generate
-    //     // bindings for.
-    //     .header("src/ffi/cpp_src/ESDmerged.h")
-    //     .raw_line("#[allow(non_camel_case_types)]")
-    //     .raw_line("#[allow(non_snake_case)]")
-    //     .derive_debug(true)
-    //     // Finish the builder and generate the bindings.
-    //     .generate()
-    //     // Unwrap the Result and panic on failure.
-    //     .expect("Unable to generate bindings");
+    // Use this extra bit of configuration to avoid the constructor
+    // (and idealy the other not-working member functions)
+    let mut config = bindgen::CodegenConfig::nothing();
+    config.functions = true;
+    config.types = true;
+    config.vars = true;
+    
+    let bindings = bindgen::Builder::default()
+        .clang_arg("-x")
+        .clang_arg("c++")
+        .clang_arg("-std=c++11")
+        .clang_arg("-I/home/christian/repos/alice/sw/ubuntu1604_x86-64/ROOT/latest/include/")
+        .whitelisted_type("ESD")
+        .whitelisted_function("esd_new")
+        .whitelisted_function("esd_load_next")
+        .whitelisted_function("esd_destroy")
+        .opaque_type(r"T\w+")
+        // Do not generate unstable Rust code that
+        // requires a nightly rustc and enabling
+        // unstable features.
+        .unstable_rust(false)
+        // Don't generate comments
+        .generate_comments(false)
+        // The input header we would like to generate
+        // bindings for.
+        .header("src/ffi/cpp_src/ESDmerged.h")
+        .raw_line("#[allow(non_camel_case_types)]")
+        .raw_line("#[allow(non_snake_case)]")
+        .with_codegen_config(config)
+        // Finish the builder and generate the bindings.
+        .generate()
+        // Unwrap the Result and panic on failure.
+        .expect("Unable to generate bindings");
 
-    // // Write the bindings to the $OUT_DIR/bindings.rs file.
-    // let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-    // bindings
-    //     .write_to_file(out_path.join("bindings.rs"))
-    //     .expect("Couldn't write bindings!");
+    // Write the bindings to the $OUT_DIR/bindings.rs file.
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    bindings
+        .write_to_file(out_path.join("bindings.rs"))
+        .expect("Couldn't write bindings!");
 }

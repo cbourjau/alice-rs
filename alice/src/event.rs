@@ -1,4 +1,4 @@
-use alice_sys as ffi;
+use alice_sys::ESD;
 use primary_vertex::PrimaryVertex;
 use track::Track;
 
@@ -11,11 +11,11 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn new_from_esd(esd: *const ffi::CEsd) -> Event {
+    pub fn new_from_esd(esd: &ESD) -> Event {
         Event {
             primary_vertex: PrimaryVertex::new(esd),
             tracks: Track::read_tracks_from_esd(esd),
-            multiplicity: unsafe {ffi::get_multiplicity(esd)},
+            multiplicity: esd.AliMultiplicity_fNtracks,
         }
     }
 }

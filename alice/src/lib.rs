@@ -14,22 +14,20 @@ pub mod track;
 mod tests {
     use dataset::Dataset;
     use track;
-    use histogram::Histogram;
 
     #[test]
     fn primary_vertices() {
-        let ds = Dataset::new();
+        let ds = Dataset::new("/home/christian/Downloads/AliESDs.root");
         let sum = ds
             .filter(|ev| {ev.primary_vertex.is_some()})
-            .fold(0.0, |mut acc, ev| {acc += ev.primary_vertex.unwrap().x;
+            .fold(0.0, |mut acc, ev| {acc += ev.primary_vertex.unwrap().x.abs();
                                       acc});
-        println!("{}", sum);
+        assert!(sum > 0., "Primary vertices did not load!");
     }
 
     #[test]
     fn tracks() {
-        let ds = Dataset::new();
-        let mut hist = Histogram::new(20, -2., 2.);
+        let ds = Dataset::new("/home/christian/Downloads/AliESDs.root");
         for ev in ds.filter(|ev| {ev.primary_vertex.is_some()}) {
             let pv = ev.primary_vertex.unwrap();
             let etas =
@@ -40,8 +38,7 @@ mod tests {
                 .filter(|tr| {tr.dca_to_point_z(pv.z) < 3.2})
                 // .inspect(|tr| {println!("tr: {:?}", tr)})
                 .map(|tr| {tr.eta()});
-            hist.extend(etas);
+            assert!(etas.count() > 0, "No tracks loaded?");
         }
-        println!("{:?}", hist);
     }
 }
