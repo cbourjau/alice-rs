@@ -51,8 +51,11 @@ fn main() {
         println!("ntracks: {:?}", ev.tracks.iter().count());
         for i_t1 in 0..filtered_tracks.len() {
             for i_t2 in 0..filtered_tracks.len() {
-                hist_eta_phi.fill_2(&[filtered_tracks[i_t1].eta(),
-                                      filtered_tracks[i_t2].phi()]);
+                if i_t1 >= i_t2 {
+                    continue;
+                }
+                hist_eta_eta.fill_2(&[filtered_tracks[i_t1].eta(),
+                                      filtered_tracks[i_t2].eta()]);
                 hist_phi_phi.fill_2(&[filtered_tracks[i_t1].phi(),
                                       filtered_tracks[i_t2].phi()]);
             }
