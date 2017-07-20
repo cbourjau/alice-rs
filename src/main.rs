@@ -7,6 +7,7 @@ use std::f64::consts::PI;
 use alice::dataset::Dataset;
 use alice::track::Track;
 use alice::track;
+use alice::trigger;
 
 use histogram::*;
 use gnuplot::{Figure, Caption, Color, AxesCommon};
@@ -26,8 +27,9 @@ fn main() {
     
     let sel_events = ds
         .filter(|ev| {ev.primary_vertex.as_ref()
-                      .map(|pv| {pv.z.abs() < 10.})
-                      .unwrap_or(false)});
+                      .map(|pv| pv.z.abs() < 10.)
+                      .unwrap_or(false)})
+        .filter(|ev| ev.triggers().contains(trigger::MINIMUM_BIAS));
     for ev in sel_events {
         hist_mult.fill_1(&[ev.multiplicity as f64]);
         let pv = ev.primary_vertex.unwrap();
