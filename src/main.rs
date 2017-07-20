@@ -83,19 +83,30 @@ fn main() {
         .boxes_set_width(&hist_mult.centers(0), &hist_mult.counts, &hist_mult.widths(0),
                          &[Caption("A line"), Color("red")]);
     fg.axes2d()
-        .set_pos_grid(2, 3, 3)
+        .set_pos_grid(2, 2, 2)
         .set_title("eta eta", &[])
         .set_x_label("eta", &[])
-        .image(&hist_eta_phi.counts,
-                 hist_eta_phi.counts.shape()[0], hist_eta_phi.counts.shape()[0],
-                 None, &[]);
+        .image(&hist_eta_eta.counts,
+               hist_eta_eta.counts.shape()[0], hist_eta_eta.counts.shape()[0],
+               None, &[]);
+    let ratio = &hist_phi_phi.counts / &phiphi;
     fg.axes2d()
-        .set_pos_grid(2, 3, 4)
-        .set_title("eta eta", &[])
-        .set_x_label("eta", &[])
-        .image(&hist_phi_phi.counts,
-                 hist_phi_phi.counts.shape()[0], hist_eta_phi.counts.shape()[0],
-                 None, &[]);
-    
+        .set_pos_grid(2, 2, 3)
+        .set_title("phi phi", &[])
+        .set_x_label("phi1", &[])
+        .set_y_label("phi2", &[])
+        .image(&ratio,
+               hist_phi_phi.counts.shape()[0], hist_phi_phi.counts.shape()[0],
+               Some((0., 0., 2.0*PI, 2.0*PI)), &[]);
+    fg.show();
+    let mut fg = Figure::new();
+    fg.axes2d()
+        .set_pos_grid(1, 1, 0)
+        .set_title("multcor", &[])
+        // .set_x_label("ntracks", &[])
+        // .set_y_label("ntracks accepted", &[])
+        .image(&hist_ntracks_v0.counts,
+               hist_ntracks_v0.counts.shape()[0], hist_ntracks_v0.counts.shape()[0],
+               Some((0., 0., 1e3, 1e3)), &[]);
     fg.show();
 }
