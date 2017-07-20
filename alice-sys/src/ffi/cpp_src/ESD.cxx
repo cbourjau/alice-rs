@@ -166,10 +166,16 @@ void ESD::Init(TTree *tree)
   fChain = tree;
   fCurrent = -1;
   fChain->SetMakeClass(1);
+
+  // Some branches might not exist; don't show errors!
+  gROOT->ProcessLine( "gErrorIgnoreLevel = 3001;");
+
   fChain->SetBranchStatus("*",0);  // disable all branches. Segfault if not done! WOOP!
   fChain->SetBranchStatus("PrimaryVertex.*", 1);  // enable Primary Vertex
   fChain->SetBranchStatus("Tracks.*", 1);  // enable Tracks
   fChain->SetBranchStatus("AliMultiplicity.fNtracks", 1);  // enable Tracks
+  fChain->SetBranchStatus("AliESDRun.*", 1);  // enable ESD run data
+  fChain->SetBranchStatus("AliESDHeader.*", 1);  // enable ESD run data
    
   fChain->SetBranchAddress("AliESDRun.TObject.fUniqueID", &AliESDRun_TObject_fUniqueID, &b_AliESDRun_TObject_fUniqueID);
   fChain->SetBranchAddress("AliESDRun.TObject.fBits", &AliESDRun_TObject_fBits, &b_AliESDRun_TObject_fBits);
