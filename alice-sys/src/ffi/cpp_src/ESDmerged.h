@@ -1884,6 +1884,8 @@ public :
 // C wrapper to construct ESD
 extern "C" {
   ESD * esd_new(const char* path) {
+    gROOT->ProcessLine( "gErrorIgnoreLevel = 1001;");
+
     ESD* esd = new ESD(path);
     return esd;
   }
@@ -1893,6 +1895,20 @@ extern "C" {
   void esd_destroy(ESD* esd) {
     esd->fChain->Delete();
     delete esd;
+  }
+
+  int tobjarray_getentriesfast(TObjArray* a) {
+    // Beware: Elements of a TObjArray can be NULL!
+    return a->GetEntriesFast();
+  }
+
+  const char* tobjarray_getname_at(TObjArray* a, int i) {
+    // Beware: Elements of a TObjArray can be NULL - for your convinience!
+    if (a->At(i) != 0) {
+      return a->At(i)->GetName();
+    } else {
+      return "";
+    }
   }
 }
 

@@ -87,9 +87,9 @@ fn main() {
         .clang_arg("-std=c++11")
         .clang_arg("-I/home/christian/repos/alice/sw/ubuntu1604_x86-64/ROOT/latest/include/")
         .whitelisted_type("ESD")
-        .whitelisted_function("esd_new")
-        .whitelisted_function("esd_load_next")
-        .whitelisted_function("esd_destroy")
+        // Whitelist esd help functions in that file
+        .whitelisted_function("esd_.*")
+        .whitelisted_function("tobjarray_.*")
         .opaque_type(r"T\w+")
         // Do not generate unstable Rust code that
         // requires a nightly rustc and enabling
