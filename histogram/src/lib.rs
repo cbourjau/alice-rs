@@ -54,7 +54,7 @@ where
             .map(|(edges1d, value)| {
                 edges1d
                     .windows(2)
-                    .rposition(
+                    .position(
                         |bin_edges| {
                             &bin_edges[0] <= value && value < &bin_edges[1]
                         }
@@ -152,6 +152,14 @@ impl<D> Extend<[f64; 1]> for Histogram<D>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn calc_indices() {
+        let h = Histogram::new((1, 1), &[0., 0.], &[1., 1.]);
+        assert_eq!(h.find_bin_indices(&[-1.0, -1.0]), None, "Wrong indices");
+        assert_eq!(h.find_bin_indices(&[2.0, 2.0]), None, "Wrong indices");
+        assert_eq!(h.find_bin_indices(&[0.5, 0.5]), Some(vec![0, 0]), "Wrong indices");
+    }
 
     #[test]
     fn init_histogram() {
