@@ -55,7 +55,7 @@ fn main() {
         };
 
         // Correlation between number of tracks and multiplicity
-        hist_ntracks_v0.fill_2(&[filtered_tracks.len() as f64, ev.multiplicity as f64]);
+        hist_ntracks_v0.fill(&[filtered_tracks.len() as f64, ev.multiplicity as f64]);
 
         pt_mult.process_event(&ev, filtered_tracks.as_slice());
         single_dists.process_event(&ev, filtered_tracks.as_slice());

@@ -82,7 +82,7 @@ impl EventDistributions {
 impl ProcessEvent for EventDistributions {
     fn process_event(&mut self, sel_event: &Event, _sel_tracks: &[&Track]) {
         if let Some(ref pv) = sel_event.primary_vertex {
-            self.histogram.fill_2(&[sel_event.multiplicity as f64, pv.z])
+            self.histogram.fill(&[sel_event.multiplicity as f64, pv.z])
         };
     }
 }
@@ -117,7 +117,7 @@ impl ProcessEvent for ParticlePairDistributions {
                                             sel_tracks[i_t1].phi(),
                                             sel_tracks[i_t2].phi(),
                                 pv.z];
-                    self.histogram.fill_5(&_tmp);
+                    self.histogram.fill(&_tmp);
                 }
             }
         };
