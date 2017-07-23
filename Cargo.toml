@@ -8,3 +8,4 @@ alice = {path = "alice" }
 alice-sys = {path = "alice-sys" }
 histogram = {path = "histogram" }
 gnuplot = "0.0.22"
+glob = "0.2.11"

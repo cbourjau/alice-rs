@@ -1,7 +1,10 @@
 extern crate ndarray as nd;
 extern crate itertools;
 
-use nd::Dimension;
+// Re-export some ndarray things
+pub use nd::Dimension;
+pub use nd::Dim;
+pub use nd::Axis;
 
 use itertools::{multizip};
 
@@ -40,14 +43,6 @@ where
         }
     }
 
-    // pub fn fill<'a>(&mut self, values: &[f64; 3])
-    //     where &'a[nd::Ix]: nd::NdIndex<D>
-    // {
-    //     if let Some(indices) = self.find_bin_indices(values) {
-    //         let slice_idxs = indices.as_slice();
-    //         self.counts[slice_idxs] += 1.0;
-    //     }
-    // }
     /// Find indices of bins along each axis
     fn find_bin_indices(&self, values: &[f64]) -> Option<Vec<usize>> {
         self.edges.iter().zip(values)
@@ -61,6 +56,15 @@ where
                     )
             })
             .collect()
+    }
+
+    /// Overwrite the bin edges along a given dimension
+    /// Panics if length of new and old edges differ
+    pub fn overwrite_edges(&mut self, dim: usize, edges: Vec<f64>) {
+        if self.edges[dim].len() != edges.len() {
+            panic!("Old and new numer of bin edges differ");
+        }
+        self.edges[dim] = edges;
     }
 }
 
@@ -91,6 +95,24 @@ where
     {
         if let Some(idxs) = self.find_bin_indices(values) {
             self.counts[[idxs[0], idxs[1], idxs[2]]] += 1.0;
+        }
+    }
+    pub fn fill_4(&mut self, values: &[f64; 4])
+        where
+        [usize; 4]: nd::NdIndex<D>
+    {
+        if let Some(idxs) = self.find_bin_indices(values) {
+            self.counts[[idxs[0], idxs[1], idxs[2], idxs[4]]] += 1.0;
+        }
+    }
+    pub fn fill_5(&mut self, values: &[f64; 5])
+        where
+        [usize; 5]: nd::NdIndex<D>
+    {
+        if let Some(idxs) = self.find_bin_indices(values) {
+            unsafe {
+                *self.counts.uget_mut([idxs[0], idxs[1], idxs[2], idxs[3], idxs[4]]) += 1.0;
+            }
         }
     }
 }
@@ -129,22 +151,32 @@ impl<D> Widths for Histogram<D>
     }
 }
 
-impl<D> Extend<[f64; 3]> for Histogram<D>
-    where D: nd::Dimension, [usize; 3]: nd::NdIndex<D>
-{
-    fn extend<T: IntoIterator<Item=[f64; 3]>>(&mut self, values: T) {
-        for value in values {
-            self.fill_3(&value);
-        }
-    }
-}
-
 impl<D> Extend<[f64; 1]> for Histogram<D>
     where D: nd::Dimension, [usize; 1]: nd::NdIndex<D>
 {
     fn extend<T: IntoIterator<Item=[f64; 1]>>(&mut self, values: T) {
         for value in values {
             self.fill_1(&value);
+        }
+    }
+}
+
+impl<D> Extend<[f64; 2]> for Histogram<D>
+    where D: nd::Dimension, [usize; 2]: nd::NdIndex<D>
+{
+    fn extend<T: IntoIterator<Item=[f64; 2]>>(&mut self, values: T) {
+        for value in values {
+            self.fill_2(&value);
+        }
+    }
+}
+
+impl<D> Extend<[f64; 3]> for Histogram<D>
+    where D: nd::Dimension, [usize; 3]: nd::NdIndex<D>
+{
+    fn extend<T: IntoIterator<Item=[f64; 3]>>(&mut self, values: T) {
+        for value in values {
+            self.fill_3(&value);
         }
     }
 }
