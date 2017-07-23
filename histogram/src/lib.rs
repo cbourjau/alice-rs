@@ -92,20 +92,20 @@ macro_rules! impl_histogram {
         impl Histogram<Dim<[usize; $N]>> {
             /// Find indices of bins along each axis
             fn find_bin_indices(&self, values: &[f64; $N]) -> Option<[usize; $N]> {
-                let idxs = self.edges.iter().zip(values)
-                    .map(|(edges1d, value)| {
-                        edges1d
-                            .windows(2)
-                            .position(
-                                |bin_edges| {
-                                    &bin_edges[0] <= value && value < &bin_edges[1]
-                                }
-                            )
-                    }).collect::<Option<Vec<usize>>>();
-                match idxs {
-                    Some(v) => Some([$(v[$idx]),*]),
-                    _ => None
+                let mut idxs = [0; $N];
+                for dim in 0..$N {
+                    let (edges1d, value) = (&self.edges[dim], values[dim]);
+                    let idx = edges1d
+                        .windows(2)
+                        .position(
+                            |bin_edges| &bin_edges[0] <= &value && &value < &bin_edges[1]);
+                    if let Some(idx) = idx {
+                        idxs[dim] = idx;
+                    } else {
+                        return None;
+                    }
                 }
+                Some(idxs)
             }
 
             pub fn fill(&mut self, values: &[f64; $N])
