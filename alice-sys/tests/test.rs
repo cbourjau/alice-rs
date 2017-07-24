@@ -49,6 +49,29 @@ fn init_esd_object() {
     }
 }
 
+#[test]
+fn two_esd_objects() {
+    let paths = [
+        CString::new("/home/christian/lhc_data/alice/data/2010/LHC10h/000139510/ESDs/pass2/10000139510001.170/AliESDs.root").unwrap(),
+        CString::new("/home/christian/lhc_data/alice/data/2010/LHC10h/000139510/ESDs/pass2/10000139510001.180/AliESDs.root").unwrap(),];
+    
+    let sum = unsafe {
+        paths.iter()
+            .map(|p| esd_new(p.as_ptr()))
+            .map(|esd| {
+                (0..10).map(|i| {
+                    esd_load_next(esd, i);
+                    (*esd).Tracks_
+                })
+            })
+            .flat_map(|i_trks| i_trks)
+            .fold(0, |sum, i_trks| sum + i_trks)
+    };
+    println!("{}", sum);
+
+    assert!(sum >= 0, "No tracks loaded?!");
+}
+
 fn fired_trigger_bits(esd: *mut ESD)  -> Vec<usize> {
     let mut ret = Vec::new();
     let masks = [
