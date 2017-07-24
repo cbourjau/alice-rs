@@ -9,6 +9,7 @@ pub mod event;
 pub mod primary_vertex;
 pub mod track;
 pub mod trigger;
+pub mod vzero;
 
 
 #[cfg(test)]

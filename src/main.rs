@@ -34,7 +34,7 @@ fn main() {
     let mut pair_dists = analyses::ParticlePairDistributions::new();
     let mut event_dists = analyses::EventDistributions::new();
 
-    let mut hist_ntracks_v0 = Histogram::new((10, 10), &[0.0, 0.0], &[1e3, 1e3]);
+    let mut hist_ntracks_v0 = Histogram::new((10, 10), &[0.0, 0.0], &[2e3, 6e2]);
 
     let sel_events = datasets
         .filter(|ev| {ev.primary_vertex.as_ref()
@@ -53,9 +53,12 @@ fn main() {
                 .map(|tr| tr)
                 .collect()
         };
+        // println!("{:?}", ev.vzero);
+        // println!("bb: {}; bg:{}", ev.vzero.is_beam_beam(), ev.vzero.is_beam_gas());
 
         // Correlation between number of tracks and multiplicity
-        hist_ntracks_v0.fill(&[filtered_tracks.len() as f64, ev.multiplicity as f64]);
+        let v0_mult = ev.vzero.multiplicity_v0a() + ev.vzero.multiplicity_v0c();
+        hist_ntracks_v0.fill(&[v0_mult as f64, ev.multiplicity as f64]);
 
         pt_mult.process_event(&ev, filtered_tracks.as_slice());
         single_dists.process_event(&ev, filtered_tracks.as_slice());

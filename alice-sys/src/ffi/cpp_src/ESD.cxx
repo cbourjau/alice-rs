@@ -176,7 +176,8 @@ void ESD::Init(TTree *tree)
   fChain->SetBranchStatus("AliMultiplicity.fNtracks", 1);  // enable Tracks
   fChain->SetBranchStatus("AliESDRun.*", 1);  // enable ESD run data
   fChain->SetBranchStatus("AliESDHeader.*", 1);  // enable ESD run data
-   
+  fChain->SetBranchStatus("AliESDVZERO.*", 1);  // enable ESD run data
+
   fChain->SetBranchAddress("AliESDRun.TObject.fUniqueID", &AliESDRun_TObject_fUniqueID, &b_AliESDRun_TObject_fUniqueID);
   fChain->SetBranchAddress("AliESDRun.TObject.fBits", &AliESDRun_TObject_fBits, &b_AliESDRun_TObject_fBits);
   fChain->SetBranchAddress("AliESDRun.fCurrentL3", &AliESDRun_fCurrentL3, &b_AliESDRun_fCurrentL3);
