@@ -60,6 +60,50 @@ impl TrackParameters {
     }
 }
 
+/// Things related to the quality of TPC tracks (incomplete)
+#[derive(Debug)]
+pub struct QualityTPC {
+    d: f64,
+    z: f64,
+    cdd: f64,
+    cdz: f64,
+    czz: f64,
+    cchi2: f64,
+    chi2: f64,
+    chi2_iter1: f64,
+    signal: f64,
+    signal_s: f64,
+    points: [f64; 4],
+    pub ncls: u16,
+    ncls_f: u16,
+    signal_n: u16,
+    ncls_iter1: u16,
+    ncls_f_iter1: u16,
+}
+
+impl QualityTPC {
+    pub fn new_from_esd(esd: &ESD, idx: usize) -> QualityTPC {
+        QualityTPC {
+            d: esd.Tracks_fdTPC[idx],
+            z: esd.Tracks_fzTPC[idx],
+            cdd: esd.Tracks_fCddTPC[idx],
+            cdz: esd.Tracks_fCdzTPC[idx],
+            czz: esd.Tracks_fCzzTPC[idx],
+            cchi2: esd.Tracks_fCchi2TPC[idx],
+            chi2: esd.Tracks_fTPCchi2[idx],
+            chi2_iter1: esd.Tracks_fTPCchi2Iter1[idx],
+            signal: esd.Tracks_fTPCsignal[idx],
+            signal_s: esd.Tracks_fTPCsignalS[idx],
+            points: esd.Tracks_fTPCPoints[idx],
+            ncls: esd.Tracks_fTPCncls[idx],
+            ncls_f: esd.Tracks_fTPCnclsF[idx],
+            signal_n: esd.Tracks_fTPCsignalN[idx],
+            ncls_iter1: esd.Tracks_fTPCnclsIter1[idx],
+            ncls_f_iter1: esd.Tracks_fTPCnclsFIter1[idx],
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Track {
     // So called external track parameters
@@ -68,6 +112,7 @@ pub struct Track {
     alpha: f64,
     // Flags set for this track; wrapped with bitflag class for safety
     pub flags: Flags,
+    pub quality_tpc: QualityTPC,
 }
 
 impl Track {
@@ -85,6 +130,7 @@ impl Track {
                     alpha: esd.Tracks_fAlpha[i],
                     flags: Flags::from_bits(esd.Tracks_fFlags[i])
                         .expect("Unknown flag observed!"),
+                    quality_tpc: QualityTPC::new_from_esd(esd, i),
                 }
             )
         }

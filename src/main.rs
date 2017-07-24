@@ -45,11 +45,13 @@ fn main() {
     for ev in sel_events {
         let filtered_tracks: Vec<&Track> = {
             let pv = ev.primary_vertex.as_ref().unwrap();
+            // see AliESDtrackCuts.cxx:1366
             ev.tracks.iter()
                 .filter(|tr| {tr.flags.contains(track::ITS_REFIT)})
                 .filter(|tr| {tr.dca_to_point_xy(pv.x, pv.y) < 2.4})
                 .filter(|tr| {tr.dca_to_point_z(pv.z) < 3.2})
                 .filter(|tr| tr.eta().abs() < 0.8)
+                .filter(|tr| tr.quality_tpc.ncls > 70)
                 .map(|tr| tr)
                 .collect()
         };
