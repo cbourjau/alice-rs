@@ -2,6 +2,7 @@ extern crate histogram;
 extern crate alice;
 extern crate gnuplot;
 extern crate glob;
+extern crate ndarray;
 
 use gnuplot::{Figure, Caption, Color, AxesCommon};
 use glob::glob;
@@ -13,7 +14,9 @@ use alice::trigger;
 
 mod analyses;
 mod process_event;
+mod utils;
 
+use utils::nanmean;
 
 use histogram::*;
 
@@ -38,8 +41,10 @@ fn main() {
 
     let sel_events = datasets
         .filter(|ev| {ev.primary_vertex.as_ref()
-                      .map(|pv| pv.z.abs() < 10.)
+                      .map(|pv| pv.z.abs() < 8.)
                       .unwrap_or(false)})
+        .filter(|ev| ev.multiplicity > 500)
+        .filter(|ev| ev.multiplicity < 2000)
         .filter(|ev| ev.triggers().contains(trigger::MINIMUM_BIAS));
 
     for ev in sel_events {
@@ -105,34 +110,21 @@ fn main() {
         .set_title("eta eta", &[])
         .set_x_label("eta", &[])
         // Sum phi1, phi2, z
-        .image(&pair_dists.histogram.counts.sum(Axis(2)).sum(Axis(2)).sum(Axis(2)),
-               pair_dists.histogram.counts.shape()[0],
-               pair_dists.histogram.counts.shape()[1],
+        .image(&pair_dists.pairs.counts.sum(Axis(2)).sum(Axis(2)).sum(Axis(2)),
+               pair_dists.pairs.counts.shape()[0],
+               pair_dists.pairs.counts.shape()[1],
                None, &[]);
 
-    // let ratio = &hist_phi_phi.counts / &phiphi;
-    let nphi = 20;
-    let neta = 20;
-    let phiphi = (&single_dists.histogram.counts.to_owned()
-                  .into_shape((1, neta, 1, nphi, 8))
-                  .expect("Can't reshape")
-                  .broadcast((neta, neta, nphi, nphi, 8))
-                  .expect("Can't broadcast"))
-        * (&single_dists.histogram.counts.to_owned()
-           .into_shape((neta, 1, nphi, 1, 8))
-           .expect("Can't reshape"));
-
-    let ratio = pair_dists.histogram.counts / phiphi;
-    let ratio = ratio.mapv(|v| if v.is_finite() {v} else {0.});
+    let corr2 = pair_dists.finalize();
     fg.axes2d()
         .set_pos_grid(2, 2, 3)
         .set_title("phi phi", &[])
         .set_x_label("phi1", &[])
         .set_y_label("phi2", &[])
-        // Sum eta1, eta2, z
-        .image(&ratio.sum(Axis(0)).sum(Axis(0)).sum(Axis(2)),
-               ratio.shape()[2],
-               ratio.shape()[3],
+        // __average__ over z, eta1, eta2 (should be all at once, actually)!
+        .image(&nanmean(&nanmean(&nanmean(&corr2, 4), 0), 0),
+               corr2.shape()[2],
+               corr2.shape()[3],
                None, &[]);
     fg.show();
 
