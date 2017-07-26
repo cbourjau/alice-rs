@@ -1,10 +1,10 @@
 use ndarray as nd;
-use nd::{Axis};
+use ndarray::{Axis};
 
 pub fn nanmean<D>(a: &nd::Array<f64, D>, axis: usize) -> nd::Array<f64, D::Smaller>
     where D: nd::RemoveAxis
 {
-    let mut mask: nd::Array<f64, nd::Dim<ndarray::IxDynImpl>> = nd::Array::zeros(a.shape());
+    let mut mask: nd::Array<f64, nd::Dim<nd::IxDynImpl>> = nd::Array::zeros(a.shape());
     let mut a_fixed = a.clone();
     for (v, m) in a_fixed.iter_mut().zip(mask.iter_mut()) {
         if !v.is_nan() {

@@ -4,7 +4,6 @@ extern crate gnuplot;
 extern crate glob;
 extern crate ndarray;
 
-use gnuplot::{Figure, Caption, Color, AxesCommon};
 use glob::glob;
 
 use alice::dataset::Dataset;
@@ -13,17 +12,12 @@ use alice::track;
 use alice::trigger;
 
 mod analyses;
-mod process_event;
-mod utils;
-
-use utils::nanmean;
 
 use histogram::*;
 
-use process_event::ProcessEvent;
+use analyses::{ProcessEvent, Visualize};
 
 fn main() {
-    // let path = "~/lhc_data/alice/data/2010/LHC10h/000139510/ESDs/pass2/10000139510001.170/AliESDs.root";
     let files = glob("/home/christian/lhc_data/alice/data/2010/LHC10h/000139510/ESDs/pass2/*/AliESDs.root")
         .expect("Can't resolve glob");
 
@@ -57,11 +51,10 @@ fn main() {
                 .filter(|tr| {tr.dca_to_point_z(pv.z) < 3.2})
                 .filter(|tr| tr.eta().abs() < 0.8)
                 .filter(|tr| tr.quality_tpc.ncls > 70)
+                .filter(|tr| tr.pt() > 0.15)
                 .map(|tr| tr)
                 .collect()
         };
-        // println!("{:?}", ev.vzero);
-        // println!("bb: {}; bg:{}", ev.vzero.is_beam_beam(), ev.vzero.is_beam_gas());
 
         // Correlation between number of tracks and multiplicity
         let v0_mult = ev.vzero.multiplicity_v0a() + ev.vzero.multiplicity_v0c();
@@ -73,69 +66,8 @@ fn main() {
         pair_dists.process_event(&ev, filtered_tracks.as_slice());
     }
 
-    let raa =
-        &pt_mult.histogram.counts.subview(Axis(1), 0)
-        / &pt_mult.histogram.counts.subview(Axis(1), 1);
-
-    let mut fg = Figure::new();
-    // hack canvas size
-    // fg.set_terminal("pbm size 900, 600", "");
-
-    fg.axes2d()
-        .set_pos_grid(2, 3, 0)
-        .set_title("η track distribution", &[])
-        .set_x_label("η", &[])
-        .lines(&single_dists.histogram.centers(0),
-               // Sum over phi and z
-               &single_dists.histogram.counts.sum(Axis(1)).sum(Axis(1)),
-               &[Caption("A line"), Color("black")]);
-    fg.axes2d()
-        .set_pos_grid(2, 3, 1)
-        .set_title("p_{T} distribution", &[])
-        .set_x_label("p_{T} [GeV]", &[])
-        .lines(&pt_mult.histogram.centers(0), &raa, &[Caption("A line"), Color("red")]);
-
-    fg.axes2d()
-        .set_pos_grid(2, 3, 2)
-        .set_title("Multiplicity distribution", &[])
-        .set_x_label("SPD tracklets", &[])
-        .boxes_set_width(&event_dists.histogram.centers(0),
-                         // sum over z_vtx
-                         &event_dists.histogram.counts.sum(Axis(1)),
-                         &event_dists.histogram.widths(0),
-                         &[Caption("A line"), Color("red")]);
-
-    fg.axes2d()
-        .set_pos_grid(2, 2, 2)
-        .set_title("eta eta", &[])
-        .set_x_label("eta", &[])
-        // Sum phi1, phi2, z
-        .image(&pair_dists.pairs.counts.sum(Axis(2)).sum(Axis(2)).sum(Axis(2)),
-               pair_dists.pairs.counts.shape()[0],
-               pair_dists.pairs.counts.shape()[1],
-               None, &[]);
-
-    let corr2 = pair_dists.finalize();
-    fg.axes2d()
-        .set_pos_grid(2, 2, 3)
-        .set_title("phi phi", &[])
-        .set_x_label("phi1", &[])
-        .set_y_label("phi2", &[])
-        // __average__ over z, eta1, eta2 (should be all at once, actually)!
-        .image(&nanmean(&nanmean(&nanmean(&corr2, 4), 0), 0),
-               corr2.shape()[2],
-               corr2.shape()[3],
-               None, &[]);
-    fg.show();
-
-    let mut fg = Figure::new();
-    fg.axes2d()
-        .set_pos_grid(1, 1, 0)
-        .set_title("multcor", &[])
-        // .set_x_label("ntracks", &[])
-        // .set_y_label("ntracks accepted", &[])
-        .image(&hist_ntracks_v0.counts,
-               hist_ntracks_v0.counts.shape()[0], hist_ntracks_v0.counts.shape()[0],
-               Some((0., 0., 1e3, 1e3)), &[]);
-    fg.show();
+    single_dists.visualize();
+    pt_mult.visualize();
+    event_dists.visualize();
+    pair_dists.visualize();
 }
