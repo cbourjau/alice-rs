@@ -79,9 +79,14 @@ macro_rules! impl_histogram {
         }
 
         impl Extend<[f64; $N]> for Histogram<Dim<[usize; $N]>> {
-            fn extend<T: IntoIterator<Item=[f64; $N]>>(&mut self, values: T) {
-                for value in values {
-                    self.fill(&value);
+            fn extend<T>(&mut self, values: T)
+                where T: IntoIterator<Item=[f64; $N]>
+            {
+                let indices: Vec<_> = values.into_iter()
+                    .filter_map(|v| self.find_bin_indices(&v))
+                    .collect();
+                for idxs in indices {
+                    self.counts[idxs] += 1.0;
                 }
             }
         }
