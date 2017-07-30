@@ -10,3 +10,4 @@ histogram = {path = "histogram" }
 gnuplot = "0.0.22"
 glob = "0.2.11"
 ndarray = "0.9.1"
+rand = "0.3.16"

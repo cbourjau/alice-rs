@@ -1,4 +1,5 @@
 use std::f64::consts::PI;
+
 use ndarray as nd;
 use gnuplot::{Figure, AxesCommon, Auto, Fix, ContourStyle};
 
@@ -71,21 +72,18 @@ impl ProcessEvent for ParticlePairDistributions {
             self.singles
                 .extend(sel_tracks.iter().map(|tr| [tr.eta(), tr.phi(), pv.z]));
             self.event_counter.fill(&[pv.z]);
-            for i_t1 in 0..sel_tracks.len() {
-                for i_t2 in 0..sel_tracks.len() {
-                    if i_t1 >= i_t2 {
-                        continue;
-                    }
-                    let (lead, sublead) =
-                        match sel_tracks[i_t1].pt() >= sel_tracks[i_t2].pt() {
-                            true => (sel_tracks[i_t1], sel_tracks[i_t2]),
-                            false => (sel_tracks[i_t2], sel_tracks[i_t1]),
-                        };
-                    self.pairs.fill(&[lead.eta(), sublead.eta(),
-                                      lead.phi(), sublead.phi(),
-                                      pv.z]);
-                }
-            }
+
+            let pairs = sel_tracks.iter().enumerate()
+                .flat_map(move |(i1, tr1)| {
+                    sel_tracks.iter().enumerate()
+                        .take_while(move |&(i2, _)| i1 > i2)
+                        .map(move |(_, tr2)| {
+                            [tr1.eta(), tr2.eta(),
+                             tr1.phi(), tr2.phi(),
+                             pv.z]
+                        })
+                });
+            self.pairs.extend(pairs);
         };
     }
 }

@@ -3,7 +3,9 @@ extern crate alice;
 extern crate gnuplot;
 extern crate glob;
 extern crate ndarray;
+extern crate rand;
 
+use rand::{thread_rng, Rng};
 use glob::glob;
 
 use alice::dataset::Dataset;
@@ -49,8 +51,9 @@ fn main() {
         .filter(|ev| ev.multiplicity < 2000)
         .filter(|ev| ev.triggers().contains(trigger::MINIMUM_BIAS));
 
+    let mut rng = thread_rng();
     for ev in sel_events {
-        let filtered_tracks: Vec<&Track> = {
+        let mut filtered_tracks: Vec<&Track> = {
             let pv = ev.primary_vertex.as_ref().unwrap();
             // see AliESDtrackCuts.cxx:1366
             ev.tracks.iter()
@@ -62,6 +65,7 @@ fn main() {
                 .filter(|tr| tr.pt() > 0.15)
                 .collect()
         };
+        rng.shuffle(filtered_tracks.as_mut_slice());
 
         // Correlation between number of tracks and multiplicity
         let v0_mult = ev.vzero.multiplicity_v0a() + ev.vzero.multiplicity_v0c();
