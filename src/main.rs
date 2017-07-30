@@ -31,7 +31,10 @@ fn main() {
     let mut pair_dists = analyses::ParticlePairDistributions::new();
     let mut event_dists = analyses::EventDistributions::new();
 
-    let mut hist_ntracks_v0 = Histogram::new((10, 10), &[0.0, 0.0], &[2e3, 6e2]);
+    let mut hist_ntracks_v0 = HistogramBuilder::<Ix2>::new()
+                .add_equal_width_axis(10, 0., 2e3)
+                .add_equal_width_axis(10, 0., 6e2)
+                .build().expect("Error building histogram");
 
     let sel_events = datasets
         .filter(|ev| {ev.primary_vertex.as_ref()

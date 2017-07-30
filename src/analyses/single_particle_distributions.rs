@@ -1,7 +1,7 @@
 use std::f64::consts::PI;
 use gnuplot::{Figure, AxesCommon};
 
-use histogram::{Histogram, Dim, Centers, Axis};
+use histogram::*;
 
 use alice::event::Event;
 use alice::track::Track;
@@ -9,18 +9,21 @@ use alice::track::Track;
 use super::{ProcessEvent, Visualize};
 
 pub struct SingleParticleDistributions {
-    pub histogram: Histogram<Dim<[usize; 3]>>
+    pub histogram: Histogram<Ix3>
 }
 
 impl SingleParticleDistributions {
     pub fn new() -> SingleParticleDistributions {
         // eta, phi, z
-        let (neta, nphi, nz) = (20, 20, 8);
-        
+        let nphi = 20;
+        let neta = 16;
+        let (nzvtx, zmin, zmax) = (8, -8., 8.);
         SingleParticleDistributions {
-            histogram: Histogram::new((neta, nphi, nz),
-                                      &[-1., 0., -8.],
-                                      &[1., 2. * PI, 8.])
+            histogram: HistogramBuilder::<Ix3>::new()
+                .add_equal_width_axis(neta, -0.8, 0.8)
+                .add_equal_width_axis(nphi, 0., 2. * PI)
+                .add_equal_width_axis(nzvtx, zmin, zmax)
+                .build().expect("Error building histogram"),
         }
     }
 }

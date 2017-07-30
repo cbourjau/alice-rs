@@ -2,7 +2,7 @@ use std::f64::consts::PI;
 use ndarray as nd;
 use gnuplot::{Figure, AxesCommon, Auto, Fix, ContourStyle};
 
-use histogram::{Histogram, Dim};
+use histogram::*;
 
 use alice::event::Event;
 use alice::track::Track;
@@ -12,9 +12,9 @@ use super::nanmean;
 
 
 pub struct ParticlePairDistributions {
-    singles: Histogram<Dim<[usize; 3]>>,
-    pub pairs: Histogram<Dim<[usize; 5]>>,
-    event_counter: Histogram<Dim<[usize; 1]>>,
+    singles: Histogram<Ix3>,
+    pub pairs: Histogram<Ix5>,
+    event_counter: Histogram<Ix1>,
 }
 
 impl ParticlePairDistributions {
@@ -24,13 +24,21 @@ impl ParticlePairDistributions {
         let neta = 16;
         let (nzvtx, zmin, zmax) = (8, -8., 8.);
         ParticlePairDistributions {
-            singles: Histogram::new((neta, nphi, nzvtx),
-                                    &[-0.8, 0., zmin],
-                                    &[0.8, 2. * PI, zmax]),
-            pairs: Histogram::new((neta, neta, nphi, nphi, nzvtx),
-                                  &[-0.8, -0.8, 0., 0., zmin],
-                                  &[0.8, 0.8, 2. * PI, 2. * PI, zmax]),
-            event_counter: Histogram::new((nzvtx,), &[zmin], &[zmax]),
+            singles: HistogramBuilder::<Ix3>::new()
+                .add_equal_width_axis(neta, -0.8, 0.8)
+                .add_equal_width_axis(nphi, 0., 2. * PI)
+                .add_equal_width_axis(nzvtx, zmin, zmax)
+                .build().expect("Error building histogram"),
+            pairs: HistogramBuilder::<Ix5>::new()
+                .add_equal_width_axis(neta, -0.8, 0.8)
+                .add_equal_width_axis(neta, -0.8, 0.8)
+                .add_equal_width_axis(nphi, 0., 2. * PI)
+                .add_equal_width_axis(nphi, 0., 2. * PI)
+                .add_equal_width_axis(nzvtx, zmin, zmax)
+                .build().expect("Error building histogram"),
+            event_counter: HistogramBuilder::<Ix1>::new()
+                .add_equal_width_axis(nzvtx, zmin, zmax)
+                .build().expect("Error building histogram"),
         }
     }
 

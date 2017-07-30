@@ -1,6 +1,6 @@
 use gnuplot::{Figure, AxesCommon};
 
-use histogram::{Histogram, Dim, Centers, Axis, Widths};
+use histogram::*;
 
 use alice::event::Event;
 use alice::track::Track;
@@ -8,16 +8,17 @@ use alice::track::Track;
 use super::{ProcessEvent, Visualize};
 
 pub struct EventDistributions {
-    pub histogram: Histogram<Dim<[usize; 2]>>
+    pub histogram: Histogram<Ix2>
 }
 
 impl EventDistributions {
     pub fn new() -> EventDistributions {
         EventDistributions {
             // mult, z_vtx
-            histogram: Histogram::new((20, 8),
-                                      &[0., -8.],
-                                      &[3e3, 8.])
+            histogram: HistogramBuilder::<Ix2>::new()
+                .add_equal_width_axis(20, 0., 3e3)
+                .add_equal_width_axis(8, -8., 8.)
+                .build().expect("Error building histogram")
         }
     }
 }
