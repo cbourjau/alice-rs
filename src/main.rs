@@ -4,9 +4,11 @@ extern crate gnuplot;
 extern crate glob;
 extern crate ndarray;
 extern crate rand;
+extern crate indicatif;
 
 use rand::{thread_rng, Rng};
 use glob::glob;
+use indicatif::ProgressBar;
 
 use alice::dataset::Dataset;
 use alice::track::Track;
@@ -20,12 +22,14 @@ use histogram::*;
 use analyses::{ProcessEvent, Visualize};
 
 fn main() {
-    let files = glob("/home/christian/lhc_data/alice/data/2010/LHC10h/000139510/ESDs/pass2/*/AliESDs.root")
-        .expect("Can't resolve glob");
-
+    let files: Vec<_> = glob("/home/christian/lhc_data/alice/data/2010/LHC10h/000139510/ESDs/pass2/*/AliESDs.root")
+        .expect("Can't resolve glob")
+        .map(|path| path.unwrap())
+        .collect();
+    let pbar = ProgressBar::new(files.len() as u64);
+    let files = pbar.wrap_iter(files.iter());
     let datasets = files
-        .inspect(|f| println!("files {:?}", f))
-        .map(|path| Dataset::new(path.unwrap().to_str().unwrap()))
+        .map(|path| Dataset::new(path.to_str().unwrap()))
         .flat_map(|ev| ev);
 
     trait Analysis: ProcessEvent + Visualize {}
