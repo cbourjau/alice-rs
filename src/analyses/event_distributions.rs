@@ -49,10 +49,11 @@ impl Visualize for EventDistributions {
             .set_pos_grid(1, 2, 1)
             .set_title("zvtx distribution", &[])
             .set_x_label("zvtx", &[])
-            .boxes_set_width(&self.histogram.centers(0),
+            .boxes_set_width(&self.histogram.centers(1),
                              // sum over mult
                              &self.histogram.counts.sum(Axis(0)),
                              &self.histogram.widths(1),
                              &[]);
+        fg.show();
     }
 }
