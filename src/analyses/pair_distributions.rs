@@ -73,17 +73,38 @@ impl ProcessEvent for ParticlePairDistributions {
                 .extend(sel_tracks.iter().map(|tr| [tr.eta(), tr.phi(), pv.z]));
             self.event_counter.fill(&[pv.z]);
 
-            let pairs = sel_tracks.iter().enumerate()
+            // Convert to indices before the nested loop; relies on
+            // the fact that the hist is square in eta-eta and phi-phi
+            // plane!
+            let trk_indices: Vec<Vec<usize>> =
+                sel_tracks
+                .iter()
+                .filter_map(|tr|
+                            [self.pairs.find_bin_index_axis(0, tr.eta()),
+                             self.pairs.find_bin_index_axis(2, tr.phi()),
+                             self.pairs.find_bin_index_axis(4, pv.z),]
+                            .into_iter()
+                            .cloned()
+                            .collect::<Option<Vec<usize>>>()
+                ).collect();
+            let trk_indices = trk_indices.as_slice();
+            let pair_idxs = trk_indices
+                .iter()
+                .enumerate()
                 .flat_map(move |(i1, tr1)| {
-                    sel_tracks.iter().enumerate()
+                    trk_indices
+                        .iter()
+                        .enumerate()
                         .take_while(move |&(i2, _)| i1 > i2)
                         .map(move |(_, tr2)| {
-                            [tr1.eta(), tr2.eta(),
-                             tr1.phi(), tr2.phi(),
-                             pv.z]
+                            [tr1[0], tr2[0],
+                             tr1[1], tr2[1],
+                             tr1[2]]
                         })
                 });
-            self.pairs.extend(pairs);
+            for idxs in pair_idxs.into_iter() {
+                self.pairs.fill_by_index(&idxs);
+            }
         };
     }
 }

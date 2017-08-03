@@ -53,17 +53,22 @@ impl<D> Widths for Histogram<D>
 macro_rules! impl_histogram {
     ($N:expr, $($idx:expr)*) => {
         impl Histogram<Dim<[usize; $N]>> {
+            /// Find the bin index containing `value` on `axis`
+            /// Return None if the the value is not in range
+            pub fn find_bin_index_axis(&self, axis: usize, value: f64) -> Option<usize>{
+                let (edges1d, value) = (&self.edges[axis], value);
+                edges1d
+                    .binary_search_by(|bin| bin.cmp(value))
+                    .ok()
+            }
+            
             /// Find indices of bins along each axis
             fn find_bin_indices(&self, values: &[f64; $N]) -> Option<[usize; $N]> {
                 let mut idxs = [0; $N];
                 for dim in 0..$N {
-                    let (edges1d, value) = (&self.edges[dim], values[dim]);
-                    let idx = &edges1d
-                        .binary_search_by(|bin| bin.cmp(value));
-                    if let Ok(idx) = *idx {
-                        idxs[dim] = idx;
-                    } else {
-                        return None;
+                    match self.find_bin_index_axis(dim, values[dim]) {
+                        Some(idx) => idxs[dim] = idx,
+                        None => return None,
                     }
                 }
                 Some(idxs)
@@ -75,7 +80,27 @@ macro_rules! impl_histogram {
                     self.counts[idxs] += 1.0;
                 }
             }
-
+            pub fn fill_by_index(&mut self, indices: &[usize; $N]) {
+                self.counts[*indices] += 1.0;
+            }
+            pub fn fill_by_index_bulk<T>(&mut self, indices_slice: T)
+                where T: IntoIterator<Item=[usize; $N]>
+            {
+                for idxs in indices_slice {
+                    self.counts[idxs] += 1.0;
+                }
+            }
+            pub fn fill_bulk<T>(&mut self, values: T, npairs: usize)
+                 where T: IntoIterator<Item=[f64; $N]>
+            {
+                let mut indices = Vec::<[usize; $N]>::with_capacity(npairs);
+                indices.extend(values
+                               .into_iter()
+                               .filter_map(|v| self.find_bin_indices(&v)));
+                for idxs in indices {
+                    self.counts[idxs] += 1.0;
+                }
+            }
         }
 
         impl Extend<[f64; $N]> for Histogram<Dim<[usize; $N]>> {

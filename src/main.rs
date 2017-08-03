@@ -1,8 +1,10 @@
+#[macro_use]
+extern crate ndarray;
 extern crate histogram;
 extern crate alice;
 extern crate gnuplot;
 extern crate glob;
-extern crate ndarray;
+
 extern crate rand;
 extern crate indicatif;
 
