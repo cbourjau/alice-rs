@@ -127,19 +127,94 @@ impl Visualize for ParticlePairDistributions {
                      Some((-0.8, -0.8, 0.8, 0.8)), &[])
             .show_contours(true, false, ContourStyle::Spline(2,2), Auto, Auto);
 
+        // __average__ over z, eta1, eta2 (should be all at once, actually)!
+        let phi_phi = &nanmean(&nanmean(&nanmean(&corr2, 4), 0), 0);
         fg.axes3d()
             .set_pos_grid(1, 2, 1)
             .set_title("phi phi", &[])
             .set_x_label("phi1", &[])
             .set_y_label("phi2", &[])
-        // __average__ over z, eta1, eta2 (should be all at once, actually)!
-            .surface(&nanmean(&nanmean(&nanmean(&corr2, 4), 0), 0),
+            .surface(phi_phi,
+                     corr2.shape()[2],
+                     corr2.shape()[3],
+                     Some((0., 0., 2.*PI, 2.*PI)), &[])
+            .show_contours(true, false, ContourStyle::Spline(2,2), Auto, Auto)
+            .set_x_range(Auto, Fix(2.*PI))
+            .set_y_range(Auto, Fix(2.*PI));
+        fg.show();
+
+        let mut fg = Figure::new();
+        // transform coordinates (rotate 45 degrees)
+        let phi_delta_phi_tilde = roll_diagonal(phi_phi);
+        fg.axes3d()
+            .set_pos_grid(1, 2, 0)
+            .set_title("Dphi Tphi", &[])
+            .set_x_label("Dphi", &[])
+            .set_y_label("Tphi", &[])
+            .surface(&phi_delta_phi_tilde,
                    corr2.shape()[2],
                    corr2.shape()[3],
                      Some((0., 0., 2.*PI, 2.*PI)), &[])
             .show_contours(true, false, ContourStyle::Spline(2,2), Auto, Auto)
             .set_x_range(Auto, Fix(2.*PI))
             .set_y_range(Auto, Fix(2.*PI));
+
+        fg.axes2d()
+            .set_pos_grid(1, 2, 1)
+            .set_title("Dphi Projection", &[])
+            .set_x_label("Dphi", &[])
+            .lines(&self.pairs.centers(2),
+                   // average over phi_tilde
+                   &nanmean(&phi_delta_phi_tilde, 0),
+                   &[]);
         fg.show();
+    }
+}
+
+fn roll_diagonal(a: &nd::Array2<f64>) -> nd::Array2<f64>
+{
+    let mut b = a.clone().reversed_axes();
+    for (i, mut row) in b.outer_iter_mut().enumerate() {
+        for _ in 0..i {
+            roll_by_one(&mut row);
+        }
+    }
+    b
+}
+
+fn roll_by_one<'a>(a: &mut nd::ArrayViewMut1<'a, f64>){
+    use std::mem;
+    let len = a.len();
+    let mut last = a[len - 1];
+    for elt in a.slice_mut(s![..-1;-1]) {
+        last = mem::replace(elt, last);
+    }
+    a[len - 1] = last;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_roll_by_one() {
+        let mut a = nd::arr1(&[1.,2.,3.]);
+        roll_by_one(&mut a.view_mut());
+        assert_eq!(a, nd::arr1(&[2.,3.,1.]))
+    }
+
+    #[test]
+    fn roll_2d_by_one() {
+        let mut a = nd::Array2::<f64>::zeros((4, 4)); // nd::Array::linspace(0., 9., 9).into_shape((3, 3));
+        for (i, el) in a.iter_mut().enumerate() {
+            *el = i as f64;
+        }
+        println!("{:?}", a);
+        for (i, mut row) in a.outer_iter_mut().enumerate() {
+            for _ in 0..i {
+                roll_by_one(&mut row);
+            }
+        }
+        println!("{:?}", a);
     }
 }
