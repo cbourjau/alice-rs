@@ -1,4 +1,4 @@
-use gnuplot::{Figure, AxesCommon};
+use gnuplot::{Figure, AxesCommon, Rotate, AutoOption};
 
 use histogram::*;
 
@@ -16,7 +16,7 @@ impl EventDistributions {
         EventDistributions {
             // mult, z_vtx
             histogram: HistogramBuilder::<Ix2>::new()
-                .add_equal_width_axis(20, 0., 3e3)
+                .add_equal_width_axis(20, 0., 6e3)
                 .add_equal_width_axis(8, -8., 8.)
                 .build().expect("Error building histogram")
         }
@@ -39,6 +39,7 @@ impl Visualize for EventDistributions {
             .set_pos_grid(1, 2, 0)
             .set_title("Multiplicity distribution", &[])
             .set_x_label("SPD tracklets", &[])
+            .set_x_ticks(Some((AutoOption::Auto::<f64>, 0)), &[], &[Rotate(45.)])
             .boxes_set_width(&self.histogram.centers(0),
                              // sum over z_vtx
                              &self.histogram.counts.sum(Axis(1)),
