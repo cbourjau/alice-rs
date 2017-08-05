@@ -4,6 +4,7 @@ extern crate histogram;
 extern crate alice;
 extern crate gnuplot;
 extern crate glob;
+extern crate rustfft;
 
 extern crate rand;
 extern crate indicatif;

@@ -1,4 +1,7 @@
 use std::f64::consts::PI;
+use rustfft::FFTplanner;
+use rustfft::num_complex::Complex;
+use rustfft::num_traits::Zero;
 
 use ndarray as nd;
 use gnuplot::{Figure, AxesCommon, Auto, Fix, ContourStyle};
@@ -63,6 +66,34 @@ impl ParticlePairDistributions {
         // * 2, since the folded single distributions are a "double count"
         &self.pairs.counts / &phiphi * &self.event_counter.counts * 2.0
     }
+
+    fn get_uncert_dphi(&self) -> nd::Array<f64, nd::Dim<[usize; 1]>> {
+        let nphi = 20;
+        let neta = 16;
+        let nzvtx = 8;
+        let ss = (&self.singles
+                  .counts
+                  .to_owned()
+                  .into_shape((1, neta, 1, nphi, nzvtx))
+                  .expect("Can't reshape")
+                  .broadcast((neta, neta, nphi, nphi, nzvtx))
+                  .expect("Can't broadcast")) *
+            (&self.singles
+             .counts
+             .to_owned()
+             .into_shape((neta, 1, nphi, 1, nzvtx))
+             .expect("Can't reshape"));
+        let ss_sum = ss.sum(Axis(4)).sum(Axis(0)).sum(Axis(0));
+        let ss_sum = roll_diagonal(&ss_sum);
+        // / 2, since the folded single distributions are a "double count"
+        let ss_sum = ss_sum.sum(Axis(0)) / 2.0;
+
+        let p_sum = self.pairs.counts.sum(Axis(4)).sum(Axis(0)).sum(Axis(0));
+        let p_sum = roll_diagonal(&p_sum);
+        let p_sum = p_sum.sum(Axis(0));
+
+        p_sum.mapv(|v| v.powf(0.5)) / ss_sum
+    }
 }
 
 impl ProcessEvent for ParticlePairDistributions {
@@ -76,6 +107,8 @@ impl ProcessEvent for ParticlePairDistributions {
             // Convert to indices before the nested loop; relies on
             // the fact that the hist is square in eta-eta and phi-phi
             // plane!
+            // Sure, I should compute the z_vtx-index and mult-index outside of the loop,
+            // But then I need to treat their Options as well
             let trk_indices: Vec<Vec<usize>> =
                 sel_tracks
                 .iter()
@@ -128,13 +161,13 @@ impl Visualize for ParticlePairDistributions {
             .show_contours(true, false, ContourStyle::Spline(2,2), Auto, Auto);
 
         // __average__ over z, eta1, eta2 (should be all at once, actually)!
-        let phi_phi = &nanmean(&nanmean(&nanmean(&corr2, 4), 0), 0);
+        let phi_phi = get_phi_phi(&corr2);
         fg.axes3d()
             .set_pos_grid(1, 2, 1)
             .set_title("phi phi", &[])
             .set_x_label("phi1", &[])
             .set_y_label("phi2", &[])
-            .surface(phi_phi,
+            .surface(&phi_phi,
                      corr2.shape()[2],
                      corr2.shape()[3],
                      Some((0., 0., 2.*PI, 2.*PI)), &[])
@@ -145,7 +178,7 @@ impl Visualize for ParticlePairDistributions {
 
         let mut fg = Figure::new();
         // transform coordinates (rotate 45 degrees)
-        let phi_delta_phi_tilde = roll_diagonal(phi_phi);
+        let phi_delta_phi_tilde = roll_diagonal(&phi_phi);
         fg.axes3d()
             .set_pos_grid(1, 2, 0)
             .set_title("Dphi Tphi", &[])
@@ -159,15 +192,20 @@ impl Visualize for ParticlePairDistributions {
             .set_x_range(Auto, Fix(2.*PI))
             .set_y_range(Auto, Fix(2.*PI));
 
+        let phi_uncert = self.get_uncert_dphi();
         fg.axes2d()
             .set_pos_grid(1, 2, 1)
             .set_title("Dphi Projection", &[])
             .set_x_label("Dphi", &[])
-            .lines(&self.pairs.centers(2),
-                   // average over phi_tilde
-                   &nanmean(&phi_delta_phi_tilde, 0),
-                   &[]);
+            .y_error_lines(&self.pairs.centers(2),
+                           // average over phi_tilde
+                           &nanmean(&phi_delta_phi_tilde, 0),
+                           &phi_uncert,
+                           &[]);
         fg.show();
+        let output = fourier_decompose(&nanmean(&phi_delta_phi_tilde, 0));
+        println!("amp: {:?}", output.iter().map(|v| v.to_polar().0).collect::<Vec<_>>());
+        println!("phase: {:?}", output.iter().map(|v| v.to_polar().1).collect::<Vec<_>>());
     }
 }
 
@@ -192,9 +230,37 @@ fn roll_by_one<'a>(a: &mut nd::ArrayViewMut1<'a, f64>){
     a[len - 1] = last;
 }
 
+fn get_phi_phi(a: &nd::Array5<f64>) -> nd::Array2<f64> {
+    nanmean(&nanmean(&nanmean(a, 4), 0), 0)
+}
+
+fn fourier_decompose(a: &nd::Array1<f64>) -> Vec<Complex<f64>> {
+    let mut input: Vec<Complex<f64>> = a
+        .to_vec()
+        .iter()
+        .map(|v| Complex::new(*v, 0.0))
+        .collect();
+    let mut output: Vec<Complex<f64>> = vec![Zero::zero(); a.len()];
+    let mut planner = FFTplanner::new(false);
+    let fft = planner.plan_fft(a.len());
+    fft.process(&mut input, &mut output);
+    output
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fourier() {
+        let n = 5.;
+        let a = nd::Array1::<f64>::range(0., 2. * PI, 2.0 * PI / n)
+            .mapv(|v| v.cos());
+
+        let output = fourier_decompose(&a);
+        println!("amp: {:?}", output.iter().map(|v| v.to_polar().0).collect::<Vec<_>>());
+        println!("phase: {:?}", output.iter().map(|v| v.to_polar().1).collect::<Vec<_>>());
+    }
 
     #[test]
     fn test_roll_by_one() {
