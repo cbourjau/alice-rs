@@ -188,9 +188,9 @@ impl<D> HistogramBuilder<D>
                 .collect::<Vec<f64>>());
         self
     }
-    pub fn add_variable_width_axis<'a>(&'a mut self, edges1d: Vec<f64>)
+    pub fn add_variable_width_axis<'a>(&'a mut self, edges1d: &[f64])
                                        -> &'a mut HistogramBuilder<D> {
-        self.edges.push(edges1d);
+        self.edges.push(edges1d.to_vec());
         self
     }
 }
