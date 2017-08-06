@@ -8,6 +8,11 @@
 #ifndef ESD_h
 #define ESD_h
 
+// One of the includes seems to enable Weffc++ and wrecks the complete output
+// The following line disables this warning on gcc
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Weffc++"
+
 #include <TArrayI.h>
 #include <TArrayL64.h>
 #include <TObjArray.h>

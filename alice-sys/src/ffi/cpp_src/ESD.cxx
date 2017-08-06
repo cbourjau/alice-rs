@@ -61,10 +61,6 @@
 
 #include "ESDmerged.h"
 
-// One of the includes seems to enable Weffc++ and wrecks the complete output
-// The following line disables this warning on gcc
-#pragma GCC diagnostic ignored "-Weffc++"
-
 void ESD::Loop()
 {
   //   In a ROOT session, you can do:
