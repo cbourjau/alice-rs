@@ -16,7 +16,7 @@ use indicatif::ProgressBar;
 use alice::dataset::Dataset;
 use alice::track::Track;
 use alice::track;
-use alice::trigger;
+use alice::trigger_mask;
 
 mod analyses;
 
@@ -56,7 +56,7 @@ fn main() {
                       .unwrap_or(false)})
         .filter(|ev| ev.multiplicity > 500)
         .filter(|ev| ev.multiplicity < 2000)
-        .filter(|ev| ev.triggers().contains(trigger::MINIMUM_BIAS));
+        .filter(|ev| ev.trigger_mask.contains(trigger_mask::MINIMUM_BIAS));
 
     let mut rng = thread_rng();
     for ev in sel_events {

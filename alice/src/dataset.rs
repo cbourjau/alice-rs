@@ -18,14 +18,15 @@ impl Dataset {
                           current_event: -1};
         ds
     }
-    fn load_next(&mut self) -> Option<()> {
+    fn load_next(&mut self) -> Option<Event> {
         self.current_event += 1;
         let ievent = self.current_event;
         // A return value <= 0 means failure; welcome to AliRoot
         // let state_ptr: *mut c_void = &mut self.esd as *mut _ as *mut c_void;
+        let state_ptr = unsafe {self.esd.as_ref().unwrap()};
         match unsafe {ffi::esd_load_next(self.esd, ievent)} {
             a if a <= 0 => None,
-            _ => Some(())
+            _ => Some(Event::new_from_esd(state_ptr))
         }
     }
 }
@@ -43,9 +44,7 @@ impl Iterator for Dataset {
 
     /// Load the next event from the file
     fn next(&mut self) -> Option<Event> {
-        let state_ptr = unsafe {self.esd.as_ref().unwrap()}; //&mut self.esd as *mut _;//as *mut c_void;
         self.load_next()
-            .map(|_| {Event::new_from_esd(state_ptr)})
     }
 }
 
