@@ -124,7 +124,7 @@ const Int_t kMaxHLTGlobalTrigger_fInputObjectInfo = 1;
 
 class TBranch;
 
-class ESD {
+class ESD_t {
 public :
   TTree          *fChain;   //!pointer to the analyzed TTree or TChain
   Int_t           fCurrent; //!current Tree number in a TChain
@@ -1875,9 +1875,8 @@ public :
   TBranch        *b_fDAQAttributes;   //!
   TBranch        *b_fNTPCClusters;   //!
 
-  ESD(const char*);
-  virtual ~ESD();
-  virtual Int_t    Cut(Long64_t entry);
+  ESD_t(const char*);
+  virtual ~ESD_t();
   virtual Int_t    GetEntry(Long64_t entry);
   virtual Long64_t LoadTree(Long64_t entry);
   virtual void     Init(TTree *tree);

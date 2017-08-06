@@ -14,7 +14,7 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn new_from_esd(esd: &ffi::ESD) -> Event {
+    pub fn new_from_esd(esd: &ffi::ESD_t) -> Event {
         Event {
             // raw_esd: esd,
             primary_vertex: PrimaryVertex::new(esd),

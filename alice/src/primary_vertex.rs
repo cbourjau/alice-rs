@@ -1,4 +1,4 @@
-use alice_sys::ESD;
+use alice_sys::ESD_t;
 
 #[derive(Debug)]
 pub struct PrimaryVertex {
@@ -9,7 +9,7 @@ pub struct PrimaryVertex {
 }
 
 impl PrimaryVertex {
-    pub fn new(esd: &ESD) -> Option<PrimaryVertex>{
+    pub fn new(esd: &ESD_t) -> Option<PrimaryVertex>{
         // 0 contributors means that there is no primar vertex
         if esd.PrimaryVertex_AliVertex_fNContributors > 0 {
             Some(PrimaryVertex {x: esd.PrimaryVertex_AliVertex_fPosition[0],

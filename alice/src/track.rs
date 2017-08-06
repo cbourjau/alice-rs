@@ -1,4 +1,4 @@
-use alice_sys::ESD;
+use alice_sys::ESD_t;
 use std::f64::consts::PI;
 
 bitflags! {
@@ -82,7 +82,7 @@ pub struct QualityTPC {
 }
 
 impl QualityTPC {
-    pub fn new_from_esd(esd: &ESD, idx: usize) -> QualityTPC {
+    pub fn new_from_esd(esd: &ESD_t, idx: usize) -> QualityTPC {
         QualityTPC {
             d: esd.Tracks_fdTPC[idx],
             z: esd.Tracks_fzTPC[idx],
@@ -119,7 +119,7 @@ impl Track {
     /// Create a humanly useful track from the "external" track parameters
     /// This is copied from AliExternalTrackParam.cxx
     /// Returns None if the track had 1/pt <= 0
-    pub fn read_tracks_from_esd(esd: &ESD) -> Vec<Track> {
+    pub fn read_tracks_from_esd(esd: &ESD_t) -> Vec<Track> {
         let mut tracks = Vec::<Track>::new();
         let n_tracks = esd.Tracks_ as usize;
         for i in 0..n_tracks {

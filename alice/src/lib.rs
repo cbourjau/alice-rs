@@ -10,6 +10,7 @@ pub mod primary_vertex;
 pub mod track;
 pub mod trigger_mask;
 pub mod vzero;
+pub mod esd;
 
 
 #[cfg(test)]

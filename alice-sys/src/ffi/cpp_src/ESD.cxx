@@ -100,7 +100,7 @@ void ESD::Loop()
   }
 }
 
-ESD::ESD(const char* path) : fChain(0) 
+ESD_t::ESD_t(const char* path) : fChain(0) 
 {
   gErrorIgnoreLevel = kError;
   TFile *f  = TFile::Open(path);
@@ -109,13 +109,13 @@ ESD::ESD(const char* path) : fChain(0)
   Init(tree);
 }
 
-ESD::~ESD()
+ESD_t::~ESD_t()
 {
   if (!fChain) return;
   delete fChain->GetCurrentFile();
 }
 
-Int_t ESD::GetEntry(Long64_t entry)
+Int_t ESD_t::GetEntry(Long64_t entry)
 {
   // Read contents of entry.
   if (!fChain) return 0;
@@ -134,7 +134,7 @@ Long64_t ESD::LoadTree(Long64_t entry)
   return centry;
 }
 
-void ESD::Init(TTree *tree)
+void ESD_t::Init(TTree *tree)
 {
   // The Init() function is called when the selector needs to initialize
   // a new tree or chain. Typically here the branch addresses and branch
@@ -1038,7 +1038,7 @@ void ESD::Init(TTree *tree)
   Notify();
 }
 
-Bool_t ESD::Notify()
+Bool_t ESD_t::Notify()
 {
   // The Notify() function is called when a new file is opened. This
   // can be either for a new TTree in a TChain or when when a new TTree

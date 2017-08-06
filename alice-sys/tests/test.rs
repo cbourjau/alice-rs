@@ -72,7 +72,7 @@ fn two_esd_objects() {
     assert!(sum >= 0, "No tracks loaded?!");
 }
 
-fn fired_trigger_bits(esd: *mut ESD)  -> Vec<usize> {
+fn fired_trigger_bits(esd: *mut ESD_t)  -> Vec<usize> {
     let mut ret = Vec::new();
     let masks = [
         unsafe { (*esd).AliESDHeader_fTriggerMask },

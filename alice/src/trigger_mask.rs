@@ -11,7 +11,7 @@ bitflags! {
 
 impl TriggerMask {
     /// Trigger flags which fired for this event
-    pub fn new(esd: &ffi::ESD) -> TriggerMask {
+    pub fn new(esd: &ffi::ESD_t) -> TriggerMask {
         let run_number = esd.AliESDRun_fRunNumber as u32;
         fired_trigger_strings(esd).iter()
             .map(|s| string_to_mask(s, run_number))
@@ -21,7 +21,7 @@ impl TriggerMask {
 
 /// Indices of the fired trigger wrt the trigger-strings in
 /// `AliESDRun_fTriggerClasses`
-fn fired_trigger_indices(esd: &ffi::ESD) -> Vec<usize> {
+fn fired_trigger_indices(esd: &ffi::ESD_t) -> Vec<usize> {
     let mut ret = Vec::new();
     let masks = [
         esd.AliESDHeader_fTriggerMask,
@@ -42,7 +42,7 @@ fn fired_trigger_indices(esd: &ffi::ESD) -> Vec<usize> {
 }
 
 /// String representation of triggers fired for this event
-fn fired_trigger_strings(esd: &ffi::ESD) -> Vec<&str> {
+fn fired_trigger_strings(esd: &ffi::ESD_t) -> Vec<&str> {
     let mut trg_clss = esd.AliESDRun_fTriggerClasses;
     fired_trigger_indices(esd).iter()
         .map(|i| unsafe {

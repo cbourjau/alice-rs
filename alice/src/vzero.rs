@@ -1,4 +1,4 @@
-use alice_sys::ESD;
+use alice_sys::ESD_t;
 
 #[derive(Debug)]
 pub struct V0 {
@@ -11,7 +11,7 @@ pub struct V0 {
 }
 
 impl V0 {
-    pub fn from_esd(esd: &ESD) -> V0 {
+    pub fn from_esd(esd: &ESD_t) -> V0 {
         let mut mult_v0a: [f32; 32] = Default::default();
         mult_v0a.copy_from_slice(&esd.AliESDVZERO_fMultiplicity[..32]);
 
