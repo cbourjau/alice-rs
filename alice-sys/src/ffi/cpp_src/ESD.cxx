@@ -2,17 +2,17 @@
 #include <iostream>
 
 #include <TBits.h>
-#include <TCanvas.h>
+// #include <TCanvas.h>
 #include <TChain.h>
 #include <TClonesArray.h>
 #include <TError.h>
 #include <TFile.h>
-#include <TH2.h>
+// #include <TH2.h>
 #include <TNamed.h>
 #include <TObject.h>
 #include <TROOT.h>
-#include <TStyle.h>
-#include <TSystem.h>
+// #include <TStyle.h>
+// #include <TSystem.h>
 
 
 // Header file for the classes stored in the TTree if any.
@@ -54,6 +54,7 @@
 #include "AliTOFHeader.h"
 #include "AliTimeStamp.h"
 #include "AliTriggerScalersRecordESD.h"
+#include "AliTriggerScalersESD.h"
 #include "AliVertex.h"
 
 // The following header is FUBAR; it needs to have AliExternalTrackParam.h declared before...
@@ -61,58 +62,23 @@
 
 #include "ESDmerged.h"
 
-void ESD::Loop()
-{
-  //   In a ROOT session, you can do:
-  //      Root > .L ESD.C
-  //      Root > ESD t
-  //      Root > t.GetEntry(12); // Fill t data members with entry number 12
-  //      Root > t.Show();       // Show values of entry 12
-  //      Root > t.Show(16);     // Read and show values of entry 16
-  //      Root > t.Loop();       // Loop on all entries
-  //
-
-  //     This is the loop skeleton where:
-  //    jentry is the global entry number in the chain
-  //    ientry is the entry number in the current Tree
-  //  Note that the argument to GetEntry must be:
-  //    jentry for TChain::GetEntry
-  //    ientry for TTree::GetEntry and TBranch::GetEntry
-  //
-  //       To read only selected branches, Insert statements like:
-  // METHOD1:
-  //    fChain->SetBranchStatus("*",0);  // disable all branches
-  //    fChain->SetBranchStatus("branchname",1);  // activate branchname
-  // METHOD2: replace line
-  //    fChain->GetEntry(jentry);       //read all branches
-  //by  b_branchname->GetEntry(ientry); //read only this branch
-  if (fChain == 0) return;
-
-  Long64_t nentries = fChain->GetEntriesFast();
-  Long64_t nbytes = 0, nb = 0;
-  for (Long64_t jentry=0; jentry<nentries;jentry++) {
-    Long64_t ientry = LoadTree(jentry);
-    if (ientry < 0) break;
-    nb = fChain->GetEntry(jentry);
-    std::cout << this->PrimaryVertex_AliVertex_fPosition[0] << std::endl;
-    nbytes += nb;
-    // if (Cut(ientry) < 0) continue;
-  }
-}
 
 ESD_t::ESD_t(const char* path) : fChain(0) 
 {
-  gErrorIgnoreLevel = kError;
-  TFile *f  = TFile::Open(path);
+  gErrorIgnoreLevel = kFatal;
+
+  fFile = TFile::Open(path);
   TTree *tree = 0;
-  f->GetObject("esdTree",tree);
+  fFile->GetObject("esdTree",tree);
   Init(tree);
 }
 
 ESD_t::~ESD_t()
 {
   if (!fChain) return;
-  delete fChain->GetCurrentFile();
+  fChain->Delete();
+  fFile->Close();
+  fFile->Delete();
 }
 
 Int_t ESD_t::GetEntry(Long64_t entry)
@@ -120,18 +86,6 @@ Int_t ESD_t::GetEntry(Long64_t entry)
   // Read contents of entry.
   if (!fChain) return 0;
   return fChain->GetEntry(entry);
-}
-Long64_t ESD::LoadTree(Long64_t entry)
-{
-  // Set the environment to read one entry
-  if (!fChain) return -5;
-  Long64_t centry = fChain->LoadTree(entry);
-  if (centry < 0) return centry;
-  if (fChain->GetTreeNumber() != fCurrent) {
-    fCurrent = fChain->GetTreeNumber();
-    Notify();
-  }
-  return centry;
 }
 
 void ESD_t::Init(TTree *tree)
@@ -164,8 +118,7 @@ void ESD_t::Init(TTree *tree)
   fChain->SetMakeClass(1);
 
   // Some branches might not exist; don't show errors!
-  gROOT->ProcessLine( "gErrorIgnoreLevel = 3001;");
-
+  // gErrorIgnoreLevel = 3001;
   fChain->SetBranchStatus("*",0);  // disable all branches. Segfault if not done! WOOP!
   fChain->SetBranchStatus("PrimaryVertex.*", 1);  // enable Primary Vertex
   fChain->SetBranchStatus("Tracks.*", 1);  // enable Tracks
@@ -1047,19 +1000,4 @@ Bool_t ESD_t::Notify()
   // user if needed. The return value is currently not used.
 
   return kTRUE;
-}
-
-void ESD::Show(Long64_t entry)
-{
-  // Print contents of entry.
-  // If entry is not specified, print current entry
-  if (!fChain) return;
-  fChain->Show(entry);
-}
-Int_t ESD::Cut(Long64_t entry)
-{
-  // This function may be called from Loop.
-  // returns  1 if entry is accepted.
-  // returns -1 otherwise.
-  return 1;
 }

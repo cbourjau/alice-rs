@@ -128,6 +128,7 @@ class ESD_t {
 public :
   TTree          *fChain;   //!pointer to the analyzed TTree or TChain
   Int_t           fCurrent; //!current Tree number in a TChain
+  TFile          *fFile;    //! The file use to create this object
 
   // Declaration of leaf types
   //AliESDRun       *AliESDRun_;
@@ -1878,26 +1879,21 @@ public :
   ESD_t(const char*);
   virtual ~ESD_t();
   virtual Int_t    GetEntry(Long64_t entry);
-  virtual Long64_t LoadTree(Long64_t entry);
   virtual void     Init(TTree *tree);
-  virtual void     Loop();
   virtual Bool_t   Notify();
-  virtual void     Show(Long64_t entry = -1);
 };
 
 // C wrapper to construct ESD
 extern "C" {
-  ESD * esd_new(const char* path) {
-    gROOT->ProcessLine( "gErrorIgnoreLevel = 1001;");
-
-    ESD* esd = new ESD(path);
+  ESD_t * esd_new(const char* path) {
+    ESD_t* esd = new ESD_t(path);
     return esd;
   }
-  int esd_load_next(ESD* esd, const long ievent) {
+  int esd_load_next(ESD_t* esd, const long ievent) {
     return esd->GetEntry(ievent);
   }
-  void esd_destroy(ESD* esd) {
-    esd->fChain->Delete();
+  void esd_destroy(ESD_t* esd) {
+    // esd->fChain->Delete();
     delete esd;
   }
 
