@@ -8,7 +8,7 @@ pub mod dataset;
 pub mod event;
 pub mod primary_vertex;
 pub mod track;
-pub mod trigger;
+pub mod trigger_mask;
 pub mod vzero;
 
 
@@ -16,6 +16,7 @@ pub mod vzero;
 mod tests {
     use dataset::Dataset;
     use track;
+    use trigger_mask::TriggerMask;
 
     const PATH: &str = "/home/christian/lhc_data/alice/data/2010/LHC10h/000139510/ESDs/pass2/10000139510001.170/AliESDs.root";
 
@@ -48,12 +49,11 @@ mod tests {
 
     #[test]
     fn triggers() {
-        use trigger::Trigger;
         let ds = Dataset::new(PATH);
         // Combine many events to be sure that we have some triggers
         let many_trgs = ds
-            .map(|ev| ev.triggers())
-            .collect::<Trigger>();
+            .map(|ev| ev.trigger_mask)
+            .collect::<TriggerMask>();
         assert!(!many_trgs.is_empty());
     }
 }
