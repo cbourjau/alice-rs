@@ -17,7 +17,13 @@ impl Dataset {
         Dataset {path: path.to_owned(),
                  rx: None,}
     }
-    fn load_next(&mut self) -> Option<Event> {
+}
+
+impl Iterator for Dataset {
+    type Item = Event;
+
+    /// Load the next event from the file
+    fn next(&mut self) -> Option<Event> {
         if self.rx.is_none() {
             // buffer up to 5 events
             let (tx, rx) = mpsc::sync_channel(5);
@@ -41,15 +47,6 @@ impl Dataset {
             });
         }
         self.rx.as_ref().unwrap().recv().ok()
-    }
-}
-
-impl Iterator for Dataset {
-    type Item = Event;
-
-    /// Load the next event from the file
-    fn next(&mut self) -> Option<Event> {
-        self.load_next()
     }
 }
 
