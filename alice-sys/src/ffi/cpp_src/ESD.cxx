@@ -63,7 +63,7 @@ void ESD_t::Init(TTree *tree)
   fChain->SetMakeClass(1);
 
   // Some branches might not exist; don't show errors!
-  // gErrorIgnoreLevel = 3001;
+  // gErrorIgnoreLevel = kFatal;
   fChain->SetBranchStatus("*",0);  // disable all branches. Segfault if not done! WOOP!
   fChain->SetBranchStatus("PrimaryVertex.*", 1);  // enable Primary Vertex
   fChain->SetBranchStatus("Tracks.*", 1);  // enable Tracks
@@ -71,6 +71,12 @@ void ESD_t::Init(TTree *tree)
   fChain->SetBranchStatus("AliESDRun.*", 1);  // enable ESD run data
   fChain->SetBranchStatus("AliESDHeader.*", 1);  // enable ESD run data
   fChain->SetBranchStatus("AliESDVZERO.*", 1);  // enable ESD run data
+
+  // These two branches cause a memory leak. Probably because they represent arrays of pointers
+  // Thus, disabling them for now. Deletion of these would be possible with the other
+  // information in this sub-branch, I guess...
+  fChain->SetBranchStatus("Tracks.fTPCClusterMap.fAllBits", 0);
+  fChain->SetBranchStatus("Tracks.fTPCSharedMap.fAllBits", 0);
 
   fChain->SetBranchAddress("AliESDRun.TObject.fUniqueID", &AliESDRun_TObject_fUniqueID, &b_AliESDRun_TObject_fUniqueID);
   fChain->SetBranchAddress("AliESDRun.TObject.fBits", &AliESDRun_TObject_fBits, &b_AliESDRun_TObject_fBits);
