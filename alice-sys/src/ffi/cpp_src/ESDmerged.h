@@ -16,10 +16,10 @@
 #include <TArrayI.h>
 #include <TArrayL64.h>
 #include <TObjArray.h>
-#include <TROOT.h>
 #include <TRef.h>
 #include <TString.h>
-#include <TTree.h>
+
+class TTree;
 
 /**
  * <div rustbindgen replaces="TString"></div>

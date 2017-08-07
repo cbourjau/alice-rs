@@ -3,7 +3,7 @@
 
 #include <TError.h>
 #include <TFile.h>
-#include <TROOT.h>
+#include <TTree.h>
 
 #include "ESDmerged.h"
 
