@@ -1,64 +1,9 @@
 #define ESD_cxx
 #include <iostream>
 
-#include <TBits.h>
-// #include <TCanvas.h>
-#include <TChain.h>
-#include <TClonesArray.h>
 #include <TError.h>
 #include <TFile.h>
-// #include <TH2.h>
-#include <TNamed.h>
-#include <TObject.h>
 #include <TROOT.h>
-// #include <TStyle.h>
-// #include <TSystem.h>
-
-
-// Header file for the classes stored in the TTree if any.
-#include "AliESDACORDE.h"
-#include "AliESDAD.h"
-#include "AliESDCaloCells.h"
-#include "AliESDCaloCluster.h"
-#include "AliESDCaloTrigger.h"
-#include "AliESDEvent.h"
-#include "AliESDFIT.h"
-#include "AliESDFMD.h"
-#include "AliESDHLTDecision.h"
-#include "AliESDHeader.h"
-#include "AliESDMuonCluster.h"
-#include "AliESDMuonGlobalTrack.h"
-#include "AliESDMuonPad.h"
-#include "AliESDMuonTrack.h"
-#include "AliESDPmdTrack.h"
-#include "AliESDRun.h"
-#include "AliESDTOFCluster.h"
-#include "AliESDTOFHit.h"
-#include "AliESDTOFMatch.h"
-#include "AliESDTZERO.h"
-#include "AliESDTrdTrack.h"
-#include "AliESDTrdTracklet.h"
-#include "AliESDTrdTrigger.h"
-#include "AliESDVZERO.h"
-#include "AliESDVertex.h"
-#include "AliESDZDC.h"
-#include "AliESDcascade.h"
-#include "AliESDkink.h"
-#include "AliESDtrack.h"
-#include "AliESDv0.h"
-#include "AliExternalTrackParam.h"
-#include "AliFMDFloatMap.h"
-#include "AliFMDMap.h"
-#include "AliMultiplicity.h"
-#include "AliRawDataErrorLog.h"
-#include "AliTOFHeader.h"
-#include "AliTimeStamp.h"
-#include "AliTriggerScalersRecordESD.h"
-#include "AliTriggerScalersESD.h"
-#include "AliVertex.h"
-
-// The following header is FUBAR; it needs to have AliExternalTrackParam.h declared before...
-#include "AliESDCosmicTrack.h"
 
 #include "ESDmerged.h"
 
