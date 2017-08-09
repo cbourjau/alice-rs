@@ -144,7 +144,7 @@ impl ProcessEvent for ParticlePairDistributions {
                              tr1[2], tr1[3]]
                         })
                 });
-            for idxs in pair_idxs.into_iter() {
+            for idxs in pair_idxs {
                 self.pairs.fill_by_index(&idxs);
             }
         };

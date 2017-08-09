@@ -20,7 +20,7 @@ impl PtMultiplicity
         PtMultiplicity {
             histogram: HistogramBuilder::<Ix2>::new()
                 .add_equal_width_axis(20, 0.0, 4.0)
-                .add_variable_width_axis(&vec![0f64, 1000f64, INFINITY])
+                .add_variable_width_axis(&[0f64, 1000f64, INFINITY])
                 .build().expect("Error building histogram")
         }
     }
