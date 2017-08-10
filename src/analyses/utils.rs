@@ -1,6 +1,10 @@
 use ndarray as nd;
 use ndarray::{Axis};
 
+pub const COLORS: [&str; 9] = ["#4D4D4D","#5DA5DA","#FAA43A","#60BD68",
+                               "#F17CB0","#B2912F","#B276B2","#DECF3F",
+                               "#F15854"];
+
 pub fn nanmean<D>(a: &nd::Array<f64, D>, axis: usize) -> nd::Array<f64, D::Smaller>
     where D: nd::RemoveAxis
 {

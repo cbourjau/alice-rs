@@ -6,12 +6,16 @@ use rustfft::num_complex::Complex;
 use rustfft::num_traits::Zero;
 
 use ndarray as nd;
-use gnuplot::{Figure, AxesCommon, Auto, Fix, ContourStyle};
+use gnuplot as gpl;
+use gnuplot::AxesCommon;
+use gnuplot::PlotOption::*;
 
 use histogram::*;
 
 use alice::event::Event;
 use alice::track::Track;
+
+use super::utils::COLORS;
 
 use super::{ProcessEvent, Visualize};
 use super::nanmean;
@@ -29,7 +33,8 @@ impl ParticlePairDistributions {
         let nphi = 36;
         let neta = 16;
         let (nzvtx, zmin, zmax) = (8, -8., 8.);
-        let multiplicity_edges = vec![500., 1000., 2000., INFINITY];
+        let multiplicity_edges = [// 7., 24., 63., 140.,
+            276., 510., 845., 1325., 2083., INFINITY];
         ParticlePairDistributions {
             singles: HistogramBuilder::<Ix4>::new()
                 .add_equal_width_axis(neta, -0.8, 0.8)
@@ -155,66 +160,106 @@ impl Visualize for ParticlePairDistributions {
     fn visualize(&self) {
         let corr2 = self.finalize();
 
-        let mut fg = Figure::new();
+        let mut fg = gpl::Figure::new();
 
-        fg.axes3d()
-            .set_pos_grid(1, 2, 0)
-            .set_title("eta eta", &[])
-            .set_x_label("eta1", &[])
-            .set_y_label("eta2", &[])
-        // __average__ over z, phi1, phi2 (should be all at once, actually)!
-            .surface(&nanmean(&nanmean(&nanmean(&corr2, 4), 2), 2),
-                     corr2.shape()[0],
-                     corr2.shape()[1],
-                     Some((-0.8, -0.8, 0.8, 0.8)), &[])
-            .show_contours(true, false, ContourStyle::Spline(2,2), Auto, Auto);
+        // fg.axes3d()
+        //     .set_pos_grid(1, 2, 0)
+        //     .set_title("eta eta", &[])
+        //     .set_x_label("eta1", &[])
+        //     .set_y_label("eta2", &[])
+        // // __average__ over z, phi1, phi2 (should be all at once, actually)!
+        //     .surface(&nanmean(&nanmean(&nanmean(&corr2, 4), 2), 2),
+        //              corr2.shape()[0],
+        //              corr2.shape()[1],
+        //              Some((-0.8, -0.8, 0.8, 0.8)), &[])
+        //     .show_contours(true, false, ContourStyle::Spline(2,2), Auto, Auto);
 
         // __average__ over z, eta1, eta2 (should be all at once, actually)!
         let phi_phi = get_phi_phi(&corr2);
-        fg.axes3d()
-            .set_pos_grid(1, 2, 1)
-            .set_title("phi phi", &[])
-            .set_x_label("phi1", &[])
-            .set_y_label("phi2", &[])
-            .surface(&phi_phi,
-                     corr2.shape()[2],
-                     corr2.shape()[3],
-                     Some((0., 0., 2.*PI, 2.*PI)), &[])
-            .show_contours(true, false, ContourStyle::Spline(2,2), Auto, Auto)
-            .set_x_range(Auto, Fix(2.*PI))
-            .set_y_range(Auto, Fix(2.*PI));
+        // fg.axes3d()
+        //     .set_pos_grid(1, 2, 1)
+        //     .set_title("phi phi", &[])
+        //     .set_x_label("phi1", &[])
+        //     .set_y_label("phi2", &[])
+        //     .surface(&phi_phi,
+        //              corr2.shape()[2],
+        //              corr2.shape()[3],
+        //              Some((0., 0., 2.*PI, 2.*PI)), &[])
+        //     .show_contours(true, false, ContourStyle::Spline(2,2), Auto, Auto)
+        //     .set_x_range(Auto, Fix(2.*PI))
+        //     .set_y_range(Auto, Fix(2.*PI));
         fg.show();
 
-        let mut fg = Figure::new();
+        let mut fg = gpl::Figure::new();
+        // enable LaTex
+        fg.set_terminal("wxt enhanced", "");
         // transform coordinates (rotate 45 degrees)
         let phi_delta_phi_tilde = roll_diagonal(&phi_phi);
-        fg.axes3d()
-            .set_pos_grid(1, 2, 0)
-            .set_title("Dphi Tphi", &[])
-            .set_x_label("Dphi", &[])
-            .set_y_label("Tphi", &[])
-            .surface(&phi_delta_phi_tilde,
-                   corr2.shape()[2],
-                   corr2.shape()[3],
-                     Some((0., 0., 2.*PI, 2.*PI)), &[])
-            .show_contours(true, false, ContourStyle::Spline(2,2), Auto, Auto)
-            .set_x_range(Auto, Fix(2.*PI))
-            .set_y_range(Auto, Fix(2.*PI));
+        // fg.axes3d()
+        //     .set_pos_grid(1, 2, 0)
+        //     .set_title("Dphi Tphi", &[])
+        //     .set_x_label("Dphi", &[])
+        //     .set_y_label("Tphi", &[])
+        //     .surface(&phi_delta_phi_tilde,
+        //            corr2.shape()[2],
+        //            corr2.shape()[3],
+        //              Some((0., 0., 2.*PI, 2.*PI)), &[])
+        //     .show_contours(true, false, ContourStyle::Spline(2,2), Auto, Auto)
+        //     .set_x_range(Auto, Fix(2.*PI))
+        //     .set_y_range(Auto, Fix(2.*PI));
 
-        let phi_uncert = self.get_uncert_dphi();
-        fg.axes2d()
-            .set_pos_grid(1, 2, 1)
-            .set_title("Dphi Projection", &[])
-            .set_x_label("Dphi", &[])
-            .y_error_lines(&self.pairs.centers(2),
-                           // average over phi_tilde
-                           &nanmean(&phi_delta_phi_tilde, 0),
-                           &phi_uncert,
-                           &[]);
+        let dphi_mult = nanmean(&phi_delta_phi_tilde, 0);
+        let dphi_mult_uncert = self.get_uncert_dphi();
+        {
+            let mut dphi_plot = fg.axes2d()
+                .set_pos_grid(1, 2, 0)
+                .set_title(r"Projection onto Δφ", &[])
+                .set_x_label(r"Δφ", &[]);
+            for (idx, (dphi, dphi_uncert)) in dphi_mult
+                .axis_iter(Axis(1))
+                .zip(dphi_mult_uncert.axis_iter(Axis(1)))
+                .enumerate()
+            {
+                let color = Color(COLORS[idx]);
+                dphi_plot.y_error_lines(&self.pairs.centers(2),
+                                        // average over phi_tilde
+                                        &dphi,
+                                        &dphi_uncert,
+                                        &[color]);
+            }
+        }
+
+        // reduce to dphi vs. mult
+        let dphi = &nanmean(&phi_delta_phi_tilde, 0);
+        let (nphi, nmult) = (dphi.shape()[0], dphi.shape()[1]);
+        let vndelta = nd::Array1::<Complex<f64>>::from_iter(
+            dphi.lanes(nd::Axis(0))
+                .into_iter()
+                .flat_map(|lane| fourier_decompose(&lane)))
+            .into_shape([nmult, nphi])
+            .expect(&format!("Could not reshape {} into ({}, {})",
+                             dphi.len(), nmult, nphi));
+        {
+            let vndelta = vndelta.t().mapv(|v| v.to_polar().0.sqrt());
+            let (v0, vns) = vndelta
+                .view()
+                .split_at(Axis(0), 1);
+            let vndelta = &vns / &v0;
+            let mut vn_plot = fg.axes2d()
+                .set_pos_grid(1, 2, 1)
+                .set_title("Fourier modes", &[])
+                .set_x_label("Mode n", &[])
+                .set_y_label("v_{n}", &[])
+                .set_grid_options(true,
+                                  &[LineStyle(gpl::DotDotDash), Color("black")]);
+            for (idx, lane) in vndelta.lanes(nd::Axis(0)).into_iter().enumerate() {
+                let color = gpl::PlotOption::Color(COLORS[idx]);
+                vn_plot.points((1..5),
+                               &lane.slice(s![..5]),
+                               &[color, gpl::PlotOption::PointSymbol('S')]);
+            }
+        }
         fg.show();
-        let output = fourier_decompose(&nanmean(&phi_delta_phi_tilde, 0));
-        println!("amp: {:?}", output.iter().map(|v| v.to_polar().0).collect::<Vec<_>>());
-        println!("phase: {:?}", output.iter().map(|v| v.to_polar().1).collect::<Vec<_>>());
     }
 }
 
@@ -250,8 +295,8 @@ fn get_phi_phi(a: &nd::Array6<f64>) -> nd::Array3<f64> {
     nanmean(&nanmean(&nanmean(a, 4), 0), 0)
 }
 
-/// Fourier decompose a 1D distribution
-fn fourier_decompose(a: &nd::Array1<f64>) -> Vec<Complex<f64>> {
+/// Fourier decompose along the first axis
+fn fourier_decompose(a: &nd::ArrayView1<f64>) -> Vec<Complex<f64>> {
     let mut input: Vec<Complex<f64>> = a
         .to_vec()
         .iter()
