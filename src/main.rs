@@ -54,8 +54,7 @@ fn main() {
         .filter(|ev| {ev.primary_vertex.as_ref()
                       .map(|pv| pv.z.abs() < 8.)
                       .unwrap_or(false)})
-        .filter(|ev| ev.multiplicity > 500)
-        .filter(|ev| ev.multiplicity < 2000)
+        .filter(|ev| ev.multiplicity > 1)
         .filter(|ev| ev.trigger_mask.contains(trigger_mask::MINIMUM_BIAS));
 
     let mut rng = thread_rng();
@@ -77,7 +76,7 @@ fn main() {
         // Correlation between number of tracks and multiplicity
         let v0_mult = ev.vzero.multiplicity_v0a() + ev.vzero.multiplicity_v0c();
         hist_ntracks_v0.fill(&[v0_mult as f64, ev.multiplicity as f64]);
-        for analysis in analyses.iter_mut() {
+        for analysis in &mut analyses {
             (*analysis).process_event(&ev, filtered_tracks.as_slice());
         }
     }
