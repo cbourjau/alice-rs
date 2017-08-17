@@ -9,7 +9,7 @@ use alice::track::Track;
 use super::{ProcessEvent, Visualize};
 
 pub struct EventDistributions {
-    pub histogram: Histogram<Ix2>,
+    pub histogram: Histogram<[usize; 2]>,
     // Vector of all seen multiplicities to quickly find the percentile bins
     // (quick, dirty and not scalable!)
     multiplicities: Vec<i32>,
@@ -19,7 +19,7 @@ impl EventDistributions {
     pub fn new() -> EventDistributions {
         EventDistributions {
             // mult, z_vtx
-            histogram: HistogramBuilder::<Ix2>::new()
+            histogram: HistogramBuilder::<[usize; 2]>::new()
                 .add_equal_width_axis(20, 0., 6e3)
                 .add_equal_width_axis(8, -8., 8.)
                 .build().expect("Error building histogram"),

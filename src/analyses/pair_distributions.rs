@@ -22,87 +22,82 @@ use super::nanmean;
 
 
 pub struct ParticlePairDistributions {
-    singles: Histogram<Ix4>,
-    pub pairs: Histogram<Ix6>,
-    event_counter: Histogram<Ix2>,
+    singles: Histogram<[usize; 5]>,
+    pub pairs: Histogram<[usize; 8]>,
+    event_counter: Histogram<[usize; 2]>,
 }
 
 impl ParticlePairDistributions {
     pub fn new() -> ParticlePairDistributions {
         // eta, phi, z
-        let nphi = 36;
+        let nphi = 20;
         let neta = 16;
         let (nzvtx, zmin, zmax) = (8, -8., 8.);
+        let pt_edges = [0.5, 1.5];
         let multiplicity_edges = [// 7., 24., 63., 140.,
             276., 510., 845., 1325., 2083., INFINITY];
         ParticlePairDistributions {
-            singles: HistogramBuilder::<Ix4>::new()
+            singles: HistogramBuilder::<[usize; 5]>::new()
                 .add_equal_width_axis(neta, -0.8, 0.8)
                 .add_equal_width_axis(nphi, 0., 2. * PI)
+                .add_variable_width_axis(&pt_edges)
                 .add_equal_width_axis(nzvtx, zmin, zmax)
                 .add_variable_width_axis(&multiplicity_edges)
                 .build().expect("Error building histogram"),
-            pairs: HistogramBuilder::<Ix6>::new()
+            pairs: HistogramBuilder::<[usize; 8]>::new()
                 .add_equal_width_axis(neta, -0.8, 0.8)
                 .add_equal_width_axis(neta, -0.8, 0.8)
                 .add_equal_width_axis(nphi, 0., 2. * PI)
                 .add_equal_width_axis(nphi, 0., 2. * PI)
+                .add_variable_width_axis(&pt_edges)
+                .add_variable_width_axis(&pt_edges)
                 .add_equal_width_axis(nzvtx, zmin, zmax)
                 .add_variable_width_axis(&multiplicity_edges)
                 .build().expect("Error building histogram"),
-            event_counter: HistogramBuilder::<Ix2>::new()
+            event_counter: HistogramBuilder::<[usize; 2]>::new()
                 .add_equal_width_axis(nzvtx, zmin, zmax)
                 .add_variable_width_axis(&multiplicity_edges)
                 .build().expect("Error building histogram"),
         }
     }
 
-    pub fn finalize(&self) -> nd::Array<f64, nd::Dim<[usize; 6]>> {
+    pub fn finalize(&self) -> nd::Array<f64, nd::IxDyn> {
         let shape = self.singles.counts.shape();
-        let (neta, nphi, nzvtx, nmult) = (shape[0], shape[1], shape[2], shape[3]);
+        let (neta, nphi, npt, nzvtx, nmult) =
+            (shape[0], shape[1], shape[2], shape[3], shape[4]);
+        let ext_shape1 = [1, neta, 1, nphi, 1, npt, nzvtx, nmult];
+        let ext_shape2 = [neta, 1, nphi, 1, npt, 1, nzvtx, nmult];
+        let new_shape = [neta, neta, nphi, nphi, npt, npt, nzvtx, nmult];
         let phiphi = (&self.singles
                           .counts
                           .to_owned()
-                          .into_shape((1, neta, 1, nphi, nzvtx, nmult))
+                          .into_shape(ext_shape1.as_ref())
                           .expect("Can't reshape")
-                          .broadcast((neta, neta, nphi, nphi, nzvtx, nmult))
+                          .broadcast(new_shape.as_ref())
                           .expect("Can't broadcast")) *
                      (&self.singles
                           .counts
                           .to_owned()
-                          .into_shape((neta, 1, nphi, 1, nzvtx, nmult))
+                          .into_shape(ext_shape2.as_ref())
                           .expect("Can't reshape"));
 
         // * 2, since the folded single distributions are a "double count"
         &self.pairs.counts / &phiphi * &self.event_counter.counts * 2.0
     }
 
-    /// Get the uncertainties on the dphi projection as shape (dphi, multiplicity)
-    fn get_uncert_dphi(&self) -> nd::Array<f64, nd::Dim<[usize; 2]>> {
-        let shape = self.singles.counts.shape();
-        let (neta, nphi, nzvtx, nmult) = (shape[0], shape[1], shape[2], shape[3]);
-        let ss = (&self.singles
-                  .counts
-                  .to_owned()
-                  .into_shape((1, neta, 1, nphi, nzvtx, nmult))
-                  .expect("Can't reshape")
-                  .broadcast((neta, neta, nphi, nphi, nzvtx, nmult))
-                  .expect("Can't broadcast")) *
-            (&self.singles
-             .counts
-             .to_owned()
-             .into_shape((neta, 1, nphi, 1, nzvtx, nmult))
-             .expect("Can't reshape"));
-        let ss_sum = ss.sum(Axis(4)).sum(Axis(0)).sum(Axis(0));
-        let ss_sum = roll_diagonal(&ss_sum);
-        // / 2, since the folded single distributions are a "double count"
-        let ss_sum = ss_sum.sum(Axis(0)) / 2.0;
-
-        let p_sum = self.pairs.counts.sum(Axis(4)).sum(Axis(0)).sum(Axis(0));
+    /// Get the relative uncertainties on the dphi projection as shape (dphi, multiplicity)
+    /// This assumes that the single particle distrubtions have negligable uncertainties.
+    fn get_uncert_dphi(&self) -> nd::Array<f64, nd::IxDyn> {
+        let p_sum = self.pairs.counts
+            .sum(Axis(4))
+            .sum(Axis(4))
+            .sum(Axis(4))
+            .sum(Axis(0))
+            .sum(Axis(0));
         let p_sum = roll_diagonal(&p_sum);
         let p_sum = p_sum.sum(Axis(0));
 
-        p_sum.mapv(|v| v.powf(0.5)) / ss_sum
+        p_sum.mapv(|v| v.powf(0.5) / v) //  / ss_sum
     }
 }
 

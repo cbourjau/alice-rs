@@ -9,7 +9,7 @@ use alice::track::Track;
 use super::{ProcessEvent, Visualize};
 
 pub struct SingleParticleDistributions {
-    pub histogram: Histogram<Ix3>
+    pub histogram: Histogram<[usize; 3]>
 }
 
 impl SingleParticleDistributions {
@@ -19,7 +19,7 @@ impl SingleParticleDistributions {
         let neta = 16;
         let (nzvtx, zmin, zmax) = (8, -8., 8.);
         SingleParticleDistributions {
-            histogram: HistogramBuilder::<Ix3>::new()
+            histogram: HistogramBuilder::<[usize; 3]>::new()
                 .add_equal_width_axis(neta, -0.8, 0.8)
                 .add_equal_width_axis(nphi, 0., 2. * PI)
                 .add_equal_width_axis(nzvtx, zmin, zmax)

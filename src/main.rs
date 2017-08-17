@@ -45,7 +45,7 @@ fn main() {
         Box::new(analyses::EventDistributions::new()),
         ];
 
-    let mut hist_ntracks_v0 = HistogramBuilder::<Ix2>::new()
+    let mut hist_ntracks_v0 = HistogramBuilder::<[usize; 2]>::new()
                 .add_equal_width_axis(10, 0., 2e3)
                 .add_equal_width_axis(10, 0., 6e2)
                 .build().expect("Error building histogram");

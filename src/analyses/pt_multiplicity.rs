@@ -10,7 +10,7 @@ use super::{ProcessEvent, Visualize};
 
 pub struct PtMultiplicity
 {
-    pub histogram: Histogram<Ix2>,
+    pub histogram: Histogram<[usize; 2]>,
 }
 
 impl PtMultiplicity
@@ -18,7 +18,7 @@ impl PtMultiplicity
     pub fn new() -> PtMultiplicity {
         // pt vs mult
         PtMultiplicity {
-            histogram: HistogramBuilder::<Ix2>::new()
+            histogram: HistogramBuilder::<[usize; 2]>::new()
                 .add_equal_width_axis(20, 0.0, 4.0)
                 .add_variable_width_axis(&[0f64, 1000f64, INFINITY])
                 .build().expect("Error building histogram")
