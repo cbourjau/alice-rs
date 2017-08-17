@@ -28,6 +28,21 @@ pub fn nanmean<A, D, S>(a: &nd::ArrayBase<S, D>, axis: Axis) -> nd::Array<A, D::
 }
 
 
+pub fn roll_axis<A, S, D>(mut a: &mut ArrayBase<S, D>, to: Axis, from: Axis)
+    where S: Data<Elem=A>,
+          D: Dimension,
+{
+    let i = to.index();
+    let mut j = from.index();
+    if j > i {
+        while i != j {
+            a.swap_axes(i, j);
+            j -= 1;
+        }
+    } else {
+        while i != j {
+            a.swap_axes(i, j);
+            j += 1;
         }
     }
     let sum = a_fixed.sum(Axis(axis));
