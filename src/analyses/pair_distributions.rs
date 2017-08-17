@@ -109,22 +109,33 @@ impl ProcessEvent for ParticlePairDistributions {
             self.singles
                 .extend(sel_tracks
                         .iter()
-                        .map(|tr| [tr.eta(), tr.phi(), pv.z, multiplicity]));
+                        .map(|tr| [tr.eta(), tr.phi(), tr.pt(), pv.z, multiplicity]));
             self.event_counter.fill(&[pv.z, multiplicity]);
 
             // Convert to indices before the nested loop; relies on
-            // the fact that the hist is square in eta-eta and phi-phi
-            // plane!
-            // Sure, I should compute the z_vtx-index and mult-index outside of the loop,
-            // But then I need to treat their Options as well
+            // the fact that the hist is square in eta-eta, phi-phi,
+            // and pt-pt plane!
+            // Sure, I should compute the z_vtx-index and mult-index
+            // outside of the loop, But then I need to treat their
+            // Options as well
+
+            // Sort tracks by pt
+            let mut sel_tracks = sel_tracks.to_owned();
+            sel_tracks
+                .sort_by(|tr1, tr2| {
+                    tr1.pt()
+                        .partial_cmp(&tr2.pt())
+                        .expect("Could not sort")
+                });
             let trk_indices: Vec<Vec<usize>> =
                 sel_tracks
                 .iter()
                 .filter_map(|tr|
                             [self.pairs.find_bin_index_axis(0, tr.eta()),
                              self.pairs.find_bin_index_axis(2, tr.phi()),
-                             self.pairs.find_bin_index_axis(4, pv.z),
-                             self.pairs.find_bin_index_axis(5, multiplicity),]
+                             self.pairs.find_bin_index_axis(4, tr.pt()),
+                             self.pairs.find_bin_index_axis(6, pv.z),
+                             self.pairs.find_bin_index_axis(7, multiplicity),]
                             .into_iter()
                             .cloned()
                             .collect::<Option<Vec<usize>>>()
@@ -141,11 +152,12 @@ impl ProcessEvent for ParticlePairDistributions {
                         .map(move |(_, tr2)| {
                             [tr1[0], tr2[0],
                              tr1[1], tr2[1],
-                             tr1[2], tr1[3]]
+                             tr1[2], tr2[2],
+                             tr1[3], tr1[4]]
                         })
                 });
             for idxs in pair_idxs {
-                self.pairs.fill_by_index(&idxs);
+                self.pairs.fill_by_index::<[usize; 8]>(idxs);
             }
         };
     }
@@ -154,8 +166,7 @@ impl ProcessEvent for ParticlePairDistributions {
 impl Visualize for ParticlePairDistributions {
     fn visualize(&self) {
         let corr2 = self.finalize();
-
-        let mut fg = gpl::Figure::new();
+        // let mut fg = gpl::Figure::new();
 
         // fg.axes3d()
         //     .set_pos_grid(1, 2, 0)
@@ -183,13 +194,15 @@ impl Visualize for ParticlePairDistributions {
         //     .show_contours(true, false, ContourStyle::Spline(2,2), Auto, Auto)
         //     .set_x_range(Auto, Fix(2.*PI))
         //     .set_y_range(Auto, Fix(2.*PI));
-        fg.show();
+        // fg.show();
 
         let mut fg = gpl::Figure::new();
         // enable LaTex
         fg.set_terminal("wxt enhanced", "");
         // transform coordinates (rotate 45 degrees)
         let phi_delta_phi_tilde = roll_diagonal(&phi_phi);
+        println!("shape: {:?}", phi_delta_phi_tilde.shape());
+
         // fg.axes3d()
         //     .set_pos_grid(1, 2, 0)
         //     .set_title("Dphi Tphi", &[])
@@ -202,9 +215,11 @@ impl Visualize for ParticlePairDistributions {
         //     .show_contours(true, false, ContourStyle::Spline(2,2), Auto, Auto)
         //     .set_x_range(Auto, Fix(2.*PI))
         //     .set_y_range(Auto, Fix(2.*PI));
-
-        let dphi_mult = nanmean(&phi_delta_phi_tilde, 0);
+        
+        let dphi_mult = nanmean(&phi_delta_phi_tilde, Axis(0));
         let dphi_mult_uncert = self.get_uncert_dphi();
+        println!("shape: {:?}", dphi_mult.shape());
+        println!("shape uncert: {:?}", dphi_mult_uncert.shape());
         {
             let mut dphi_plot = fg.axes2d()
                 .set_pos_grid(1, 2, 0)
@@ -219,13 +234,13 @@ impl Visualize for ParticlePairDistributions {
                 dphi_plot.y_error_lines(&self.pairs.centers(2),
                                         // average over phi_tilde
                                         &dphi,
-                                        &dphi_uncert,
+                                        &(&dphi * &dphi_uncert),
                                         &[color]);
             }
         }
 
         // reduce to dphi vs. mult
-        let dphi = &nanmean(&phi_delta_phi_tilde, 0);
+        let dphi = &nanmean(&phi_delta_phi_tilde, Axis(0));
         let (nphi, nmult) = (dphi.shape()[0], dphi.shape()[1]);
         let vndelta = nd::Array1::<Complex<f64>>::from_iter(
             dphi.lanes(nd::Axis(0))
@@ -284,10 +299,19 @@ fn roll_by_one<'a, D>(a: &mut nd::ArrayViewMut<'a, f64, D>)
     }
 }
 
-/// Average the given array of shape (eta, eta, phi, phi, z, mult) to
+/// Average the given array of shape (eta, eta, phi, phi, pt, pt, z, mult) to
 /// (phi, phi, mult)
-fn get_phi_phi(a: &nd::Array6<f64>) -> nd::Array3<f64> {
-    nanmean(&nanmean(&nanmean(a, 4), 0), 0)
+fn get_phi_phi(a: &nd::ArrayD<f64>) -> nd::ArrayD<f64> {
+    nanmean(
+        &nanmean(
+            &nanmean(
+                &nanmean(
+                    &nanmean(a, Axis(4))
+                        , Axis(4))
+                    , Axis(4))
+                , Axis(0))
+            , Axis(0)
+    )
 }
 
 /// Fourier decompose along the first axis
