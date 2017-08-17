@@ -5,6 +5,7 @@ extern crate alice;
 extern crate gnuplot;
 extern crate glob;
 extern crate rustfft;
+extern crate num_traits as libnum;
 
 extern crate rand;
 extern crate indicatif;
