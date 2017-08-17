@@ -9,7 +9,8 @@ alice-sys = {path = "alice-sys" }
 histogram = {path = "histogram" }
 gnuplot = "0.0.22"
 glob = "0.2.11"
-ndarray = "0.9.1"
+ndarray = {path = "../rust-ndarray"}
 rand = "0.3.16"
 indicatif = "0.6.0"
 rustfft = "2.0.0"
+num-traits = "0.1.*"

@@ -4,5 +4,5 @@ version = "0.1.0"
 authors = ["cbourjau <christian.bourjau@cern.ch>"]
 
 [dependencies]
-ndarray = "0.9.1"
-itertools = "0.6.0"
+ndarray = {path = "../../rust-ndarray"}
+itertools = "0.6.1"
