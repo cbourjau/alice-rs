@@ -28,6 +28,38 @@ pub fn nanmean<A, D, S>(a: &nd::ArrayBase<S, D>, axis: Axis) -> nd::Array<A, D::
 }
 
 
+pub fn keep_axes<A, D, NewDim>(a: &ArrayView<A, D>, keep: NewDim)
+                               -> Array<A, nd::IxDyn>
+    where A: 'static + Clone + libnum::Float,
+          NewDim: IntoDimension,
+          D: Dimension
+{
+    let mut a = a.to_owned();
+    let keep = keep.into_dimension();
+    let keep = keep.as_array_view();
+    for (i, keep_me) in keep.iter().enumerate() {
+        roll_axis(&mut a, Axis(i), Axis(*keep_me));
+    }
+    // Find number of elements to remove
+    let n_removed = a
+        .shape()
+        .iter()
+        .skip(keep.len())
+        .fold(1, |acc, &val| val * acc);
+    // Figure out shape where all the bins to merge are in the last dim
+    let mut tmp_shape = a.shape()
+        .iter()
+        .take(keep.len())
+        .cloned()
+        .collect::<Vec<usize>>();
+    tmp_shape.push(n_removed);
+    // reshape a such that all the dimensions to be merged are on the last axis
+    let a = a.into_shape(tmp_shape.as_slice()).expect("Invalid reshaping");
+    let ret = nanmean(&a, nd::Axis(keep.len()));
+    
+    ret
+}
+
 pub fn roll_axis<A, S, D>(mut a: &mut ArrayBase<S, D>, to: Axis, from: Axis)
     where S: Data<Elem=A>,
           D: Dimension,
@@ -45,8 +77,6 @@ pub fn roll_axis<A, S, D>(mut a: &mut ArrayBase<S, D>, to: Axis, from: Axis)
             j += 1;
         }
     }
-    let sum = a_fixed.sum(Axis(axis));
-    sum / &mask.sum(Axis(axis))
 }
 
 
@@ -70,5 +100,17 @@ mod tests {
         // This test is not working since we nan != nan
         // let a = nd::arr2(&[[5.0, NAN], [5.0, NAN]]);
         // assert_eq!(nanmean(a, 0), nd::arr1::<f64>(&[5.0, NAN]));
+    }
+
+    #[test]
+    fn keep_axes_test() {
+        let a = nd::arr2(&[[5.0, 0.0]]);
+        assert_eq!(keep_axes(&a.view(), [0]).shape(), &[1]);
+        // shape [1, 3, 2]
+        let a = nd::arr3(&[[[5.0, 0.0],
+                            [5.0, 0.0],
+                            [5.0, 0.0]]]);
+        assert_eq!(keep_axes(&a.view(), [0, 2]).shape(), &[1, 2]);
+        assert_eq!(keep_axes(&a.view(), [1, 2]).shape(), &[3, 2]);
     }
 }
