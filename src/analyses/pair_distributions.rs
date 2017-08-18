@@ -33,7 +33,7 @@ impl ParticlePairDistributions {
         let nphi = 20;
         let neta = 16;
         let (nzvtx, zmin, zmax) = (8, -8., 8.);
-        let pt_edges = [0.5, 1.5];
+        let pt_edges = [0.5, 1.5, 2.0, 2.5, 3.0, 4.0];
         let multiplicity_edges = [// 7., 24., 63., 140.,
             276., 510., 845., 1325., 2083., INFINITY];
         ParticlePairDistributions {
@@ -85,13 +85,12 @@ impl ParticlePairDistributions {
         &self.pairs.counts / &phiphi * &self.event_counter.counts * 2.0
     }
 
-    /// Get the relative uncertainties on the dphi projection as shape (dphi, multiplicity)
-    /// This assumes that the single particle distrubtions have negligable uncertainties.
+    /// Get the relative uncertainties on the dphi projection as shape
+    /// (dphi, pt, pt, multiplicity) This assumes that the single
+    /// particle distrubtions have negligable uncertainties.
     fn get_uncert_dphi(&self) -> nd::Array<f64, nd::IxDyn> {
         let p_sum = self.pairs.counts
-            .sum(Axis(4))
-            .sum(Axis(4))
-            .sum(Axis(4))
+            .sum(Axis(6))
             .sum(Axis(0))
             .sum(Axis(0));
         let p_sum = roll_diagonal(&p_sum);
@@ -179,12 +178,17 @@ impl Visualize for ParticlePairDistributions {
         let dphi_uncert = self.get_uncert_dphi();
         {
             let mut dphi_plot = fg.axes2d()
-                .set_pos_grid(1, 2, 0)
+                .set_pos_grid(2, 2, 0)
                 .set_title(r"Projection onto Δφ", &[])
                 .set_x_label(r"Δφ", &[]);
-            for (idx, (dphi, dphi_uncert)) in dphi_mult
-                .axis_iter(Axis(1))
-                .zip(dphi_mult_uncert.axis_iter(Axis(1)))
+            for (idx, (dphi, dphi_uncert)) in dphi
+                .subview(Axis(1), 0)  // pt1
+                .subview(Axis(1), 0)  // pt2
+                .axis_iter(Axis(1))   // mult
+                .zip(dphi_uncert
+                     .subview(Axis(1), 0)  // pt1
+                     .subview(Axis(1), 0)  // pt2
+                     .axis_iter(Axis(1)))  // mult
                 .enumerate()
             {
                 let color = Color(COLORS[idx]);
@@ -196,33 +200,63 @@ impl Visualize for ParticlePairDistributions {
             }
         }
 
-        // reduce to dphi vs. mult
-        let dphi = &nanmean(&phi_delta_phi_tilde, Axis(0));
-        let (nphi, nmult) = (dphi.shape()[0], dphi.shape()[1]);
-        let vndelta = nd::Array1::<Complex<f64>>::from_iter(
-            dphi.lanes(nd::Axis(0))
-                .into_iter()
-                .flat_map(|lane| fourier_decompose(&lane)))
-            .into_shape([nmult, nphi])
-            .expect(&format!("Could not reshape {} into ({}, {})",
-                             dphi.len(), nmult, nphi));
+        let (nphi, npt, nmult) = (dphi.shape()[0], dphi.shape()[1], dphi.shape()[3]);
+
+        let vndelta =
+            nd::Array1::<Complex<f64>>::from_iter(
+                dphi.lanes(nd::Axis(0))
+                    .into_iter()
+                    .flat_map(|lane| fourier_decompose(&lane)))
+            .into_shape([npt, npt, nmult, nphi])
+            .expect(&format!("Could not reshape {} into ({}, {}, {}, {})",
+                             dphi.len(), npt, npt, nmult, nphi));
+        let vndelta = vndelta.mapv(|v| v.to_polar().0);
+        let (v0, vns) = vndelta
+            .view()
+            .split_at(Axis(3), 1);
+        let vndelta = &vns / &v0;
+
         {
-            let vndelta = vndelta.t().mapv(|v| v.to_polar().0.sqrt());
-            let (v0, vns) = vndelta
-                .view()
-                .split_at(Axis(0), 1);
-            let vndelta = &vns / &v0;
             let mut vn_plot = fg.axes2d()
-                .set_pos_grid(1, 2, 1)
+                .set_pos_grid(2, 2, 1)
                 .set_title("Fourier modes", &[])
                 .set_x_label("Mode n", &[])
-                .set_y_label("v_{n}", &[])
+                .set_y_label("V_{n}", &[])
                 .set_grid_options(true,
                                   &[LineStyle(gpl::DotDotDash), Color("black")]);
-            for (idx, lane) in vndelta.lanes(nd::Axis(0)).into_iter().enumerate() {
+            for (idx, lane) in vndelta
+                .subview(Axis(0), 0)   // pt1
+                .subview(Axis(0), 0)   // pt2
+                .lanes(nd::Axis(1))   // n
+                .into_iter()
+                .enumerate()
+            {
                 let color = gpl::PlotOption::Color(COLORS[idx]);
                 vn_plot.points((1..5),
                                &lane.slice(s![..5]),
+                               &[color, gpl::PlotOption::PointSymbol('S')]);
+            }
+        }
+        {
+            let mut vn_plot = fg.axes2d()
+                .set_pos_grid(2, 2, 2)
+                .set_title("pt n=2", &[])
+                .set_x_label("pT", &[])
+                .set_y_label("V_{n}", &[])
+                .set_grid_options(true,
+                                  &[LineStyle(gpl::DotDotDash), Color("black")]);
+            for (idx, lane) in vndelta
+                // Select n=2 (bin 1)
+                .subview(Axis(3), 1)   // n
+                .subview(Axis(2), vndelta.shape()[2] - 1)   // mult (last bin)
+                .subview(Axis(0), 4)   // pt1
+                .lanes(Axis(0))   // pt2
+                .into_iter()
+                .enumerate()
+            {
+                let color = gpl::PlotOption::Color(COLORS[idx]);
+                vn_plot.points(self.pairs.centers(4),
+                               &lane,
                                &[color, gpl::PlotOption::PointSymbol('S')]);
             }
         }
@@ -257,15 +291,11 @@ fn roll_by_one<'a, D>(a: &mut nd::ArrayViewMut<'a, f64, D>)
 }
 
 /// Average the given array of shape (eta, eta, phi, phi, pt, pt, z, mult) to
-/// (phi, phi, mult)
+/// (phi, phi, pt, pt, mult)
 fn get_phi_phi(a: &nd::ArrayD<f64>) -> nd::ArrayD<f64> {
     nanmean(
         &nanmean(
-            &nanmean(
-                &nanmean(
-                    &nanmean(a, Axis(4))
-                        , Axis(4))
-                    , Axis(4))
+            &nanmean(a, Axis(6))
                 , Axis(0))
             , Axis(0)
     )
