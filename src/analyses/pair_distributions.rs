@@ -165,61 +165,18 @@ impl ProcessEvent for ParticlePairDistributions {
 
 impl Visualize for ParticlePairDistributions {
     fn visualize(&self) {
-        let corr2 = self.finalize();
-        // let mut fg = gpl::Figure::new();
-
-        // fg.axes3d()
-        //     .set_pos_grid(1, 2, 0)
-        //     .set_title("eta eta", &[])
-        //     .set_x_label("eta1", &[])
-        //     .set_y_label("eta2", &[])
-        // // __average__ over z, phi1, phi2 (should be all at once, actually)!
-        //     .surface(&nanmean(&nanmean(&nanmean(&corr2, 4), 2), 2),
-        //              corr2.shape()[0],
-        //              corr2.shape()[1],
-        //              Some((-0.8, -0.8, 0.8, 0.8)), &[])
-        //     .show_contours(true, false, ContourStyle::Spline(2,2), Auto, Auto);
-
-        // __average__ over z, eta1, eta2 (should be all at once, actually)!
-        let phi_phi = get_phi_phi(&corr2);
-        // fg.axes3d()
-        //     .set_pos_grid(1, 2, 1)
-        //     .set_title("phi phi", &[])
-        //     .set_x_label("phi1", &[])
-        //     .set_y_label("phi2", &[])
-        //     .surface(&phi_phi,
-        //              corr2.shape()[2],
-        //              corr2.shape()[3],
-        //              Some((0., 0., 2.*PI, 2.*PI)), &[])
-        //     .show_contours(true, false, ContourStyle::Spline(2,2), Auto, Auto)
-        //     .set_x_range(Auto, Fix(2.*PI))
-        //     .set_y_range(Auto, Fix(2.*PI));
-        // fg.show();
-
         let mut fg = gpl::Figure::new();
         // enable LaTex
         fg.set_terminal("wxt enhanced", "");
+
+        let corr2 = self.finalize();
+        // __average__ over z, eta1, eta2 (should be all at once, actually)!
+        let phi_phi = get_phi_phi(&corr2);
         // transform coordinates (rotate 45 degrees)
         let phi_delta_phi_tilde = roll_diagonal(&phi_phi);
-        println!("shape: {:?}", phi_delta_phi_tilde.shape());
-
-        // fg.axes3d()
-        //     .set_pos_grid(1, 2, 0)
-        //     .set_title("Dphi Tphi", &[])
-        //     .set_x_label("Dphi", &[])
-        //     .set_y_label("Tphi", &[])
-        //     .surface(&phi_delta_phi_tilde,
-        //            corr2.shape()[2],
-        //            corr2.shape()[3],
-        //              Some((0., 0., 2.*PI, 2.*PI)), &[])
-        //     .show_contours(true, false, ContourStyle::Spline(2,2), Auto, Auto)
-        //     .set_x_range(Auto, Fix(2.*PI))
-        //     .set_y_range(Auto, Fix(2.*PI));
         
-        let dphi_mult = nanmean(&phi_delta_phi_tilde, Axis(0));
-        let dphi_mult_uncert = self.get_uncert_dphi();
-        println!("shape: {:?}", dphi_mult.shape());
-        println!("shape uncert: {:?}", dphi_mult_uncert.shape());
+        let dphi = nanmean(&phi_delta_phi_tilde, Axis(0));
+        let dphi_uncert = self.get_uncert_dphi();
         {
             let mut dphi_plot = fg.axes2d()
                 .set_pos_grid(1, 2, 0)
