@@ -3,6 +3,8 @@ extern crate libc;
 extern crate bitflags;
 extern crate histogram;
 extern crate alice_sys;
+#[macro_use]
+extern crate log;
 
 pub mod dataset;
 pub mod event;

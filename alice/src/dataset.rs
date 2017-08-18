@@ -39,8 +39,13 @@ impl Iterator for Dataset {
                         Some(_) => {
                             let esd_raw = unsafe { &mut *esd.raw };
                             let ev = Event::new_from_esd(esd_raw);
-                            tx.send(ev).expect("Could not send event :(")
+                            if let Err(err) = tx.send(ev) {
+                                // The reciever has hung up
+                                warn!("{}, stopping IO", err);
+                                break;
+                            }
                         },
+                        // We are out of events in this file
                         None => break
                     };
                 }
@@ -53,6 +58,7 @@ impl Iterator for Dataset {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{thread, time};
 
     #[test]
     fn init_and_drop_dataset() {
@@ -63,5 +69,20 @@ mod tests {
     fn iterate_items() {
         let ds = Dataset::new("/home/christian/Downloads/AliESDs.root");
         assert!(ds.count() > 0);
+    }
+
+    #[test]
+    /// Provoke that we drop the dataset (and its reciever) before the
+    /// Sender is finished reading an event from disk.  Make sure we
+    /// get some sort of log message and not a panic
+    fn quick_iterate_and_drop() {
+        {
+            let mut ds = Dataset::new("/home/christian/lhc_data/alice/data/2010/LHC10h/000139510/ESDs/pass2/10000139510001.10/AliESDs.root");
+            // Start of the IO thread by getting the first event
+            let _ev = ds.next();
+            // Drop the dataset here
+        }
+        // wait 1s for the next event to be read
+        thread::sleep(time::Duration::from_secs(1));
     }
 }
