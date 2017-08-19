@@ -12,6 +12,7 @@ fn main() {
     let mut cfg = gcc::Config::new();
     cfg
         .cpp(true) // Switch to C++ library compilation.
+        .flag("-std=c++11")
         .include(&root_inc)
         // The auto-generated file for the ESD root tree
         .file("src/ffi/cpp_src/ESD.cxx");
