@@ -17,7 +17,10 @@ fn main() {
         .file("src/ffi/cpp_src/ESD.cxx");
 
     // ROOT libraries
-    for lib in ["Tree", "Physics", "EG", "Geom", "Minuit", "VMC"].iter() {
+    let root_libs = vec![
+        "Tree",
+    ];
+    for lib in root_libs.iter() {
         cfg.object(format!("{}/lib{}.so", root_lib, lib));
     }
     cfg.compile("libMyESD.a");
@@ -33,7 +36,7 @@ fn main() {
         .clang_arg("-x")
         .clang_arg("c++")
         .clang_arg("-std=c++11")
-        .clang_arg("-I/home/christian/repos/alice/sw/ubuntu1604_x86-64/ROOT/latest/include/")
+        .clang_arg(format!("-I{}", root_inc))
         .whitelisted_type("ESD")
         // Whitelist esd help functions in that file
         .whitelisted_function("esd_.*")
