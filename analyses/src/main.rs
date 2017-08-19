@@ -29,6 +29,7 @@ fn main() {
     let files: Vec<_> = glob("/home/christian/lhc_data/alice/data/2010/LHC10h/000139510/ESDs/pass2/*/AliESDs.root")
         .expect("Can't resolve glob")
         .map(|path| path.unwrap())
+        .take(50)
         .collect();
     let pbar = ProgressBar::new(files.len() as u64);
     let files = pbar.wrap_iter(files.iter());
@@ -40,7 +41,7 @@ fn main() {
     impl<T> Analysis for T where T: ProcessEvent + Visualize {}
 
     let mut analyses: Vec<Box<Analysis>> = vec![
-        Box::new(analyses::PtMultiplicity::new()),
+        // Box::new(analyses::PtMultiplicity::new()),
         Box::new(analyses::SingleParticleDistributions::new()),
         Box::new(analyses::ParticlePairDistributions::new()),
         Box::new(analyses::EventDistributions::new()),

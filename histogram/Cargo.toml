@@ -5,4 +5,4 @@ authors = ["cbourjau <christian.bourjau@cern.ch>"]
 
 [dependencies]
 ndarray = {path = "../../rust-ndarray"}
-itertools = "0.6.1"
+itertools = "^0.6.1"
