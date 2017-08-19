@@ -12,8 +12,6 @@ pub struct Dataset {
 
 impl Dataset {
     pub fn new(path: &str) -> Dataset {
-        // let eos_url = "root://eospublic.cern.ch/";
-        // let eos_path = "/eos/opendata/alice/2010/LHC10h/000139437/ESD/0153/AliESDs.root";
         Dataset {path: path.to_owned(),
                  rx: None,}
     }
