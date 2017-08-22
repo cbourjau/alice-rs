@@ -3,7 +3,7 @@ ALICE-rs
 
 This repository demonstrates how the public data released by the the CERN based ALICE collaboration can be analysed with the Rust programming language and minimal external dependencies.
 
-*** This is not an official ALICE or CERN project ***
+**This is not an official ALICE or CERN project**
 
 This collection of crates provides and demonstrates:
 
