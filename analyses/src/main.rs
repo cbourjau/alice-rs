@@ -6,9 +6,9 @@ extern crate gnuplot;
 extern crate glob;
 extern crate rustfft;
 extern crate num_traits as libnum;
-
 extern crate rand;
 extern crate indicatif;
+extern crate alice_open_data;
 
 use rand::{thread_rng, Rng};
 use glob::glob;
@@ -26,7 +26,9 @@ use histogram::*;
 use analyses::{ProcessEvent, Visualize};
 
 fn main() {
-    let files: Vec<_> = glob("/home/christian/lhc_data/alice/data/2010/LHC10h/000139510/ESDs/pass2/*/AliESDs.root")
+    let mut search_dir = alice_open_data::data_dir();
+    search_dir.push("alice/data/2010/LHC10h/**/AliESDs.root");
+    let files: Vec<_> = glob(search_dir.to_str().unwrap())
         .expect("Can't resolve glob")
         .map(|path| path.unwrap())
         .take(50)
@@ -34,7 +36,7 @@ fn main() {
     let pbar = ProgressBar::new(files.len() as u64);
     let files = pbar.wrap_iter(files.iter());
     let datasets = files
-        .map(|path| Dataset::new(path.to_str().unwrap()))
+        .map(|path| Dataset::new(&path))
         .flat_map(|ev| ev);
 
     trait Analysis: ProcessEvent + Visualize {}

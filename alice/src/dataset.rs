@@ -1,17 +1,18 @@
 use std::thread;
 use std::sync::mpsc;
+use std::path::PathBuf;
 
 use event::Event;
 use esd::ESD;
 
 
 pub struct Dataset {
-    path: String,
+    path: PathBuf,
     rx: Option<mpsc::Receiver<Event>>,
 }
 
 impl Dataset {
-    pub fn new(path: &str) -> Dataset {
+    pub fn new(path: &PathBuf) -> Dataset {
         Dataset {path: path.to_owned(),
                  rx: None,}
     }
@@ -57,15 +58,16 @@ impl Iterator for Dataset {
 mod tests {
     use super::*;
     use std::{thread, time};
+    extern crate alice_open_data;
 
     #[test]
     fn init_and_drop_dataset() {
-        Dataset::new("/home/christian/Downloads/AliESDs.root");
+        Dataset::new(&alice_open_data::test_file());
     }
 
     #[test]
     fn iterate_items() {
-        let ds = Dataset::new("/home/christian/Downloads/AliESDs.root");
+        let ds = Dataset::new(&alice_open_data::test_file());
         assert!(ds.count() > 0);
     }
 
@@ -75,7 +77,7 @@ mod tests {
     /// get some sort of log message and not a panic
     fn quick_iterate_and_drop() {
         {
-            let mut ds = Dataset::new("/home/christian/lhc_data/alice/data/2010/LHC10h/000139510/ESDs/pass2/10000139510001.10/AliESDs.root");
+            let mut ds = Dataset::new(&alice_open_data::test_file());
             // Start of the IO thread by getting the first event
             let _ev = ds.next();
             // Drop the dataset here

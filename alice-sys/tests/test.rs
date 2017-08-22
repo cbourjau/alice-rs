@@ -1,10 +1,13 @@
 extern crate alice_sys;
+extern crate alice_open_data;
+
 use std::ffi::{CString, CStr};
 use alice_sys::*;
 
 #[test]
 fn init_esd_object() {
-    let local_path = CString::new("/home/christian/lhc_data/alice/data/2010/LHC10h/000139510/ESDs/pass2/10000139510001.170/AliESDs.root").unwrap();
+    let local_path = alice_open_data::test_file();
+    let local_path = CString::new(local_path.to_str().unwrap()).unwrap();
     let esd = unsafe { esd_new(local_path.as_ptr()) };
     let mut sum = 0;
     for i in 0..10 {

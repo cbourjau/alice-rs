@@ -14,3 +14,4 @@ rand = "^0.3.16"
 indicatif = "^0.6.0"
 rustfft = "^2.0.0"
 num-traits = "^0.1.40"
+alice-open-data = {path = "../alice-open-data"}

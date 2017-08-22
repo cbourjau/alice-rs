@@ -1,5 +1,6 @@
 use std::fmt;
 use std::ffi::CString;
+use std::path::PathBuf;
 
 use alice_sys as ffi;
 
@@ -11,7 +12,8 @@ unsafe impl Send for ESD {}
 unsafe impl Sync for ESD {}
 
 impl ESD {
-    pub fn new(path: &str) -> ESD {
+    pub fn new(path: &PathBuf) -> ESD {
+        let path = path.to_str().expect("Cannot convert path to string");
         let local_path = CString::new(path).unwrap();
         let raw = unsafe {ffi::esd_new(local_path.as_ptr())};
         ESD {raw: raw}
