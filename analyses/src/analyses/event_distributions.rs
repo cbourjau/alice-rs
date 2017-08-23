@@ -22,8 +22,9 @@ impl EventDistributions {
             histogram: HistogramBuilder::<[usize; 2]>::new()
                 .add_equal_width_axis(20, 0., 6e3)
                 .add_equal_width_axis(8, -8., 8.)
-                .build().expect("Error building histogram"),
-            multiplicities: Vec::<i32>::new()
+                .build()
+                .expect("Error building histogram"),
+            multiplicities: Vec::<i32>::new(),
         }
     }
 }
@@ -70,6 +71,9 @@ impl Visualize for EventDistributions {
         let nevents = self.multiplicities.len();
         let mut mults = self.multiplicities.as_slice().to_owned();
         mults.sort();
-        println!("{:?}", (1..10).map(|i| mults[nevents/10*i - 1]).collect::<Vec<_>>());
+        println!("{:?}",
+                 (1..10)
+                     .map(|i| mults[nevents / 10 * i - 1])
+                     .collect::<Vec<_>>());
     }
 }

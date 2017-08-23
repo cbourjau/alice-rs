@@ -35,7 +35,12 @@ impl ParticlePairDistributions {
         let (nzvtx, zmin, zmax) = (8, -8., 8.);
         let pt_edges = [0.5, 1.5, 2.0, 2.5, 3.0, 4.0];
         let multiplicity_edges = [// 7., 24., 63., 140.,
-            276., 510., 845., 1325., 2083., INFINITY];
+                                  276.,
+                                  510.,
+                                  845.,
+                                  1325.,
+                                  2083.,
+                                  INFINITY];
         ParticlePairDistributions {
             singles: HistogramBuilder::<[usize; 5]>::new()
                 .add_equal_width_axis(neta, -0.8, 0.8)
@@ -43,7 +48,8 @@ impl ParticlePairDistributions {
                 .add_variable_width_axis(&pt_edges)
                 .add_equal_width_axis(nzvtx, zmin, zmax)
                 .add_variable_width_axis(&multiplicity_edges)
-                .build().expect("Error building histogram"),
+                .build()
+                .expect("Error building histogram"),
             pairs: HistogramBuilder::<[usize; 8]>::new()
                 .add_equal_width_axis(neta, -0.8, 0.8)
                 .add_equal_width_axis(neta, -0.8, 0.8)
@@ -53,11 +59,13 @@ impl ParticlePairDistributions {
                 .add_variable_width_axis(&pt_edges)
                 .add_equal_width_axis(nzvtx, zmin, zmax)
                 .add_variable_width_axis(&multiplicity_edges)
-                .build().expect("Error building histogram"),
+                .build()
+                .expect("Error building histogram"),
             event_counter: HistogramBuilder::<[usize; 2]>::new()
                 .add_equal_width_axis(nzvtx, zmin, zmax)
                 .add_variable_width_axis(&multiplicity_edges)
-                .build().expect("Error building histogram"),
+                .build()
+                .expect("Error building histogram"),
         }
     }
 
@@ -120,41 +128,30 @@ impl ProcessEvent for ParticlePairDistributions {
 
             // Sort tracks by pt
             let mut sel_tracks = sel_tracks.to_owned();
-            sel_tracks
-                .sort_by(|tr1, tr2| {
-                    tr1.pt()
-                        .partial_cmp(&tr2.pt())
-                        .expect("Could not sort")
-                });
-            let trk_indices: Vec<Vec<usize>> =
-                sel_tracks
+            sel_tracks.sort_by(|tr1, tr2| tr1.pt().partial_cmp(&tr2.pt()).unwrap());
+            let trk_indices: Vec<Vec<usize>> = sel_tracks
                 .iter()
-                .filter_map(|tr|
-                            [self.pairs.find_bin_index_axis(0, tr.eta()),
-                             self.pairs.find_bin_index_axis(2, tr.phi()),
-                             self.pairs.find_bin_index_axis(4, tr.pt()),
-                             self.pairs.find_bin_index_axis(6, pv.z),
-                             self.pairs.find_bin_index_axis(7, multiplicity),]
-                            .into_iter()
-                            .cloned()
-                            .collect::<Option<Vec<usize>>>()
-                ).collect();
+                .filter_map(|tr| {
+                    [self.pairs.find_bin_index_axis(0, tr.eta()),
+                     self.pairs.find_bin_index_axis(2, tr.phi()),
+                     self.pairs.find_bin_index_axis(4, tr.pt()),
+                     self.pairs.find_bin_index_axis(6, pv.z),
+                     self.pairs.find_bin_index_axis(7, multiplicity)]
+                        .into_iter()
+                        .cloned()
+                        .collect::<Option<Vec<usize>>>()
+                })
+                .collect();
             let trk_indices = trk_indices.as_slice();
-            let pair_idxs = trk_indices
-                .iter()
-                .enumerate()
-                .flat_map(move |(i1, tr1)| {
-                    trk_indices
-                        .iter()
-                        .enumerate()
-                        .take_while(move |&(i2, _)| i1 > i2)
-                        .map(move |(_, tr2)| {
-                            [tr1[0], tr2[0],
-                             tr1[1], tr2[1],
-                             tr1[2], tr2[2],
-                             tr1[3], tr1[4]]
-                        })
-                });
+            let pair_idxs = trk_indices.iter().enumerate().flat_map(move |(i1, tr1)| {
+                trk_indices
+                    .iter()
+                    .enumerate()
+                    .take_while(move |&(i2, _)| i1 > i2)
+                    .map(move |(_, tr2)| {
+                             [tr1[0], tr2[0], tr1[1], tr2[1], tr1[2], tr2[2], tr1[3], tr1[4]]
+                         })
+            });
             for idxs in pair_idxs {
                 self.pairs.fill_by_index::<[usize; 8]>(idxs);
             }
@@ -173,7 +170,7 @@ impl Visualize for ParticlePairDistributions {
         let phi_phi = get_phi_phi(&corr2);
         // transform coordinates (rotate 45 degrees)
         let phi_delta_phi_tilde = roll_diagonal(&phi_phi);
-        
+
         let dphi = nanmean(&phi_delta_phi_tilde, Axis(0));
         let dphi_uncert = self.get_uncert_dphi();
         {
@@ -181,7 +178,8 @@ impl Visualize for ParticlePairDistributions {
                 .set_pos_grid(2, 2, 0)
                 .set_title(r"Projection onto Δφ", &[])
                 .set_x_label(r"Δφ", &[]);
-            for (idx, (dphi, dphi_uncert)) in dphi
+            for (idx, (dphi, dphi_uncert)) in
+                dphi
                 .subview(Axis(1), 0)  // pt1
                 .subview(Axis(1), 0)  // pt2
                 .axis_iter(Axis(1))   // mult
@@ -189,8 +187,7 @@ impl Visualize for ParticlePairDistributions {
                      .subview(Axis(1), 0)  // pt1
                      .subview(Axis(1), 0)  // pt2
                      .axis_iter(Axis(1)))  // mult
-                .enumerate()
-            {
+                .enumerate() {
                 let color = Color(COLORS[idx]);
                 dphi_plot.y_error_lines(&self.pairs.centers(2),
                                         // average over phi_tilde
@@ -202,35 +199,35 @@ impl Visualize for ParticlePairDistributions {
 
         let (nphi, npt, nmult) = (dphi.shape()[0], dphi.shape()[1], dphi.shape()[3]);
 
-        let vndelta =
-            nd::Array1::<Complex<f64>>::from_iter(
-                dphi.lanes(nd::Axis(0))
-                    .into_iter()
-                    .flat_map(|lane| fourier_decompose(&lane)))
-            .into_shape([npt, npt, nmult, nphi])
+        let vndelta = nd::Array1::<Complex<f64>>::from_iter(
+            dphi.lanes(nd::Axis(0)).into_iter().flat_map(|lane| {
+                fourier_decompose(&lane)
+            }),
+        ).into_shape([npt, npt, nmult, nphi])
             .expect(&format!("Could not reshape {} into ({}, {}, {}, {})",
-                             dphi.len(), npt, npt, nmult, nphi));
+                             dphi.len(),
+                             npt,
+                             npt,
+                             nmult,
+                             nphi));
         let vndelta = vndelta.mapv(|v| v.to_polar().0);
-        let (v0, vns) = vndelta
-            .view()
-            .split_at(Axis(3), 1);
+        let (v0, vns) = vndelta.view().split_at(Axis(3), 1);
         let vndelta = &vns / &v0;
 
         {
-            let mut vn_plot = fg.axes2d()
-                .set_pos_grid(2, 2, 1)
-                .set_title("Fourier modes", &[])
-                .set_x_label("Mode n", &[])
-                .set_y_label("V_{n}", &[])
-                .set_grid_options(true,
-                                  &[LineStyle(gpl::DotDotDash), Color("black")]);
+            let mut vn_plot =
+                fg.axes2d()
+                    .set_pos_grid(2, 2, 1)
+                    .set_title("Fourier modes", &[])
+                    .set_x_label("Mode n", &[])
+                    .set_y_label("V_{n}", &[])
+                    .set_grid_options(true, &[LineStyle(gpl::DotDotDash), Color("black")]);
             for (idx, lane) in vndelta
                 .subview(Axis(0), 0)   // pt1
                 .subview(Axis(0), 0)   // pt2
                 .lanes(nd::Axis(1))   // n
                 .into_iter()
-                .enumerate()
-            {
+                .enumerate() {
                 let color = gpl::PlotOption::Color(COLORS[idx]);
                 vn_plot.points((1..5),
                                &lane.slice(s![..5]),
@@ -238,13 +235,13 @@ impl Visualize for ParticlePairDistributions {
             }
         }
         {
-            let mut vn_plot = fg.axes2d()
-                .set_pos_grid(2, 2, 2)
-                .set_title("pt n=2", &[])
-                .set_x_label("pT", &[])
-                .set_y_label("V_{n}", &[])
-                .set_grid_options(true,
-                                  &[LineStyle(gpl::DotDotDash), Color("black")]);
+            let mut vn_plot =
+                fg.axes2d()
+                    .set_pos_grid(2, 2, 2)
+                    .set_title("pt n=2", &[])
+                    .set_x_label("pT", &[])
+                    .set_y_label("V_{n}", &[])
+                    .set_grid_options(true, &[LineStyle(gpl::DotDotDash), Color("black")]);
             for (idx, lane) in vndelta
                 // Select n=2 (bin 1)
                 .subview(Axis(3), 1)   // n
@@ -252,8 +249,7 @@ impl Visualize for ParticlePairDistributions {
                 .subview(Axis(0), 4)   // pt1
                 .lanes(Axis(0))   // pt2
                 .into_iter()
-                .enumerate()
-            {
+                .enumerate() {
                 let color = gpl::PlotOption::Color(COLORS[idx]);
                 vn_plot.points(self.pairs.centers(4),
                                &lane,
@@ -293,21 +289,12 @@ fn roll_by_one<'a, D>(a: &mut nd::ArrayViewMut<'a, f64, D>)
 /// Average the given array of shape (eta, eta, phi, phi, pt, pt, z, mult) to
 /// (phi, phi, pt, pt, mult)
 fn get_phi_phi(a: &nd::ArrayD<f64>) -> nd::ArrayD<f64> {
-    nanmean(
-        &nanmean(
-            &nanmean(a, Axis(6))
-                , Axis(0))
-            , Axis(0)
-    )
+    nanmean(&nanmean(&nanmean(a, Axis(6)), Axis(0)), Axis(0))
 }
 
 /// Fourier decompose along the first axis
 fn fourier_decompose(a: &nd::ArrayView1<f64>) -> Vec<Complex<f64>> {
-    let mut input: Vec<Complex<f64>> = a
-        .to_vec()
-        .iter()
-        .map(|v| Complex::new(*v, 0.0))
-        .collect();
+    let mut input: Vec<Complex<f64>> = a.to_vec().iter().map(|v| Complex::new(*v, 0.0)).collect();
     let mut output: Vec<Complex<f64>> = vec![Zero::zero(); a.len()];
     let mut planner = FFTplanner::new(false);
     let fft = planner.plan_fft(a.len());
@@ -332,9 +319,9 @@ mod tests {
 
     #[test]
     fn test_roll_by_one() {
-        let mut a = nd::arr1(&[1.,2.,3.]);
+        let mut a = nd::arr1(&[1., 2., 3.]);
         roll_by_one(&mut a.view_mut());
-        assert_eq!(a, nd::arr1(&[2.,3.,1.]))
+        assert_eq!(a, nd::arr1(&[2., 3., 1.]))
     }
 
     #[test]
@@ -362,9 +349,9 @@ mod tests {
         }
         let a = a.into_shape((3, 3, 1)).unwrap();
         let rolled = roll_diagonal(&a);
-        let res = nd::arr2(&[[0., 1., 2.],
-                              [4., 5., 3.],
-                              [8., 6., 7.]]).into_shape((3, 3, 1)).unwrap();
+        let res = nd::arr2(&[[0., 1., 2.], [4., 5., 3.], [8., 6., 7.]])
+            .into_shape((3, 3, 1))
+            .unwrap();
         assert_eq!(rolled, res);
     }
 }

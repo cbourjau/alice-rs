@@ -9,7 +9,7 @@ use alice::track::Track;
 use super::{ProcessEvent, Visualize};
 
 pub struct SingleParticleDistributions {
-    pub histogram: Histogram<[usize; 3]>
+    pub histogram: Histogram<[usize; 3]>,
 }
 
 impl SingleParticleDistributions {
@@ -23,7 +23,8 @@ impl SingleParticleDistributions {
                 .add_equal_width_axis(neta, -0.8, 0.8)
                 .add_equal_width_axis(nphi, 0., 2. * PI)
                 .add_equal_width_axis(nzvtx, zmin, zmax)
-                .build().expect("Error building histogram"),
+                .build()
+                .expect("Error building histogram"),
         }
     }
 }

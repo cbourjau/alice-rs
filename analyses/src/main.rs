@@ -35,9 +35,7 @@ fn main() {
         .collect();
     let pbar = ProgressBar::new(files.len() as u64);
     let files = pbar.wrap_iter(files.iter());
-    let datasets = files
-        .map(|path| Dataset::new(&path))
-        .flat_map(|ev| ev);
+    let datasets = files.map(|path| Dataset::new(path)).flat_map(|ev| ev);
 
     trait Analysis: ProcessEvent + Visualize {}
     impl<T> Analysis for T where T: ProcessEvent + Visualize {}
@@ -50,14 +48,18 @@ fn main() {
         ];
 
     let mut hist_ntracks_v0 = HistogramBuilder::<[usize; 2]>::new()
-                .add_equal_width_axis(10, 0., 2e3)
-                .add_equal_width_axis(10, 0., 6e2)
-                .build().expect("Error building histogram");
+        .add_equal_width_axis(10, 0., 2e3)
+        .add_equal_width_axis(10, 0., 6e2)
+        .build()
+        .expect("Error building histogram");
 
     let sel_events = datasets
-        .filter(|ev| {ev.primary_vertex.as_ref()
-                      .map(|pv| pv.z.abs() < 8.)
-                      .unwrap_or(false)})
+        .filter(|ev| {
+                    ev.primary_vertex
+                        .as_ref()
+                        .map(|pv| pv.z.abs() < 8.)
+                        .unwrap_or(false)
+                })
         .filter(|ev| ev.multiplicity > 1)
         .filter(|ev| ev.trigger_mask.contains(trigger_mask::MINIMUM_BIAS));
 
@@ -66,7 +68,8 @@ fn main() {
         let mut filtered_tracks: Vec<&Track> = {
             let pv = ev.primary_vertex.as_ref().unwrap();
             // see AliESDtrackCuts.cxx:1366
-            ev.tracks.iter()
+            ev.tracks
+                .iter()
                 .filter(|tr| tr.flags.contains(track::ITS_REFIT))
                 .filter(|tr| tr.dca_to_point_xy(pv.x, pv.y) < 2.4)
                 .filter(|tr| tr.dca_to_point_z(pv.z) < 3.2)

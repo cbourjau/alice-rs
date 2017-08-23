@@ -8,10 +8,9 @@ pub const COLORS: [&str; 9] = ["#4D4D4D","#5DA5DA","#FAA43A","#60BD68",
 
 pub fn nanmean<A, D, S>(a: &nd::ArrayBase<S, D>, axis: Axis) -> nd::Array<A, D::Smaller>
     where A: nd::LinalgScalar + libnum::Float,
-          S: nd::Data<Elem=A> + nd::DataMut + nd::DataClone,
+          S: nd::Data<Elem = A> + nd::DataMut + nd::DataClone,
           D: nd::RemoveAxis,
-          <D as nd::Dimension>::Smaller: nd::RemoveAxis,
-
+          <D as nd::Dimension>::Smaller: nd::RemoveAxis
 {
     // Create a mask of the same shape as `a` and set it all to zero
     let mut mask = a.clone().mapv(|_| A::zero());
@@ -19,7 +18,8 @@ pub fn nanmean<A, D, S>(a: &nd::ArrayBase<S, D>, axis: Axis) -> nd::Array<A, D::
     for (v, m) in a_fixed.iter_mut().zip(mask.iter_mut()) {
         if !v.is_nan() {
             *m = A::one();
-        } else { // Set to 0 if nan
+        } else {
+            // Set to 0 if nan
             *v = A::zero();
         }
     }
@@ -28,8 +28,7 @@ pub fn nanmean<A, D, S>(a: &nd::ArrayBase<S, D>, axis: Axis) -> nd::Array<A, D::
 }
 
 
-pub fn keep_axes<A, D, NewDim>(a: &ArrayView<A, D>, keep: NewDim)
-                               -> Array<A, nd::IxDyn>
+pub fn keep_axes<A, D, NewDim>(a: &ArrayView<A, D>, keep: NewDim) -> Array<A, nd::IxDyn>
     where A: 'static + Clone + libnum::Float,
           NewDim: IntoDimension,
           D: Dimension
@@ -41,8 +40,7 @@ pub fn keep_axes<A, D, NewDim>(a: &ArrayView<A, D>, keep: NewDim)
         roll_axis(&mut a, Axis(i), Axis(*keep_me));
     }
     // Find number of elements to remove
-    let n_removed = a
-        .shape()
+    let n_removed = a.shape()
         .iter()
         .skip(keep.len())
         .fold(1, |acc, &val| val * acc);
@@ -54,15 +52,14 @@ pub fn keep_axes<A, D, NewDim>(a: &ArrayView<A, D>, keep: NewDim)
         .collect::<Vec<usize>>();
     tmp_shape.push(n_removed);
     // reshape a such that all the dimensions to be merged are on the last axis
-    let a = a.into_shape(tmp_shape.as_slice()).expect("Invalid reshaping");
-    let ret = nanmean(&a, nd::Axis(keep.len()));
-    
-    ret
+    let a = a.into_shape(tmp_shape.as_slice())
+        .expect("Invalid reshaping");
+    nanmean(&a, nd::Axis(keep.len()));
 }
 
 pub fn roll_axis<A, S, D>(mut a: &mut ArrayBase<S, D>, to: Axis, from: Axis)
-    where S: Data<Elem=A>,
-          D: Dimension,
+    where S: Data<Elem = A>,
+          D: Dimension
 {
     let i = to.index();
     let mut j = from.index();
@@ -107,9 +104,7 @@ mod tests {
         let a = nd::arr2(&[[5.0, 0.0]]);
         assert_eq!(keep_axes(&a.view(), [0]).shape(), &[1]);
         // shape [1, 3, 2]
-        let a = nd::arr3(&[[[5.0, 0.0],
-                            [5.0, 0.0],
-                            [5.0, 0.0]]]);
+        let a = nd::arr3(&[[[5.0, 0.0], [5.0, 0.0], [5.0, 0.0]]]);
         assert_eq!(keep_axes(&a.view(), [0, 2]).shape(), &[1, 2]);
         assert_eq!(keep_axes(&a.view(), [1, 2]).shape(), &[3, 2]);
     }
