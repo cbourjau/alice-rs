@@ -54,7 +54,7 @@ pub fn keep_axes<A, D, NewDim>(a: &ArrayView<A, D>, keep: NewDim) -> Array<A, nd
     // reshape a such that all the dimensions to be merged are on the last axis
     let a = a.into_shape(tmp_shape.as_slice())
         .expect("Invalid reshaping");
-    nanmean(&a, nd::Axis(keep.len()));
+    nanmean(&a, nd::Axis(keep.len()))
 }
 
 pub fn roll_axis<A, S, D>(mut a: &mut ArrayBase<S, D>, to: Axis, from: Axis)
