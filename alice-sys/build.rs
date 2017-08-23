@@ -9,7 +9,7 @@ fn main() {
     let root_inc = format!("{}/include", root_base);
     let root_lib = format!("{}/lib", root_base);
 
-    let mut cfg = gcc::Config::new();
+    let mut cfg = gcc::Build::new();
     cfg
         .cpp(true) // Switch to C++ library compilation.
         .flag("-std=c++11")
