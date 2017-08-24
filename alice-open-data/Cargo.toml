@@ -14,7 +14,6 @@ clap = "^2"
 [lib]
 name = "alice_open_data"
 path = "src/lib.rs"
-version = "0.1.0"
 
 [[bin]]
 name = "alice-downloader"
