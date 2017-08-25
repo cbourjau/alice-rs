@@ -7,11 +7,11 @@ This repository demonstrates how the public data released by the the CERN based 
 This collection of crates provides and demonstrates:
 
 * A library/binary for downloading a desired amount of the publicly released data. See `alice-open-data`.
-* Reading of so-called Event-summary-data (ESD) from [ROOT](https://root.cern.ch/)'s binary file format
+* Reading of so-called Event-summary-data (ESD) from [ROOT](https://root.cern.ch/)'s binary file format.
   This is achieved through automatically generated c++ code from ROOT (MakeClass) as well as from the Rust side (bindgen). See `alice-sys`.
 * A safe wrapper around a limited subset of the automatically generated bindings.
   These bindings enable a convinient asynchronous IO and re-organize the data with a rustic interface. Alternative backends like databases would be integrated at this this level. See `alice`
-* High performace n-dimensional histograms for streaming data
+* High performace n-dimensional histograms for streaming data.
   Maintains a binned count of the data which can be successivly filled. See `histogram`
 * Example analysis reproducing published results using all of the above crates. See `analyses`
 
@@ -41,26 +41,26 @@ This was the point where I realized that this project might be of interest to a 
 
 Perhaps not surprisingly, removing so much code and indirection from the analysis improved the performance significantly. 
 
-### Performance
+## Performance
 
 It is difficult to write a true apples to apples bench mark, though.
 Running any analysis through the ALICE framework implicitly does many more things which you might or might not want.
-With this caveat aside, it is safe to say that ALICE-rs is faster than the standard AliRoot/AliPhysics stack by at least a factor of 6 or more if you just want some straight forward results.
+With this caveat aside, it is safe to say that ALICE-rs is faster than the standard AliRoot/AliPhysics stack by at least a factor of six if you just want some straight forward results.
 Three main points are mainly responsible for this.
 
 *(Given that I am very new to Rust, I am sure that this design can still be improved and I would be very greatful for any such tips and recommendations!)*
 
-#### Reading only the data needed
-AliRoot always reads in all the data of a given collision instead of selecting only the "columns" of interest. This is probably due to a monolithic design choice. The data is exposed to the user in one huge "event" object which encompasses all possible data associated with the current event. Its all or nothing.
-This project reads in only the data directly needed for the analysis. The data is split up in small individual structs which are then composes into very minimal "event" struct.
+### Reading only the data needed
+AliRoot always reads in all the data of a given collision (aka "event") instead of selecting only the "columns" of interest. This is probably due to a monolithic design choice. The data is exposed to the user in one huge "event" object which encompasses all possible data associated with the current event. Its all or nothing.
+This project reads in only the data directly needed for the analysis. The data is split up in small individual structs which are then composes into a very minimal "event" struct.
 Possibly missing data can easily be handled with Rust's `Option` enum.
-Clearly some similar design could have been chosen in (modern) c++ as well.
+Clearly, some similar design could have been chosen in (modern) c++ as well.
 However, it is still a testament to the benefits of having data in simple structs instead of mangling it up  with functionality as ROOT likes to do.
 
 
-#### Having a parallel io thread with a FIFO buffer
-In the standard framework, each collision is read in from disk and processed sequentially. ALICE-rs does these two things in separate threads using the MPSC model from Rust's standard library which even comes with a FIFO buffer for free. This is something which I would have dreaded to do in c++ but turned out to be a piece of cake in Rust.
+### Having a parallel io thread with a FIFO buffer
+In the standard framework, each collision is read in from disk and processed sequentially. ALICE-rs does these two things in separate threads using the MPSC model from Rust's standard library which even comes with a FIFO buffer for free. This is something which I would have dreaded to do in c++. In Rust it turned out to be a piece of cake in Rust.
 
 
-#### A high performance n-dimensional histogram
-This project also implements a n-dimensional histogram, which appears to be significantly faster than ROOT's alternative. This becomes especially important if the histogram has to be filled in nested loops (which is the case in the example analysis).
+### A high performance n-dimensional histogram
+This project also implements an n-dimensional histogram, which appears to be significantly faster than ROOT's alternative. This becomes especially important if a histogram has to be filled in nested loops (which is the case in the example analysis).
