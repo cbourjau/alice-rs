@@ -4,17 +4,7 @@ version = "0.1.0"
 authors = ["cbourjau <christian.bourjau@cern.ch>"]
 
 [dependencies]
-serde = "1.0"
-serde_derive = "1.0"
-serde_json = "1.0"
-reqwest = "0.7.3"
-indicatif = "^0.6.0"
-clap = "^2"
-
-[lib]
-name = "alice_open_data"
-path = "src/lib.rs"
-
-[[bin]]
-name = "alice-downloader"
-path = "src/bin.rs"
+serde = "^1.0"
+serde_derive = "^1.0"
+serde_json = "^1.0"
+reqwest = "^0.7.3"

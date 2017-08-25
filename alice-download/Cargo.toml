@@ -1,0 +1,9 @@
+[package]
+name = "alice-download"
+version = "0.1.0"
+authors = ["cbourjau <christian.bourjau@cern.ch>"]
+
+[dependencies]
+indicatif = "^0.6.0"
+clap = "^2"
+alice-open-data = {path = "../alice-open-data/"}
