@@ -26,7 +26,7 @@ use histogram::*;
 use analyses::{ProcessEvent, Visualize};
 
 fn main() {
-    let mut search_dir = alice_open_data::data_dir();
+    let mut search_dir = alice_open_data::data_dir().unwrap();
     search_dir.push("alice/data/2010/LHC10h/**/AliESDs.root");
     let files: Vec<_> = glob(search_dir.to_str().unwrap())
         .expect("Can't resolve glob")

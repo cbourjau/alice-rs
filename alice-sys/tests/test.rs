@@ -6,7 +6,7 @@ use alice_sys::*;
 
 #[test]
 fn init_esd_object() {
-    let local_path = alice_open_data::test_file();
+    let local_path = alice_open_data::test_file().unwrap();
     let local_path = CString::new(local_path.to_str().unwrap()).unwrap();
     let esd = unsafe { esd_new(local_path.as_ptr()) };
     let mut sum = 0;
