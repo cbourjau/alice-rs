@@ -35,7 +35,7 @@ ALICE, as well as some other CERN based experiments have released a small subset
 
 I started this project with the intend of learning the Rust programming language. It did not take long until I was plainly fascinated by its ease of use, all the little gems like the debug formatting of bitflags, and the never the less uncompromising speed. 
 
-In the mean time I was able to strip of more and more dependencies to the ALICE software stack (aka. AliRoot and AliPhysics). Finally I reached the point where I was able to drop all of the ~5M lines of code and solely depend on the ROOT framework to read the binary data from disk.
+In the mean time I was able to strip of more and more dependencies to the ALICE software stack (aka. [AliRoot](https://github.com/alisw/AliRoot) and [AliPhysics](https://github.com/alisw/AliPhysics)). Finally I reached the point where I was able to drop all of the ~5M lines of code and solely depend on the ROOT framework to read the binary data from disk.
 
 This was the point where I realized that this project might be of interest to a wider group of people. Currently, the only way to analyze the published data is through the huge and largely undocumented ALICE framework, which I consider an almost insurmountable entry barrier. Even if somebody does not want to learn Rust, this repository might still provide valuable clues on how to analyze ALICE's data with minimal dependencies.
 
