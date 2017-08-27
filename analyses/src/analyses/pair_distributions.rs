@@ -1,10 +1,6 @@
 use std::f64::consts::PI;
 use std::f64::INFINITY;
 
-use rustfft::FFTplanner;
-use rustfft::num_complex::Complex;
-use rustfft::num_traits::Zero;
-
 use ndarray as nd;
 use gnuplot as gpl;
 use gnuplot::AxesCommon;
@@ -18,7 +14,7 @@ use alice::track::Track;
 use super::utils::COLORS;
 
 use super::{ProcessEvent, Visualize};
-use super::nanmean;
+use super::ArrayBaseExt;
 
 
 pub struct ParticlePairDistributions {
@@ -171,7 +167,7 @@ impl Visualize for ParticlePairDistributions {
         // transform coordinates (rotate 45 degrees)
         let phi_delta_phi_tilde = roll_diagonal(&phi_phi);
 
-        let dphi = nanmean(&phi_delta_phi_tilde, Axis(0));
+        let dphi = phi_delta_phi_tilde.nanmean(Axis(0));
         let dphi_uncert = self.get_uncert_dphi();
         {
             let mut dphi_plot = fg.axes2d()
@@ -196,22 +192,10 @@ impl Visualize for ParticlePairDistributions {
                                         &[color]);
             }
         }
-
-        let (nphi, npt, nmult) = (dphi.shape()[0], dphi.shape()[1], dphi.shape()[3]);
-
-        let vndelta = nd::Array1::<Complex<f64>>::from_iter(
-            dphi.lanes(nd::Axis(0)).into_iter().flat_map(|lane| {
-                fourier_decompose(&lane)
-            }),
-        ).into_shape([npt, npt, nmult, nphi])
-            .expect(&format!("Could not reshape {} into ({}, {}, {}, {})",
-                             dphi.len(),
-                             npt,
-                             npt,
-                             nmult,
-                             nphi));
+        // shape: n, pt, pt, mult
+        let vndelta = dphi.decompose(Axis(0));
         let vndelta = vndelta.mapv(|v| v.to_polar().0);
-        let (v0, vns) = vndelta.view().split_at(Axis(3), 1);
+        let (v0, vns) = vndelta.view().split_at(Axis(0), 1);
         let vndelta = &vns / &v0;
 
         {
@@ -223,9 +207,9 @@ impl Visualize for ParticlePairDistributions {
                     .set_y_label("V_{n}", &[])
                     .set_grid_options(true, &[LineStyle(gpl::DotDotDash), Color("black")]);
             for (idx, lane) in vndelta
-                .subview(Axis(0), 0)   // pt1
-                .subview(Axis(0), 0)   // pt2
-                .lanes(nd::Axis(1))   // n
+                .subview(Axis(1), 0)   // pt1
+                .subview(Axis(1), 0)   // pt2
+                .lanes(nd::Axis(0))   // n
                 .into_iter()
                 .enumerate() {
                 let color = gpl::PlotOption::Color(COLORS[idx]);
@@ -244,8 +228,8 @@ impl Visualize for ParticlePairDistributions {
                     .set_grid_options(true, &[LineStyle(gpl::DotDotDash), Color("black")]);
             for (idx, lane) in vndelta
                 // Select n=2 (bin 1)
-                .subview(Axis(3), 1)   // n
-                .subview(Axis(2), vndelta.shape()[2] - 1)   // mult (last bin)
+                .subview(Axis(3), vndelta.shape()[2] - 1)   // mult (last bin)
+                .subview(Axis(0), 1)   // n
                 .subview(Axis(0), 4)   // pt1
                 .lanes(Axis(0))   // pt2
                 .into_iter()
@@ -289,18 +273,9 @@ fn roll_by_one<'a, D>(a: &mut nd::ArrayViewMut<'a, f64, D>)
 /// Average the given array of shape (eta, eta, phi, phi, pt, pt, z, mult) to
 /// (phi, phi, pt, pt, mult)
 fn get_phi_phi(a: &nd::ArrayD<f64>) -> nd::ArrayD<f64> {
-    nanmean(&nanmean(&nanmean(a, Axis(6)), Axis(0)), Axis(0))
+    a.nanmean(Axis(6)).nanmean(Axis(0)).nanmean(Axis(0))
 }
 
-/// Fourier decompose along the first axis
-fn fourier_decompose(a: &nd::ArrayView1<f64>) -> Vec<Complex<f64>> {
-    let mut input: Vec<Complex<f64>> = a.to_vec().iter().map(|v| Complex::new(*v, 0.0)).collect();
-    let mut output: Vec<Complex<f64>> = vec![Zero::zero(); a.len()];
-    let mut planner = FFTplanner::new(false);
-    let fft = planner.plan_fft(a.len());
-    fft.process(&mut input, &mut output);
-    output
-}
 
 #[cfg(test)]
 mod tests {
