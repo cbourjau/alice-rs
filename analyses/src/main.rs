@@ -15,15 +15,16 @@ use glob::glob;
 use indicatif::ProgressBar;
 
 use alice::dataset::Dataset;
-use alice::track::Track;
-use alice::track;
+use alice::track::{self, Track};
 use alice::trigger_mask;
 
 mod analyses;
 
-use histogram::*;
-
 use analyses::{ProcessEvent, Visualize};
+
+trait Analysis: ProcessEvent + Visualize {}
+impl<T> Analysis for T where T: ProcessEvent + Visualize {}
+
 
 fn main() {
     let mut search_dir = alice_open_data::data_dir().unwrap();
@@ -37,21 +38,12 @@ fn main() {
     let files = pbar.wrap_iter(files.iter());
     let datasets = files.map(|path| Dataset::new(path)).flat_map(|ev| ev);
 
-    trait Analysis: ProcessEvent + Visualize {}
-    impl<T> Analysis for T where T: ProcessEvent + Visualize {}
-
     let mut analyses: Vec<Box<Analysis>> = vec![
         // Box::new(analyses::PtMultiplicity::new()),
         Box::new(analyses::SingleParticleDistributions::new()),
         Box::new(analyses::ParticlePairDistributions::new()),
         Box::new(analyses::EventDistributions::new()),
         ];
-
-    let mut hist_ntracks_v0 = HistogramBuilder::<[usize; 2]>::new()
-        .add_equal_width_axis(10, 0., 2e3)
-        .add_equal_width_axis(10, 0., 6e2)
-        .build()
-        .expect("Error building histogram");
 
     let sel_events = datasets
         .filter(|ev| {
@@ -78,11 +70,9 @@ fn main() {
                 .filter(|tr| tr.pt() > 0.15)
                 .collect()
         };
+        // Shuffle selected tracks to avoid correlations from previous orderings
         rng.shuffle(filtered_tracks.as_mut_slice());
 
-        // Correlation between number of tracks and multiplicity
-        let v0_mult = ev.vzero.multiplicity_v0a() + ev.vzero.multiplicity_v0c();
-        hist_ntracks_v0.fill(&[v0_mult as f64, ev.multiplicity as f64]);
         for analysis in &mut analyses {
             (*analysis).process_event(&ev, filtered_tracks.as_slice());
         }
