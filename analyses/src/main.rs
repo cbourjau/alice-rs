@@ -12,7 +12,7 @@ extern crate alice_open_data;
 
 use rand::{thread_rng, Rng};
 use glob::glob;
-use indicatif::ProgressBar;
+// use indicatif::ProgressBar;
 
 use alice::dataset::Dataset;
 use alice::track::{self, Track};
@@ -34,9 +34,10 @@ fn main() {
         .map(|path| path.unwrap())
         .take(50)
         .collect();
-    let pbar = ProgressBar::new(files.len() as u64);
-    let files = pbar.wrap_iter(files.iter());
-    let datasets = files.map(|path| Dataset::new(path)).flat_map(|ev| ev);
+    // let pbar = ProgressBar::new(files.len() as u64);
+    // let files = pbar.wrap_iter(files.iter());
+    // let datasets = files.map(|path| Dataset::new(path)).flat_map(|ev| ev);
+    let dataset = Dataset::new(files.as_slice());
 
     let mut analyses: Vec<Box<Analysis>> = vec![
         // Box::new(analyses::PtMultiplicity::new()),
@@ -45,7 +46,7 @@ fn main() {
         Box::new(analyses::EventDistributions::new()),
         ];
 
-    let sel_events = datasets
+    let sel_events = dataset
         .filter(|ev| {
                     ev.primary_vertex
                         .as_ref()

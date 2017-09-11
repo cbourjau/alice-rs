@@ -4,6 +4,8 @@ extern crate bitflags;
 extern crate alice_sys;
 #[macro_use]
 extern crate log;
+extern crate futures;
+extern crate rayon;
 
 pub mod dataset;
 pub mod event;

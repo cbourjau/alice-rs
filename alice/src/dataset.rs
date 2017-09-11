@@ -1,37 +1,43 @@
-use std::thread;
-use std::sync::mpsc;
 use std::path::PathBuf;
+use futures::sync::mpsc::{channel, Receiver};
+use futures::{Stream, Sink};
+use rayon;
+
 
 use event::Event;
 use esd::ESD;
 
+use std::sync::{Arc, Mutex};
 
 pub struct Dataset {
-    path: PathBuf,
-    rx: Option<mpsc::Receiver<Event>>,
+    event_stream: Receiver<Event>,
+    // path: PathBuf,
+    // rx: Option<mpsc::Receiver<Event>>,
 }
 
 impl Dataset {
-    pub fn new(path: &PathBuf) -> Dataset {
-        Dataset {path: path.to_owned(),
-                 rx: None,}
+    pub fn new(paths: &[PathBuf]) -> Dataset {
+        Dataset {event_stream: event_stream(2, paths)}
     }
 }
 
-impl Iterator for Dataset {
-    type Item = Event;
-
-    /// Load the next event from the file
-    fn next(&mut self) -> Option<Event> {
-        if self.rx.is_none() {
-            // buffer up to 5 events
-            let (tx, rx) = mpsc::sync_channel(5);
-            self.rx = Some(rx);
-            let mut esd = ESD::new(&self.path);
-            // Start a new thread which does the io for the current file.
-            // Loaded events are sent to the reciever
-            thread::spawn(move || {
+fn event_stream(workers: usize, paths: &[PathBuf]) -> Receiver<Event> {
+    let conf = rayon::Configuration::new().num_threads(workers);
+    let pool = rayon::ThreadPool::new(conf).unwrap();
+    let buf_size = 5;
+    let (tx, rx) = channel::<Event>(buf_size);
+    let esd_factory = Arc::new(Mutex::new(|p: PathBuf| {ESD::new(&p)}));
+    for path in paths {
+        let mut tx = tx.clone().wait();
+        let path = path.clone();
+        let fact = esd_factory.clone();
+        pool.spawn(
+            move || {
                 let mut ievent = -1;
+                let mut esd = {
+                    let fact = fact.lock().unwrap();
+                    fact(path)
+                };
                 loop {
                     ievent += 1;
                     match esd.load_event(ievent) {
@@ -48,9 +54,24 @@ impl Iterator for Dataset {
                         None => break
                     };
                 }
-            });
+            }
+        )
+    }
+    rx
+}
+
+
+
+impl Iterator for Dataset {
+    type Item = Event;
+
+    /// Load the next event from the file
+    fn next(&mut self) -> Option<Event> {
+        if let Some(ev) = self.event_stream.by_ref().wait().next() {
+            return ev.ok();
+        } else {
+            return None;
         }
-        self.rx.as_ref().unwrap().recv().ok()
     }
 }
 
@@ -85,4 +106,21 @@ mod tests {
         // wait 1s for the next event to be read
         thread::sleep(time::Duration::from_secs(1));
     }
+
+    #[test]
+    fn fold_stream() {
+        use futures::future::{ok, Future};
+        let files: Vec<_> = alice_open_data::all_files_10h().unwrap()
+            .into_iter()
+            .take(5)
+            .collect();
+        let ds = event_stream(2, files.as_slice());
+        // let blub = ds.map(|_| 1).collect();
+        // println!("{:?}", blub.wait());
+        let nevents = ds
+            .filter(|ev| ev.primary_vertex.is_some())
+            .fold(0, |acc, _| ok(acc + 1))
+            .wait().unwrap();
+        assert!(nevents > 0);
+    }    
 }
