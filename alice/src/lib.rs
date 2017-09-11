@@ -23,7 +23,7 @@ mod tests {
     
     #[test]
     fn primary_vertices() {
-        let ds = Dataset::new(&alice_open_data::test_file().unwrap());
+        let ds = Dataset::new(&[alice_open_data::test_file().unwrap()]);
         let sum = ds
             .filter(|ev| {ev.primary_vertex.is_some()})
             .fold(0.0, |mut acc, ev| {acc += ev.primary_vertex.unwrap().x.abs();
@@ -33,7 +33,7 @@ mod tests {
 
     #[test]
     fn tracks() {
-        let ds = Dataset::new(&alice_open_data::test_file().unwrap());
+        let ds = Dataset::new(&[alice_open_data::test_file().unwrap()]);
         for ev in ds.filter(|ev| {ev.primary_vertex.is_some()}) {
             let pv = ev.primary_vertex.unwrap();
             let etas =
@@ -49,7 +49,7 @@ mod tests {
 
     #[test]
     fn triggers() {
-        let ds = Dataset::new(&alice_open_data::test_file().unwrap());
+        let ds = Dataset::new(&[alice_open_data::test_file().unwrap()]);
         // Combine many events to be sure that we have some triggers
         let many_trgs = ds
             .map(|ev| ev.trigger_mask)

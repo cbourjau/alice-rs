@@ -62,12 +62,12 @@ mod tests {
 
     #[test]
     fn init_and_drop_dataset() {
-        Dataset::new(&alice_open_data::test_file().unwrap());
+        Dataset::new(&[alice_open_data::test_file().unwrap()]);
     }
 
     #[test]
     fn iterate_items() {
-        let ds = Dataset::new(&alice_open_data::test_file().unwrap());
+        let ds = Dataset::new(&[alice_open_data::test_file().unwrap()]);
         assert!(ds.count() > 0);
     }
 
@@ -77,7 +77,7 @@ mod tests {
     /// get some sort of log message and not a panic
     fn quick_iterate_and_drop() {
         {
-            let mut ds = Dataset::new(&alice_open_data::test_file().unwrap());
+            let mut ds = Dataset::new(&[alice_open_data::test_file().unwrap()]);
             // Start of the IO thread by getting the first event
             let _ev = ds.next();
             // Drop the dataset here

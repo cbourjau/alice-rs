@@ -3,6 +3,7 @@ extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
 extern crate reqwest;
+extern crate glob;
 
 use std::env;
 use std::io::{self, Read};
@@ -80,6 +81,17 @@ pub fn test_file() -> Result<PathBuf, Error> {
     let mut dir = data_dir()?;
     dir.push("alice/data/2010/LHC10h/000139038/ESDs/pass2/10000139038001.10/AliESDs.root");
     Ok(dir)
+}
+
+/// Path to all files of LHC10h
+pub fn all_files_10h() -> Result<Vec<PathBuf>, Error> {
+    let mut search_dir = data_dir()?;
+    search_dir.push("alice/data/2010/LHC10h/**/AliESDs.root");
+    let files: Vec<_> = glob::glob(search_dir.to_str().unwrap())
+        .expect("Can't resolve glob")
+        .map(|path| path.unwrap())
+        .collect();
+    Ok(files)
 }
 
 /// Get the details for a specific dataset
