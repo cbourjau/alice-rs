@@ -62,8 +62,8 @@ impl<A, S, D> ArrayBaseExt<A, S, D> for ArrayBase<S, D>
             true => A::zero(),
             false => val,
         });
-        let sum = fixed_invalid.sum(axis);
-        sum / &mask.sum(axis)
+        let sum = fixed_invalid.sum_axis(axis);
+        sum / &mask.sum_axis(axis)
     }
 }
 

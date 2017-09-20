@@ -94,11 +94,11 @@ impl ParticlePairDistributions {
     /// particle distrubtions have negligable uncertainties.
     fn get_uncert_dphi(&self) -> nd::Array<f64, nd::IxDyn> {
         let p_sum = self.pairs.counts
-            .sum(Axis(6))
-            .sum(Axis(0))
-            .sum(Axis(0));
+            .sum_axis(Axis(6))
+            .sum_axis(Axis(0))
+            .sum_axis(Axis(0));
         let p_sum = roll_diagonal(&p_sum);
-        let p_sum = p_sum.sum(Axis(0));
+        let p_sum = p_sum.sum_axis(Axis(0));
 
         p_sum.mapv(|v| v.powf(0.5) / v) //  / ss_sum
     }

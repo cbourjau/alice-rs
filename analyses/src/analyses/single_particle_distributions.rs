@@ -50,7 +50,7 @@ impl Visualize for SingleParticleDistributions {
             .set_x_label("η", &[])
             .lines(&self.histogram.centers(0),
                    // Sum over phi and z
-                   &self.histogram.counts.sum(Axis(1)).sum(Axis(1)),
+                   &self.histogram.counts.sum_axis(Axis(1)).sum_axis(Axis(1)),
                    &[]);
 
         fg.axes2d()
@@ -59,7 +59,7 @@ impl Visualize for SingleParticleDistributions {
             .set_x_label("phi", &[])
             .lines(&self.histogram.centers(1),
                    // Sum over eta and z
-                   &self.histogram.counts.sum(Axis(2)).sum(Axis(0)),
+                   &self.histogram.counts.sum_axis(Axis(2)).sum_axis(Axis(0)),
                    &[]);
         fg.show();
     }

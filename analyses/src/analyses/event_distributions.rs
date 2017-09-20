@@ -52,7 +52,7 @@ impl Visualize for EventDistributions {
             .set_y_log(Some(10.))
             .boxes_set_width(&self.histogram.centers(0),
                              // sum over z_vtx
-                             &self.histogram.counts.sum(Axis(1)),
+                             &self.histogram.counts.sum_axis(Axis(1)),
                              &self.histogram.widths(0),
                              &[]);
 
@@ -62,7 +62,7 @@ impl Visualize for EventDistributions {
             .set_x_label("zvtx", &[])
             .boxes_set_width(&self.histogram.centers(1),
                              // sum over mult
-                             &self.histogram.counts.sum(Axis(0)),
+                             &self.histogram.counts.sum_axis(Axis(0)),
                              &self.histogram.widths(1),
                              &[]);
         fg.show();
