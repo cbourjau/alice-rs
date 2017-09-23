@@ -39,7 +39,7 @@ bitflags! {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct TrackParameters {
     loc_y: f64,
     loc_z: f64,
@@ -61,7 +61,7 @@ impl TrackParameters {
 }
 
 /// Things related to the quality of TPC tracks (incomplete)
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct QualityTPC {
     d: f64,
     z: f64,
@@ -104,7 +104,7 @@ impl QualityTPC {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Track {
     // So called external track parameters
     parameters: TrackParameters,
