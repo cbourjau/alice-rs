@@ -30,7 +30,7 @@ impl SingleParticleDistributions {
 }
 
 impl ProcessEvent for SingleParticleDistributions {
-    fn process_event(&mut self, sel_event: &Event, sel_tracks: &[&Track]) {
+    fn process_event(&mut self, sel_event: &Event, sel_tracks: &[&Track]) -> Self{
         // Fill only if we have a valid z-vtx position
         sel_event.primary_vertex.as_ref().map(|pv| {
             self.histogram.extend(

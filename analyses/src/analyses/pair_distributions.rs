@@ -9,7 +9,6 @@ use gnuplot::PlotOption::*;
 use histogram::*;
 
 use alice::event::Event;
-use alice::track::Track;
 
 use super::utils::COLORS;
 
@@ -105,12 +104,12 @@ impl ParticlePairDistributions {
 }
 
 impl ProcessEvent for ParticlePairDistributions {
-    fn process_event(&mut self, sel_event: &Event, sel_tracks: &[&Track]) {
+    fn process_event(mut self, event: &Event) -> Self {
         // Fill only if we have a valid z-vtx position
-        let multiplicity = sel_event.multiplicity as f64;
-        if let Some(ref pv) = sel_event.primary_vertex {
+        let multiplicity = event.multiplicity as f64;
+        if let Some(ref pv) = event.primary_vertex {
             self.singles
-                .extend(sel_tracks
+                .extend(event.tracks
                         .iter()
                         .map(|tr| [tr.eta(), tr.phi(), tr.pt(), pv.z, multiplicity]));
             self.event_counter.fill(&[pv.z, multiplicity]);
@@ -123,9 +122,9 @@ impl ProcessEvent for ParticlePairDistributions {
             // Options as well
 
             // Sort tracks by pt
-            let mut sel_tracks = sel_tracks.to_owned();
-            sel_tracks.sort_by(|tr1, tr2| tr1.pt().partial_cmp(&tr2.pt()).unwrap());
-            let trk_indices: Vec<Vec<usize>> = sel_tracks
+            let mut tracks = event.tracks.clone();
+            tracks.sort_by(|tr1, tr2| tr1.pt().partial_cmp(&tr2.pt()).unwrap());
+            let trk_indices: Vec<Vec<usize>> = tracks
                 .iter()
                 .filter_map(|tr| {
                     [self.pairs.find_bin_index_axis(0, tr.eta()),
@@ -152,6 +151,7 @@ impl ProcessEvent for ParticlePairDistributions {
                 self.pairs.fill_by_index::<[usize; 8]>(idxs);
             }
         };
+        self
     }
 }
 

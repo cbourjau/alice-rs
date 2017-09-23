@@ -27,7 +27,7 @@ impl PtMultiplicity {
 
 
 impl ProcessEvent for PtMultiplicity {
-    fn process_event(&mut self, sel_event: &Event, sel_tracks: &[&Track]) {
+    fn process_event(&mut self, sel_event: &Event, sel_tracks: &[&Track]) -> Self{
         let multiplicity = sel_event.multiplicity;
         self.histogram
             .extend(sel_tracks.iter().map(|tr| [tr.pt(), multiplicity as f64]));

@@ -30,7 +30,7 @@ impl EventDistributions {
 }
 
 impl ProcessEvent for EventDistributions {
-    fn process_event(&mut self, sel_event: &Event, _sel_tracks: &[&Track]) {
+    fn process_event(&mut self, sel_event: &Event, _sel_tracks: &[&Track]) -> Self{
         if let Some(ref pv) = sel_event.primary_vertex {
             self.histogram.fill(&[sel_event.multiplicity as f64, pv.z]);
             self.multiplicities.push(sel_event.multiplicity)
