@@ -91,15 +91,33 @@ impl ParticlePairDistributions {
     /// Get the relative uncertainties on the dphi projection as shape
     /// (dphi, pt, pt, multiplicity) This assumes that the single
     /// particle distrubtions have negligable uncertainties.
-    fn get_uncert_dphi(&self) -> nd::Array<f64, nd::IxDyn> {
+    fn get_relative_uncert_dphi(&self) -> nd::Array<f64, nd::IxDyn> {
         let p_sum = self.pairs.counts
-            .sum_axis(Axis(6))
-            .sum_axis(Axis(0))
-            .sum_axis(Axis(0));
+            .sum_axis(Axis(6))  // z_vtx position
+            .sum_axis(Axis(0))  // eta1
+            .sum_axis(Axis(0)); // eta2
+        // Coordinate transform: (phi1, phi2) -> ((phi1 + phi2), (phi1 - phi2))
         let p_sum = roll_diagonal(&p_sum);
+        // Sum over (phi1 + phi2)
         let p_sum = p_sum.sum_axis(Axis(0));
+        // Absolute uncertainties assuming binomila distribution: sqrt(N)
+        // Thus, relative: sqrt(N) / N = 1 / sqrt(N)
+        p_sum.mapv(|n| 1.0 / n.powf(0.5))
+    }
 
-        p_sum.mapv(|v| v.powf(0.5) / v) //  / ss_sum
+    /// Calculate the relative uncertainties for the Fourier
+    /// coefficients. Each coefficient has the same uncertainty!
+    /// Variance of Vn is sum of variances of the dimension decomposed; i.e. sum along dphi
+    /// Input: pair_dist(dphi, pt, pt, multiplicity) used for decomposition
+    /// Return shape: (pt, pt, multiplicity)
+    fn get_absolute_uncert_vn(&self, pairs_dist: &nd::Array<f64, nd::IxDyn>)
+                             -> nd::Array<f64, nd::IxDyn> {
+        let abs_uncert = self.get_relative_uncert_dphi() * pairs_dist;// absolute sigmas
+        abs_uncert
+            .mapv(|sigma| sigma.powf(2.0)) // var = sigma^2
+            .sum_axis(Axis(0))             // Sum over dphi axis
+            .mapv(|sigma| sigma.powf(0.5)) // sigma = sqrt{ sum_i {sigma_i^2} }
+        
     }
 }
 
@@ -158,7 +176,7 @@ impl ProcessEvent for ParticlePairDistributions {
 impl Visualize for ParticlePairDistributions {
     fn visualize(&self) {
         let mut fg = gpl::Figure::new();
-        // enable LaTex
+        // enable LaTeX
         fg.set_terminal("wxt enhanced", "");
 
         let corr2 = self.finalize();
@@ -166,9 +184,9 @@ impl Visualize for ParticlePairDistributions {
         let phi_phi = get_phi_phi(&corr2);
         // transform coordinates (rotate 45 degrees)
         let phi_delta_phi_tilde = roll_diagonal(&phi_phi);
-
         let dphi = phi_delta_phi_tilde.nanmean(Axis(0));
-        let dphi_uncert = self.get_uncert_dphi();
+
+        let dphi_uncert = self.get_relative_uncert_dphi();
         {
             let mut dphi_plot = fg.axes2d()
                 .set_pos_grid(2, 2, 0)
@@ -193,11 +211,31 @@ impl Visualize for ParticlePairDistributions {
             }
         }
         // shape: n, pt, pt, mult
-        let vndelta = dphi.decompose(Axis(0));
-        let vndelta = vndelta.mapv(|v| v.to_polar().0);
-        let (v0, vns) = vndelta.view().split_at(Axis(0), 1);
-        let vndelta = &vns / &v0;
+        let vndelta = dphi
+            .decompose(Axis(0))
+            .mapv(|v| v.to_polar().0); // Only keep the amplitude
 
+        let rel_vn_uncert = {
+            let abs_vn_uncert = self.get_absolute_uncert_vn(&vndelta);
+            &abs_vn_uncert
+                .broadcast(vndelta.shape())
+                .expect("Could not broadcast uncertainties!")
+                / &vndelta
+        };
+
+        // We normalize by the isotropic mode 0
+        let vndelta = {
+            let (v0, vns) = vndelta.view().split_at(Axis(0), 1);
+            &vns / &v0
+        };
+        // Add relative uncertainties to reflect the normalization;
+        // convert to absolute uncertainties
+        let abs_vn_uncert = {
+            let (v0_uncert, vns_uncert) = rel_vn_uncert.view().split_at(Axis(0), 1);
+            (&vns_uncert + &v0_uncert) * &vndelta
+        };
+
+        // Plot Vn as a function of n
         {
             let mut vn_plot =
                 fg.axes2d()
@@ -206,39 +244,64 @@ impl Visualize for ParticlePairDistributions {
                     .set_x_label("Mode n", &[])
                     .set_y_label("V_{n}", &[])
                     .set_grid_options(true, &[LineStyle(gpl::DotDotDash), Color("black")]);
-            for (idx, lane) in vndelta
+            for (idx, (vn, uncert)) in vndelta
                 .subview(Axis(1), 0)   // pt1
                 .subview(Axis(1), 0)   // pt2
-                .lanes(nd::Axis(0))   // n
+                .axis_iter(Axis(1))   // mulitiplicity
+                .zip(abs_vn_uncert
+                     .subview(Axis(1), 0)  // pt1
+                     .subview(Axis(1), 0)  // pt2
+                     .axis_iter(Axis(1)))  // multiplicity
                 .into_iter()
                 .enumerate() {
                 let color = gpl::PlotOption::Color(COLORS[idx]);
-                vn_plot.points((1..5),
-                               &lane.slice(s![..5]),
-                               &[color, gpl::PlotOption::PointSymbol('S')]);
+                vn_plot.y_error_lines((1..5),
+                                      &vn.slice(s![..5]),
+                                      &uncert.slice(s![..5]),
+                                      &[color,
+                                        gpl::PlotOption::PointSymbol('S'),
+                                        gpl::PlotOption::LineWidth(0.0)]);
             }
         }
+
+        // Plot Vn as function of pT^t for fixed mult
         {
             let mut vn_plot =
                 fg.axes2d()
                     .set_pos_grid(2, 2, 2)
                     .set_title("pt n=2", &[])
                     .set_x_label("pT", &[])
-                    .set_y_label("V_{n}", &[])
+                    .set_y_label("V_{2}", &[])
                     .set_grid_options(true, &[LineStyle(gpl::DotDotDash), Color("black")]);
-            for (idx, lane) in vndelta
+            for (idx, (vn, uncert)) in vndelta
                 // Select n=2 (bin 1)
-                .subview(Axis(3), vndelta.shape()[2] - 1)   // mult (last bin)
-                .subview(Axis(0), 1)   // n
-                .subview(Axis(0), 4)   // pt1
-                .lanes(Axis(0))   // pt2
+                .subview(Axis(3), 0)   // mult (first bin)
+                .subview(Axis(0), 1)   // n; 2nd mode
+                .subview(Axis(1), 0)   // pT^a [0.5, 1.5
+                .lanes(Axis(0))        // pT^t
+                .into_iter()
+                .zip(abs_vn_uncert
+                     .subview(Axis(3), 0)  // mult
+                     .subview(Axis(0), 1)  // n
+                     .subview(Axis(1), 0)  // pT^a = [0.5, 1.5]
+                     .lanes(Axis(0)))  // pT^t
                 .into_iter()
                 .enumerate() {
                 let color = gpl::PlotOption::Color(COLORS[idx]);
-                vn_plot.points(self.pairs.centers(4),
-                               &lane,
-                               &[color, gpl::PlotOption::PointSymbol('S')]);
+                vn_plot.y_error_lines(self.pairs.centers(4),
+                                      &vn,
+                                      &uncert,
+                                      &[color, gpl::PlotOption::PointSymbol('S')]);
             }
+        }
+        {
+            let mut vn_plot = fg.axes2d().set_pos_grid(2, 2, 3);
+            vn_plot.label("asdf",
+                          gpl::Coordinate::Graph(0.5),
+                          gpl::Coordinate::Graph(0.5),
+                          &[gpl::LabelOption::TextColor("black"),
+                            gpl::LabelOption::MarkerSymbol('S')]);
+
         }
         fg.show();
     }
