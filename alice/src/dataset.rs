@@ -26,6 +26,8 @@ fn event_stream(workers: usize, paths: &[PathBuf]) -> Receiver<Event> {
     let pool = rayon::ThreadPool::new(conf).unwrap();
     let buf_size = 5;
     let (tx, rx) = channel::<Event>(buf_size);
+    // FIXME: ROOT's global interpreter can't handle if if we open the
+    // the first two files simultaniously...
     let esd_factory = Arc::new(Mutex::new(|p: PathBuf| {ESD::new(&p)}));
     for path in paths {
         let mut tx = tx.clone().wait();
