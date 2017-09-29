@@ -15,13 +15,19 @@ pub struct Dataset {
     // rx: Option<mpsc::Receiver<Event>>,
 }
 
+use std::convert::{AsRef};
+
 impl Dataset {
-    pub fn new(paths: &[PathBuf]) -> Dataset {
-        Dataset {event_stream: event_stream(2, paths)}
+    pub fn new<T>(paths: T, n_workers: usize) -> Dataset
+        where T: AsRef<[PathBuf]>
+    {
+        Dataset {event_stream: event_stream(paths.as_ref(), n_workers)}
     }
 }
 
-fn event_stream(workers: usize, paths: &[PathBuf]) -> Receiver<Event> {
+fn event_stream<T>(paths: T, workers: usize) -> Receiver<Event>
+    where T: AsRef<[PathBuf]>
+{
     let conf = rayon::Configuration::new().num_threads(workers);
     let pool = rayon::ThreadPool::new(conf).unwrap();
     let buf_size = 5;
@@ -29,10 +35,12 @@ fn event_stream(workers: usize, paths: &[PathBuf]) -> Receiver<Event> {
     // FIXME: ROOT's global interpreter can't handle if if we open the
     // the first two files simultaniously...
     let esd_factory = Arc::new(Mutex::new(|p: PathBuf| {ESD::new(&p)}));
-    for path in paths {
+    for path in paths.as_ref() {
         let mut tx = tx.clone().wait();
         let path = path.clone();
         let fact = esd_factory.clone();
+        // One thread per file. The file is only opened in the thread;
+        // Rayon takes care of not running all threads at once.
         pool.spawn(
             move || {
                 let mut ievent = -1;
@@ -85,12 +93,12 @@ mod tests {
 
     #[test]
     fn init_and_drop_dataset() {
-        Dataset::new(&[alice_open_data::test_file().unwrap()]);
+        Dataset::new([alice_open_data::test_file().unwrap()], 1);
     }
 
     #[test]
     fn iterate_items() {
-        let ds = Dataset::new(&[alice_open_data::test_file().unwrap()]);
+        let ds = Dataset::new([alice_open_data::test_file().unwrap()], 1);
         assert!(ds.count() > 0);
     }
 
@@ -100,7 +108,7 @@ mod tests {
     /// get some sort of log message and not a panic
     fn quick_iterate_and_drop() {
         {
-            let mut ds = Dataset::new(&[alice_open_data::test_file().unwrap()]);
+            let mut ds = Dataset::new([alice_open_data::test_file().unwrap()], 1);
             // Start of the IO thread by getting the first event
             let _ev = ds.next();
             // Drop the dataset here
@@ -116,7 +124,7 @@ mod tests {
             .into_iter()
             .take(5)
             .collect();
-        let ds = event_stream(2, files.as_slice());
+        let ds = event_stream(files.as_slice(), 2);
         // let blub = ds.map(|_| 1).collect();
         // println!("{:?}", blub.wait());
         let nevents = ds
