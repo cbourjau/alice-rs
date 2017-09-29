@@ -15,3 +15,14 @@ indicatif = "^0.6.0"
 rustfft = "^2.0.0"
 num-traits = "^0.1.40"
 alice-open-data = {path = "../alice-open-data"}
+
+[profile.release]
+debug = false
+
+[lib]
+name = "analyses"
+path = "src/lib.rs"
+
+[[bin]]
+name = "pairs"
+path = "src/bin.rs"

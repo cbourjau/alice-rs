@@ -1,23 +1,17 @@
-#[macro_use]
-extern crate ndarray;
-extern crate histogram;
+extern crate analyses;
+extern crate alice_open_data;
 extern crate alice;
-extern crate gnuplot;
-extern crate rustfft;
-extern crate num_traits as libnum;
 extern crate rand;
 extern crate indicatif;
-extern crate alice_open_data;
+extern crate glob;
 
 use rand::{thread_rng, Rng};
 // use indicatif::ProgressBar;
 
 use alice::dataset::Dataset;
 use alice::track;
-use alice::event::Event;
 use alice::trigger_mask;
-
-mod analyses;
+use alice::event::Event;
 
 use analyses::{ProcessEvent, Visualize};
 
@@ -26,12 +20,12 @@ fn main() {
     let files: Vec<_> = alice_open_data::all_files_10h()
         .expect("No data files found. Did you download with alice-open-data?")
         .into_iter()
-        .take(50)
+        .take(10)
         .collect();
     // let pbar = ProgressBar::new(files.len() as u64);
     // let files = pbar.wrap_iter(files.iter());
     // let datasets = files.map(|path| Dataset::new(path)).flat_map(|ev| ev);
-    let dataset = Dataset::new(files.as_slice());
+    let dataset = Dataset::new(files, 2);
 
     let analysis = dataset
         // Event selection
@@ -44,12 +38,21 @@ fn main() {
         .filter(|ev| ev.trigger_mask.contains(trigger_mask::MINIMUM_BIAS))
         // Track selection
         .map(|ev| filter_tracks(ev))
-        // Analysis
+    // Analysis
         .fold(analyses::ParticlePairDistributions::new(), |analysis, ev| {
             analysis.process_event(&ev)
         });
     analysis.visualize();
 }
+
+// fn filter_event(ev: &Event) -> Option<&Event> {
+//     let pred =
+//         // 
+//         ev.primary_vertex.as_ref()
+//         .map(|pv| pv.z.abs() < 8.)
+//         .unwrap_or(false)
+//         && 
+// }
 
 /// Filter out invalid tracks
 fn filter_tracks(mut ev: Event) -> Event {
