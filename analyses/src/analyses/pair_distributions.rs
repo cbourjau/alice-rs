@@ -28,7 +28,7 @@ impl ParticlePairDistributions {
         let nphi = 20;
         let neta = 16;
         let (nzvtx, zmin, zmax) = (8, -8., 8.);
-        let pt_edges = [0.5, 1.5, 2.0, 2.5, 3.0, 4.0];
+        let pt_edges = [0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0];
         let multiplicity_edges = [// 7., 24., 63., 140.,
                                   276.,
                                   510.,
@@ -268,23 +268,27 @@ impl Visualize for ParticlePairDistributions {
         {
             let mut vn_plot =
                 fg.axes2d()
-                    .set_pos_grid(2, 2, 2)
-                    .set_title("pt n=2", &[])
-                    .set_x_label("pT", &[])
-                    .set_y_label("V_{2}", &[])
-                    .set_grid_options(true, &[LineStyle(gpl::DotDotDash), Color("black")]);
+                .set_pos_grid(2, 2, 2)
+                .set_title("pt n=2", &[])
+                .set_x_label("pT", &[])
+                .set_y_label("V_{2}", &[])
+                .set_grid_options(true, &[LineStyle(gpl::DotDotDash), Color("black")]);
+
+            let high_mult_bin = vndelta.shape()[3] - 1;   // mult (last bin)
+            let pt_t_bin = 3;  // [1.5, 2[
+            let mode_n_bin = 2 - 1; // starts at 1; 1 = 2nd mode
             for (idx, (vn, uncert)) in vndelta
                 // Select n=2 (bin 1)
-                .subview(Axis(3), 0)   // mult (first bin)
-                .subview(Axis(0), 1)   // n; 2nd mode
-                .subview(Axis(1), 0)   // pT^a [0.5, 1.5
-                .lanes(Axis(0))        // pT^t
+                .subview(Axis(3), high_mult_bin)
+                .subview(Axis(0), mode_n_bin) // n
+                .subview(Axis(0), pt_t_bin)   // pT^t
+                .lanes(Axis(0))               // pT^a
                 .into_iter()
                 .zip(abs_vn_uncert
-                     .subview(Axis(3), 0)  // mult
-                     .subview(Axis(0), 1)  // n
-                     .subview(Axis(1), 0)  // pT^a = [0.5, 1.5]
-                     .lanes(Axis(0)))  // pT^t
+                     .subview(Axis(3), high_mult_bin)  // mult
+                     .subview(Axis(0), mode_n_bin)  // n
+                     .subview(Axis(0), pt_t_bin)    // pT^t
+                     .lanes(Axis(0)))               // pT^a
                 .into_iter()
                 .enumerate() {
                 let color = gpl::PlotOption::Color(COLORS[idx]);
