@@ -38,22 +38,22 @@ impl ParticlePairDistributions {
                                   INFINITY];
         ParticlePairDistributions {
             singles: HistogramBuilder::<[usize; 5]>::new()
+                .add_equal_width_axis(nzvtx, zmin, zmax)
+                .add_variable_width_axis(&multiplicity_edges)
                 .add_equal_width_axis(neta, -0.8, 0.8)
                 .add_equal_width_axis(nphi, 0., 2. * PI)
                 .add_variable_width_axis(&pt_edges)
-                .add_equal_width_axis(nzvtx, zmin, zmax)
-                .add_variable_width_axis(&multiplicity_edges)
                 .build()
                 .expect("Error building histogram"),
             pairs: HistogramBuilder::<[usize; 8]>::new()
-                .add_equal_width_axis(neta, -0.8, 0.8)
-                .add_equal_width_axis(neta, -0.8, 0.8)
-                .add_equal_width_axis(nphi, 0., 2. * PI)
-                .add_equal_width_axis(nphi, 0., 2. * PI)
-                .add_variable_width_axis(&pt_edges)
-                .add_variable_width_axis(&pt_edges)
                 .add_equal_width_axis(nzvtx, zmin, zmax)
                 .add_variable_width_axis(&multiplicity_edges)
+                .add_equal_width_axis(neta, -0.8, 0.8)
+                .add_equal_width_axis(neta, -0.8, 0.8)
+                .add_equal_width_axis(nphi, 0., 2. * PI)
+                .add_equal_width_axis(nphi, 0., 2. * PI)
+                .add_variable_width_axis(&pt_edges)
+                .add_variable_width_axis(&pt_edges)
                 .build()
                 .expect("Error building histogram"),
             event_counter: HistogramBuilder::<[usize; 2]>::new()
@@ -66,11 +66,11 @@ impl ParticlePairDistributions {
 
     pub fn finalize(&self) -> nd::Array<f64, nd::IxDyn> {
         let shape = self.singles.counts.shape();
-        let (neta, nphi, npt, nzvtx, nmult) =
+        let (nzvtx, nmult, neta, nphi, npt) =
             (shape[0], shape[1], shape[2], shape[3], shape[4]);
-        let ext_shape1 = [1, neta, 1, nphi, 1, npt, nzvtx, nmult];
-        let ext_shape2 = [neta, 1, nphi, 1, npt, 1, nzvtx, nmult];
-        let new_shape = [neta, neta, nphi, nphi, npt, npt, nzvtx, nmult];
+        let ext_shape1 = [nzvtx, nmult, 1, neta, 1, nphi, 1, npt];
+        let ext_shape2 = [nzvtx, nmult, neta, 1, nphi, 1, npt, 1];
+        let new_shape = [nzvtx, nmult, neta, neta, nphi, nphi, npt, npt];
         let phiphi = (&self.singles
                           .counts
                           .to_owned()
@@ -93,9 +93,9 @@ impl ParticlePairDistributions {
     /// particle distrubtions have negligable uncertainties.
     fn get_relative_uncert_dphi(&self) -> nd::Array<f64, nd::IxDyn> {
         let p_sum = self.pairs.counts
-            .sum_axis(Axis(6))  // z_vtx position
-            .sum_axis(Axis(0))  // eta1
-            .sum_axis(Axis(0)); // eta2
+            .sum_axis(Axis(2))  // eta1
+            .sum_axis(Axis(2))  // eta2
+            .sum_axis(Axis(0));  // z_vtx position
         // Coordinate transform: (phi1, phi2) -> ((phi1 + phi2), (phi1 - phi2))
         let p_sum = roll_diagonal(&p_sum);
         // Sum over (phi1 + phi2)
@@ -126,48 +126,47 @@ impl ProcessEvent for ParticlePairDistributions {
         // Fill only if we have a valid z-vtx position
         let multiplicity = event.multiplicity as f64;
         if let Some(ref pv) = event.primary_vertex {
-            self.singles
-                .extend(event.tracks
+            if let Some(z_idx) = self.pairs.find_bin_index_axis(0, pv.z) {
+                if let Some(mult_idx) = self.pairs.find_bin_index_axis(1, multiplicity) {
+                    self.singles
+                        .extend(event.tracks
+                                .iter()
+                                .map(|tr| [pv.z, multiplicity, tr.eta(), tr.phi(), tr.pt()  ]));
+                    self.event_counter.fill(&[pv.z, multiplicity]);
+
+                    // Convert to indices before the nested loop; relies on
+                    // the fact that the hist is square in eta-eta, phi-phi,
+                    // and pt-pt plane!
+
+                    // Sort tracks by pt
+                    let mut tracks = event.tracks.clone();
+                    tracks.sort_by(|tr1, tr2| tr1.pt().partial_cmp(&tr2.pt()).unwrap());
+                    let trk_indices: Vec<Vec<usize>> = tracks
                         .iter()
-                        .map(|tr| [tr.eta(), tr.phi(), tr.pt(), pv.z, multiplicity]));
-            self.event_counter.fill(&[pv.z, multiplicity]);
-
-            // Convert to indices before the nested loop; relies on
-            // the fact that the hist is square in eta-eta, phi-phi,
-            // and pt-pt plane!
-            // Sure, I should compute the z_vtx-index and mult-index
-            // outside of the loop, But then I need to treat their
-            // Options as well
-
-            // Sort tracks by pt
-            let mut tracks = event.tracks.clone();
-            tracks.sort_by(|tr1, tr2| tr1.pt().partial_cmp(&tr2.pt()).unwrap());
-            let trk_indices: Vec<Vec<usize>> = tracks
-                .iter()
-                .filter_map(|tr| {
-                    [self.pairs.find_bin_index_axis(0, tr.eta()),
-                     self.pairs.find_bin_index_axis(2, tr.phi()),
-                     self.pairs.find_bin_index_axis(4, tr.pt()),
-                     self.pairs.find_bin_index_axis(6, pv.z),
-                     self.pairs.find_bin_index_axis(7, multiplicity)]
-                        .into_iter()
-                        .cloned()
-                        .collect::<Option<Vec<usize>>>()
-                })
-                .collect();
-            let trk_indices = trk_indices.as_slice();
-            let pair_idxs = trk_indices.iter().enumerate().flat_map(move |(i1, tr1)| {
-                trk_indices
-                    .iter()
-                    .enumerate()
-                    .take_while(move |&(i2, _)| i1 > i2)
-                    .map(move |(_, tr2)| {
-                             [tr1[0], tr2[0], tr1[1], tr2[1], tr1[2], tr2[2], tr1[3], tr1[4]]
-                         })
-            });
-            for idxs in pair_idxs {
-                self.pairs.fill_by_index::<[usize; 8]>(idxs);
-            }
+                        .filter_map(|tr| {
+                            [self.pairs.find_bin_index_axis(2, tr.eta()),
+                             self.pairs.find_bin_index_axis(4, tr.phi()),
+                             self.pairs.find_bin_index_axis(6, tr.pt()) ]
+                                .into_iter()
+                                .cloned()
+                                .collect::<Option<Vec<usize>>>()
+                        })
+                        .collect();
+                    let trk_indices = trk_indices.as_slice();
+                    let pair_idxs = trk_indices.iter().enumerate().flat_map(move |(i1, tr1)| {
+                        trk_indices
+                            .iter()
+                            .enumerate()
+                            .take_while(move |&(i2, _)| i1 > i2)
+                            .map(move |(_, tr2)| {
+                                [z_idx, mult_idx, tr1[0], tr2[0], tr1[1], tr2[1], tr1[2], tr2[2]]
+                            })
+                    });
+                    for idxs in pair_idxs {
+                        self.pairs.fill_by_index::<[usize; 8]>(idxs);
+                    }
+                };
+            };
         };
         self
     }
