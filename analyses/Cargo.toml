@@ -15,6 +15,7 @@ indicatif = "^0.6.0"
 rustfft = "^2.0.0"
 num-traits = "^0.1.40"
 alice-open-data = {path = "../alice-open-data"}
+rayon = "^0.8.2"
 
 [profile.release]
 debug = false

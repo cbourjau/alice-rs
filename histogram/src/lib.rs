@@ -102,6 +102,14 @@ macro_rules! impl_histogram {
                     self.counts[idxs.as_ref()] += 1.0;
                 }
             }
+
+            pub fn add(self, other: &Histogram<[usize; $N]>) -> Histogram<[usize; $N]> {
+                Histogram::<[usize; $N]> {
+                    edges: self.edges,
+                    counts: (self.counts + &other.counts),
+                    dim: PhantomData::<[usize; $N]>,
+                }
+            }
         }
 
         impl Extend<[f64; $N]> for Histogram<[usize; $N]> {

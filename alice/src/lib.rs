@@ -6,6 +6,8 @@ extern crate alice_sys;
 extern crate log;
 extern crate futures;
 extern crate rayon;
+#[macro_use]
+extern crate lazy_static;
 
 pub mod dataset;
 pub mod event;

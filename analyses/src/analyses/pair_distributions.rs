@@ -1,5 +1,6 @@
 use std::f64::consts::PI;
 use std::f64::INFINITY;
+use std::ops::Add;
 
 use ndarray as nd;
 use gnuplot as gpl;
@@ -12,7 +13,7 @@ use alice::event::Event;
 
 use super::utils::COLORS;
 
-use super::{ProcessEvent, Visualize};
+use super::{ProcessEvent, Visualize, Merge};
 use super::ArrayBaseExt;
 
 
@@ -168,6 +169,16 @@ impl ProcessEvent for ParticlePairDistributions {
                 };
             };
         };
+        self
+    }
+}
+
+impl Merge<ParticlePairDistributions> for ParticlePairDistributions {
+    type Output = Self;
+    fn merge(mut self, b: &Self) -> Self {
+        self.singles = self.singles.add(&b.singles);
+        self.pairs = self.pairs.add(&b.pairs);
+        self.event_counter = self.event_counter.add(&b.event_counter);
         self
     }
 }

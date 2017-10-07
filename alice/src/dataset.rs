@@ -9,6 +9,10 @@ use esd::ESD;
 
 use std::sync::{Arc, Mutex};
 
+lazy_static! {
+    static ref ESD_FACTORY:Arc<Mutex<fn(&PathBuf)-> ESD >> = Arc::new(Mutex::new(ESD::new));
+}
+
 pub struct Dataset {
     event_stream: Receiver<Event>,
     // path: PathBuf,
@@ -34,11 +38,10 @@ fn event_stream<T>(paths: T, workers: usize) -> Receiver<Event>
     let (tx, rx) = channel::<Event>(buf_size);
     // FIXME: ROOT's global interpreter can't handle if if we open the
     // the first two files simultaniously...
-    let esd_factory = Arc::new(Mutex::new(|p: PathBuf| {ESD::new(&p)}));
     for path in paths.as_ref() {
         let mut tx = tx.clone().wait();
         let path = path.clone();
-        let fact = esd_factory.clone();
+        let fact = ESD_FACTORY.clone();
         // One thread per file. The file is only opened in the thread;
         // Rayon takes care of not running all threads at once.
         pool.spawn(
@@ -46,7 +49,7 @@ fn event_stream<T>(paths: T, workers: usize) -> Receiver<Event>
                 let mut ievent = -1;
                 let mut esd = {
                     let fact = fact.lock().unwrap();
-                    fact(path)
+                    fact(&path)
                 };
                 loop {
                     ievent += 1;

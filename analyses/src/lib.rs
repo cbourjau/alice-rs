@@ -11,5 +11,5 @@ extern crate indicatif;
 extern crate alice_open_data;
 
 pub mod analyses;
-pub use analyses::{ProcessEvent, Visualize, ParticlePairDistributions};
+pub use analyses::{ProcessEvent, Visualize, ParticlePairDistributions, Merge};
 
