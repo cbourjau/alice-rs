@@ -1,3 +1,6 @@
+#![feature(test)]
+extern crate test;
+
 extern crate analyses;
 extern crate alice_open_data;
 extern crate alice;
@@ -12,16 +15,21 @@ use alice::dataset::Dataset;
 use alice::track;
 use alice::trigger_mask;
 use alice::event::Event;
+use std::path::PathBuf;
 
 use analyses::{ProcessEvent, Visualize};
-
 
 fn main() {
     let files: Vec<_> = alice_open_data::all_files_10h()
         .expect("No data files found. Did you download with alice-open-data?")
         .into_iter()
-        .take(10)
+        .take(20)
         .collect();
+    pair_analysis(files);
+}
+
+fn pair_analysis(files: Vec<PathBuf>) {
+    println!("Processing {} files", files.len());
     // let pbar = ProgressBar::new(files.len() as u64);
     // let files = pbar.wrap_iter(files.iter());
     // let datasets = files.map(|path| Dataset::new(path)).flat_map(|ev| ev);
@@ -45,15 +53,6 @@ fn main() {
     analysis.visualize();
 }
 
-// fn filter_event(ev: &Event) -> Option<&Event> {
-//     let pred =
-//         // 
-//         ev.primary_vertex.as_ref()
-//         .map(|pv| pv.z.abs() < 8.)
-//         .unwrap_or(false)
-//         && 
-// }
-
 /// Filter out invalid tracks
 fn filter_tracks(mut ev: Event) -> Event {
     {
@@ -72,4 +71,22 @@ fn filter_tracks(mut ev: Event) -> Event {
     // Shuffle selected tracks to avoid correlations from datataking orderings
     thread_rng().shuffle(ev.tracks.as_mut_slice());
     ev
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test::Bencher;
+
+    #[bench]
+    fn bench_pairs(b: &mut Bencher) {
+        b.iter(|| {
+            let files: Vec<_> = alice_open_data::all_files_10h()
+                .expect("No data files found. Did you download with alice-open-data?")
+                .into_iter()
+                .take(2)
+                .collect();
+            pair_analysis(files)
+        });
+    }
 }
