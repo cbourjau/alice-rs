@@ -37,28 +37,34 @@ fn pair_analysis(files: Vec<PathBuf>) {
     // let pbar = ProgressBar::new(files.len() as u64);
     // let files = pbar.wrap_iter(files.iter());
     // let datasets = files.map(|path| Dataset::new(path)).flat_map(|ev| ev);
-    let file_sets: Vec<&[PathBuf]> = files.chunks(5).collect();
-
+    let file_sets: Vec<&[PathBuf]> = files.chunks(files.len() / 4).collect();
+    let pool = rayon::ThreadPool::new(rayon::Configuration::new().num_threads(4)).unwrap();
     let analysis: analyses::ParticlePairDistributions =
-        file_sets.par_iter()
-        .map(|files| Dataset::new(files, 1))
-        .map(|events| {
-            events
-            // Event selection
-                .filter(|ref ev| {
-                    ev.primary_vertex.as_ref()
-                        .map(|pv| pv.z.abs() < 8.)
-                        .unwrap_or(false)
+        pool.install(move || {
+            file_sets.par_iter()
+                .map(|files| Dataset::new(files, 1))
+                .map(|events| {
+                    events
+                    // Event selection
+                        .filter(|ref ev| {
+                            ev.primary_vertex.as_ref()
+                                .map(|pv| pv.z.abs() < 8.)
+                                .unwrap_or(false)
+                        })
+                        .filter(|ref ev| ev.multiplicity > 1)
+                        .filter(|ref ev| ev.trigger_mask.contains(trigger_mask::MINIMUM_BIAS))
+                    // Track selection
+                        .map(|ev| filter_tracks(ev))
+                    // Analysis; Fold the current chunk of events
+                        .fold(analyses::ParticlePairDistributions::new(), |analysis, ref ev| {
+                            analysis.process_event(ev)
+                        })
                 })
-                .filter(|ref ev| ev.multiplicity > 1)
-                .filter(|ref ev| ev.trigger_mask.contains(trigger_mask::MINIMUM_BIAS))
-            // Track selection
-                .map(|ev| filter_tracks(ev))
-            // Analysis; Fold the current chunk of events
-                .fold(analyses::ParticlePairDistributions::new(), |analysis, ref ev| {
-                    analysis.process_event(ev)
-                })
-        }).reduce_with(|a, b| a.merge(&b)).unwrap();
+                .reduce_with(|a, b| {
+                    a.merge(&b)
+                }
+                ).unwrap()
+        });
     analysis.visualize();
 }
 
