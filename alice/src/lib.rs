@@ -20,6 +20,7 @@ pub mod esd;
 
 #[cfg(test)]
 mod tests {
+    use esd::ESD;
     use dataset::Dataset;
     use track;
     use trigger_mask::TriggerMask;
@@ -60,4 +61,13 @@ mod tests {
             .collect::<TriggerMask>();
         assert!(!many_trgs.is_empty());
     }
+
+    #[test]
+    /// Poor mans check if we are leaking memory when destroying the esd reader object
+    fn release_mem_esds() {
+        for _ in 0..1000 {
+            ESD::new(&alice_open_data::test_file().unwrap());
+        }
+    }
+
 }
