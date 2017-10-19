@@ -75,8 +75,8 @@ void ESD_t::Init(TTree *tree)
   fChain->SetBranchStatus("Tracks.*", 1);  // enable Tracks
   fChain->SetBranchStatus("AliMultiplicity.fNtracks", 1);  // enable Tracks
   fChain->SetBranchStatus("AliESDRun.*", 1);  // enable ESD run data
-  fChain->SetBranchStatus("AliESDHeader.*", 1);  // enable ESD run data
-  fChain->SetBranchStatus("AliESDVZERO.*", 1);  // enable ESD run data
+  fChain->SetBranchStatus("AliESDHeader.*", 1);  // needed for trigger mask
+  // fChain->SetBranchStatus("AliESDVZERO.*", 1);  // enable ESD run data
 
   // These two branches cause a memory leak. Probably because they represent arrays of pointers
   // Thus, disabling them for now. Deletion of these would be possible with the other
