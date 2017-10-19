@@ -10,18 +10,18 @@ extern crate glob;
 
 extern crate rayon;
 
-use rayon::prelude::*;
-
 use rand::{thread_rng, Rng};
-// use indicatif::ProgressBar;
 
-use alice::dataset::Dataset;
+use alice::dataset::{Dataset, DatasetProducer};
 use alice::track;
 use alice::trigger_mask;
 use alice::event::Event;
-use std::path::PathBuf;
 
-use analyses::{ProcessEvent, Visualize, Merge};
+use analyses::{
+    ProcessEvent,
+    Visualize,
+    Merge
+};
 
 fn main() {
     let files: Vec<_> = alice_open_data::all_files_10h()
@@ -29,43 +29,33 @@ fn main() {
         .into_iter()
         .take(20)
         .collect();
-    pair_analysis(files);
+    let dataset = Dataset::new(files, 4);
+    let mut analyses = dataset.install(&pair_analysis);
+    let (mut analysis, analyses) = analyses.split_first_mut().unwrap();
+    for a in analyses.into_iter().skip(1) {
+        analysis.merge(&a);
+    }
+    analysis.visualize();
 }
 
-fn pair_analysis(files: Vec<PathBuf>) {
-    println!("Processing {} files", files.len());
-    // let pbar = ProgressBar::new(files.len() as u64);
-    // let files = pbar.wrap_iter(files.iter());
-    // let datasets = files.map(|path| Dataset::new(path)).flat_map(|ev| ev);
-    let file_sets: Vec<&[PathBuf]> = files.chunks(files.len() / 4).collect();
-    let pool = rayon::ThreadPool::new(rayon::Configuration::new().num_threads(4)).unwrap();
-    let analysis: analyses::ParticlePairDistributions =
-        pool.install(move || {
-            file_sets.par_iter()
-                .map(|files| Dataset::new(files, 1))
-                .map(|events| {
-                    events
-                    // Event selection
-                        .filter(|ref ev| {
-                            ev.primary_vertex.as_ref()
-                                .map(|pv| pv.z.abs() < 8.)
-                                .unwrap_or(false)
-                        })
-                        .filter(|ref ev| ev.multiplicity > 1)
-                        .filter(|ref ev| ev.trigger_mask.contains(trigger_mask::MINIMUM_BIAS))
-                    // Track selection
-                        .map(|ev| filter_tracks(ev))
-                    // Analysis; Fold the current chunk of events
-                        .fold(analyses::ParticlePairDistributions::new(), |analysis, ref ev| {
-                            analysis.process_event(ev)
-                        })
-                })
-                .reduce_with(|a, b| {
-                    a.merge(&b)
-                }
-                ).unwrap()
-        });
-    analysis.visualize();
+fn pair_analysis(events: DatasetProducer) -> analyses::ParticlePairDistributions
+{
+    events
+        // Event selection
+        .filter(|ref ev| {
+            ev.primary_vertex.as_ref()
+                .map(|pv| pv.z.abs() < 8.)
+                .unwrap_or(false)
+        })
+        .filter(|ref ev| ev.multiplicity > 1)
+        .filter(|ref ev| ev.trigger_mask.contains(trigger_mask::MINIMUM_BIAS))
+        // Track selection
+        .map(|ev| filter_tracks(ev))
+        // Analysis; Fold this chunk of events
+        .fold(analyses::ParticlePairDistributions::new(), |analysis, ref ev| {
+            analysis.process_event(ev)
+        })
+
 }
 
 /// Filter out invalid tracks

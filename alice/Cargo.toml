@@ -9,6 +9,7 @@ bitflags = "^0.9.1"
 log = "^0.3.8"
 alice-sys = {path = "../alice-sys"}
 alice-open-data = {path = "../alice-open-data"}
-futures = "^0.1.14"
+chan = "^0.1.19"
 rayon = "^0.8.2"
 lazy_static = "0.2"
+indicatif = "^0.8"

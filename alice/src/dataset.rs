@@ -1,45 +1,69 @@
 use std::path::PathBuf;
-use futures::sync::mpsc::{channel, Receiver};
-use futures::{Stream, Sink};
-use rayon;
+use std::convert::{AsRef};
+use std::sync::{Arc, Mutex};
 
+use chan;
+use chan::Receiver;
+use rayon;
+use indicatif::ProgressBar;
 
 use event::Event;
 use esd::ESD;
 
-use std::sync::{Arc, Mutex};
 
 lazy_static! {
     static ref ESD_FACTORY:Arc<Mutex<fn(&PathBuf)-> ESD >> = Arc::new(Mutex::new(ESD::new));
 }
 
+#[derive(Clone)]
 pub struct Dataset {
-    event_stream: Receiver<Event>,
-    // path: PathBuf,
-    // rx: Option<mpsc::Receiver<Event>>,
+    receiver: Receiver<Event>,
 }
-
-use std::convert::{AsRef};
 
 impl Dataset {
     pub fn new<T>(paths: T, n_workers: usize) -> Dataset
         where T: AsRef<[PathBuf]>
     {
-        Dataset {event_stream: event_stream(paths.as_ref(), n_workers)}
+        Dataset {receiver: setup_io_threads(paths, n_workers)}
+    }
+
+    /// Load the next event from the file
+    fn next(&mut self) -> Option<Event> {
+        self.receiver.recv()
     }
 }
 
-fn event_stream<T>(paths: T, workers: usize) -> Receiver<Event>
+fn progress_bar(rx: chan::Receiver<()>, nfiles: u64) {
+    let pbar = ProgressBar::new(nfiles);
+    loop {
+        // Select will block until recv() succeeds
+        chan_select! {
+            rx.recv() -> v => match v {
+                None => {},
+                Some(()) => pbar.inc(1)
+            }
+        }
+    } 
+}
+
+fn setup_io_threads<T>(paths: T, workers: usize) -> Receiver<Event>
     where T: AsRef<[PathBuf]>
 {
     let conf = rayon::Configuration::new().num_threads(workers);
     let pool = rayon::ThreadPool::new(conf).unwrap();
     let buf_size = 5;
-    let (tx, rx) = channel::<Event>(buf_size);
+    let (tx, rx) = chan::sync::<Event>(buf_size);
+    // ProgressBar lives in its own thread; and increments when getting a message
+    let (tx_progress, rx_progress) = chan::async::<()>();
+    use std::thread;
+    let nfiles = paths.as_ref().len() as u64;
+    thread::spawn(move || progress_bar(rx_progress, nfiles));
+
     // FIXME: ROOT's global interpreter can't handle if if we open the
     // the first two files simultaniously...
     for path in paths.as_ref() {
-        let mut tx = tx.clone().wait();
+        let tx = tx.clone();
+        let tx_progress = tx_progress.clone();
         let path = path.clone();
         let fact = ESD_FACTORY.clone();
         // One thread per file. The file is only opened in the thread;
@@ -57,14 +81,18 @@ fn event_stream<T>(paths: T, workers: usize) -> Receiver<Event>
                         Some(_) => {
                             let esd_raw = unsafe { &mut *esd.raw };
                             let ev = Event::new_from_esd(esd_raw);
-                            if let Err(err) = tx.send(ev) {
-                                // The reciever has hung up
-                                warn!("{}, stopping IO", err);
-                                break;
+                            // chan::send never panics, but might dead lock!
+                            if ev.tracks.len() > 40000 {
+                                println!("ntracks: {:?}", ev.tracks.len());
                             }
+                            tx.send(ev);
                         },
                         // We are out of events in this file
-                        None => break
+                        // Increment progress bar and get out of here
+                        None => {
+                            tx_progress.send(());
+                            break
+                        }
                     };
                 }
             }
@@ -73,20 +101,43 @@ fn event_stream<T>(paths: T, workers: usize) -> Receiver<Event>
     rx
 }
 
-
-
-impl Iterator for Dataset {
+impl Iterator for DatasetProducer {
     type Item = Event;
 
     /// Load the next event from the file
     fn next(&mut self) -> Option<Event> {
-        if let Some(ev) = self.event_stream.by_ref().wait().next() {
-            return ev.ok();
-        } else {
-            return None;
-        }
+        self.dataset.next()
+        // let mut ds = self.dataset.lock().expect("Could not get lock");
+        // if let Some(ev) = ds.event_stream.by_ref().wait().next() {
+        //     return ev.ok();
+        // } else {
+        //     return None;
+        // }
     }
 }
+
+#[derive(Clone)]
+pub struct DatasetProducer {
+    dataset: Dataset
+}
+
+
+impl<'f> Dataset {
+    pub fn install<F, T>(self, f: &'f F) -> Vec<T>
+        where F: Fn(DatasetProducer) -> T + Sync,
+              T: Send
+    {
+        let prod = DatasetProducer {
+            dataset: self
+        };
+        use rayon::join;
+
+        let ((t1, t2), (t3, t4)) = join(|| {join(|| {f(prod.clone())}, || f(prod.clone()))},
+                                  || {join(|| {f(prod.clone())}, || f(prod.clone()))});
+        vec![t1, t2, t3, t4]
+    }
+}
+
 
 #[cfg(test)]
 mod tests {

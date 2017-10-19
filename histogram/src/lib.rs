@@ -103,12 +103,9 @@ macro_rules! impl_histogram {
                 }
             }
 
-            pub fn add(self, other: &Histogram<[usize; $N]>) -> Histogram<[usize; $N]> {
-                Histogram::<[usize; $N]> {
-                    edges: self.edges,
-                    counts: (self.counts + &other.counts),
-                    dim: PhantomData::<[usize; $N]>,
-                }
+            pub fn add(&mut self, other: &Histogram<[usize; $N]>) {
+                // assert_eq!(self.edges.as_slice(), other.edges.as_slice());
+                self.counts += &other.counts;
             }
         }
 

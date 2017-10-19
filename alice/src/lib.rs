@@ -2,9 +2,10 @@ extern crate libc;
 #[macro_use]
 extern crate bitflags;
 extern crate alice_sys;
-#[macro_use]
 extern crate log;
-extern crate futures;
+extern crate indicatif;
+#[macro_use]
+extern crate chan;
 extern crate rayon;
 #[macro_use]
 extern crate lazy_static;

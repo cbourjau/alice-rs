@@ -166,12 +166,11 @@ impl ProcessEvent for ParticlePairDistributions {
 }
 
 impl Merge<ParticlePairDistributions> for ParticlePairDistributions {
-    type Output = Self;
-    fn merge(mut self, b: &Self) -> Self {
-        self.singles = self.singles.add(&b.singles);
-        self.pairs = self.pairs.add(&b.pairs);
-        self.event_counter = self.event_counter.add(&b.event_counter);
-        self
+    // type Output = Self;
+    fn merge(&mut self, b: &Self) {
+        self.singles.add(&b.singles);
+        self.pairs.add(&b.pairs);
+        self.event_counter.add(&b.event_counter);
     }
 }
 
