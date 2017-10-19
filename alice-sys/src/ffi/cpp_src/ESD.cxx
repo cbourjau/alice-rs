@@ -13,9 +13,15 @@ ESD_t::ESD_t(const char* path) : fChain(0)
   gErrorIgnoreLevel = kFatal;
 
   fFile = TFile::Open(path);
-  TTree *tree = 0;
-  fFile->GetObject("esdTree",tree);
-  Init(tree);
+  if (!fFile) {
+    // Loading the first event will return 0 and avoid a crash
+    // Sorry about this, future me :P
+    std::cerr << "Could not open " << path << std::endl;
+  } else {
+    TTree *tree = 0;
+    fFile->GetObject("esdTree",tree);
+    Init(tree);
+  }
 }
 
 ESD_t::~ESD_t()
