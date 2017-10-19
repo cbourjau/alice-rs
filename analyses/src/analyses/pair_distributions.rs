@@ -5,6 +5,7 @@ use ndarray as nd;
 use gnuplot as gpl;
 use gnuplot::AxesCommon;
 use gnuplot::PlotOption::*;
+use libnum;
 
 use histogram::*;
 
@@ -17,9 +18,9 @@ use super::ArrayBaseExt;
 
 
 pub struct ParticlePairDistributions {
-    singles: Histogram<[usize; 5]>,
-    pub pairs: Histogram<[usize; 8]>,
-    event_counter: Histogram<[usize; 2]>,
+    singles: Histogram<f32, [usize; 5]>,
+    pub pairs: Histogram<f32, [usize; 8]>,
+    event_counter: Histogram<f32, [usize; 2]>,
 }
 
 impl ParticlePairDistributions {
@@ -64,7 +65,7 @@ impl ParticlePairDistributions {
         }
     }
 
-    pub fn finalize(&self) -> nd::Array<f64, nd::IxDyn> {
+    pub fn finalize(&self) -> nd::Array<f32, nd::IxDyn> {
         let shape = self.singles.counts.shape();
         let (nzvtx, nmult, neta, nphi, npt) =
             (shape[0], shape[1], shape[2], shape[3], shape[4]);
@@ -98,14 +99,14 @@ impl ParticlePairDistributions {
     /// Get the relative uncertainties on the dphi projection as shape
     /// (multiplicity, dphi, pt, pt) This assumes that the single
     /// particle distrubtions have negligable uncertainties.
-    fn get_relative_uncert_dphi(&self) -> nd::Array<f64, nd::IxDyn> {
+    fn get_relative_uncert_dphi(&self) -> nd::Array<f32, nd::IxDyn> {
         // Shape: (mult, phi, phi, pt, pt)
         let p_sum = self.pairs.counts
             .sum_axis(Axis(2))  // eta1
             .sum_axis(Axis(2))  // eta2
             .sum_axis(Axis(0));  // z_vtx position
         // Coordinate transform: (phi1, phi2) -> ((phi1 + phi2), (phi1 - phi2))
-        let p_sum = roll_diagonal(&p_sum, nd::Axis(1));
+        let p_sum = roll_diagonal(p_sum, nd::Axis(1));
         // Sum over (phi1 + phi2); thats the dimension which was phi1
         let p_sum = p_sum.sum_axis(Axis(1));
         // Absolute uncertainties assuming binomila distribution: sqrt(N)
@@ -177,9 +178,9 @@ impl Merge<ParticlePairDistributions> for ParticlePairDistributions {
 /// Plot the \Delta\phi projection for various multiplicities
 /// dphi: Shape (mult, dphi, pt1, pt2)
 fn plot_delta_phi_projection(plot: &mut gpl::Axes2D,
-                             x: &Vec<f64>,
-                             dphi: &nd::ArrayD<f64>,
-                             yerr: &nd::ArrayD<f64>)
+                                    x: &Vec<f64>,
+                                    dphi: &nd::ArrayD<f32>,
+                                    yerr: &nd::ArrayD<f32>)
 {
     plot
         .set_title(r"Projection onto Δφ", &[])
@@ -209,20 +210,21 @@ fn plot_delta_phi_projection(plot: &mut gpl::Axes2D,
 /// Input: dphi(multiplicity, dphi, pt, pt) used for decomposition
 ///        rel_uncert_dphi; shape (multiplicity, dphi, pt, pt)
 /// Return shape: (pt, pt, multiplicity)
-fn get_absolute_uncert_vn(dphi: &nd::Array<f64, nd::IxDyn>,
-                          rel_uncert_dphi: &nd::Array<f64, nd::IxDyn>
-) -> nd::Array<f64, nd::IxDyn> {
+fn get_absolute_uncert_vn<A>(dphi: &nd::ArrayD<A>, rel_uncert_dphi: &nd::ArrayD<A>)
+                          -> nd::ArrayD<A>
+    where A: libnum::Float
+{
     let abs_uncert = rel_uncert_dphi * dphi;// absolute sigmas
     abs_uncert
-        .mapv(|sigma| sigma.powf(2.0)) // var = sigma^2
+        .mapv(|sigma| sigma.powi(2)) // var = sigma^2
         .sum_axis(Axis(1))             // Sum over dphi axis
-        .mapv(|sigma| sigma.powf(0.5)) // sigma = sqrt{ sum_i {sigma_i^2} }
+        .mapv(|sigma| sigma.sqrt()) // sigma = sqrt{ sum_i {sigma_i^2} }
         
 }
 
-fn compute_vn_delta_and_uncertainties(dphi: &nd::ArrayD<f64>,
-                                      rel_uncert_dphi: &nd::ArrayD<f64>)
--> (nd::ArrayD<f64>, nd::ArrayD<f64>) {
+fn compute_vn_delta_and_uncertainties(dphi: &nd::ArrayD<f32>, rel_uncert_dphi: &nd::ArrayD<f32>)
+                                      -> (nd::ArrayD<f32>, nd::ArrayD<f32>)
+{
     // vndelta shape: mult, n, pt, pt
     let vndelta = dphi
         .decompose(Axis(1))
@@ -262,7 +264,7 @@ impl Visualize for ParticlePairDistributions {
         // Resulting shape: (multiplicity, phi, phi, pt, pt)
         let phi_phi = get_phi_phi(&corr2);
         // transform coordinates (rotate 45 degrees)
-        let phi_delta_phi_tilde = roll_diagonal(&phi_phi, nd::Axis(1));
+        let phi_delta_phi_tilde = roll_diagonal(phi_phi, nd::Axis(1));
         // average over \tilde{\phi} dimension; the one which was phi1
         let dphi = phi_delta_phi_tilde.nanmean(Axis(1));
         let dphi_uncert = self.get_relative_uncert_dphi();
@@ -353,31 +355,32 @@ impl Visualize for ParticlePairDistributions {
 }
 
 /// Roll the second phi dimension. Expects the phi dimensins to be consecutive
-/// This is basically constitutes a variable transform:
+/// This basically constitutes a variable transform:
 /// \Delta\varphi = \varphi_1 - \varphi_2
 /// \hat{\varphi} = 1/2 * (\varphi_1 + \varphi_2)
-fn roll_diagonal<D>(a: &nd::Array<f64, D>,
-                    phi1_ax: nd::Axis) -> nd::Array<f64, D>
-    where D: nd::Dimension + nd::RemoveAxis
+fn roll_diagonal<A, D>(mut a: nd::Array<A, D>, phi1_ax: nd::Axis) -> nd::Array<A, D>
+    where A: libnum::Float,
+          D: nd::Dimension + nd::RemoveAxis
 {
-    let mut b = a.clone();
+    // let mut b = a.clone();
     let phi2_after_rm_of_phi1 = phi1_ax;
-    for (i, mut row) in b.axis_iter_mut(phi1_ax).enumerate() {
+    for (i, mut row) in a.axis_iter_mut(phi1_ax).enumerate() {
         for _ in 0..i {
             roll_by_one(&mut row, phi2_after_rm_of_phi1);
         }
     }
-    b
+    a
 }
 
-fn roll_by_one<'a, D>(a: &mut nd::ArrayViewMut<'a, f64, D>, phi_ax: nd::Axis)
-    where D: nd::Dimension
+fn roll_by_one<'a, A, D>(a: &mut nd::ArrayViewMut<'a, A, D>, phi_ax: nd::Axis)
+    where A: libnum::Float,
+          D: nd::Dimension
 {
     use std::mem;
     for mut lane in a.lanes_mut(phi_ax) {
         let len = lane.len();
         let mut last = lane[len - 1];
-        for elt in lane.slice_mut(s![..-1;-1]) {
+        for elt in lane.slice_mut(s![..-1;-1]).iter_mut() {
             last = mem::replace(elt, last);
         }
         lane[len - 1] = last;
@@ -386,7 +389,9 @@ fn roll_by_one<'a, D>(a: &mut nd::ArrayViewMut<'a, f64, D>, phi_ax: nd::Axis)
 
 /// Average the given array of shape (z, mult, eta, eta, phi, phi, pt, pt) to
 /// (mult, phi, phi, pt, pt)
-fn get_phi_phi(a: &nd::ArrayD<f64>) -> nd::ArrayD<f64> {
+fn get_phi_phi<A>(a: &nd::ArrayD<A>) -> nd::ArrayD<A>
+    where A: libnum::Float
+{
     a.nanmean(Axis(2))
         .nanmean(Axis(2))
         .nanmean(Axis(0))
