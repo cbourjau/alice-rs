@@ -7,3 +7,4 @@ authors = ["cbourjau <christian.bourjau@cern.ch>"]
 ndarray = {version="^0.10", features = ["serde-1"]} # {path = "../../rust-ndarray"}
 itertools = "^0.6.1"
 serde = "^1.0"
+num-traits = "^0.1"

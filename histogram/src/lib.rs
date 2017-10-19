@@ -1,10 +1,12 @@
 extern crate ndarray;
 extern crate itertools;
+extern crate num_traits as libnum;
 
 use ndarray as nd;
 
 use std::cmp::Ordering;
 use std::marker::PhantomData;
+use std::ops::{Add, AddAssign};
 
 // Re-export some ndarray things
 pub use nd::Dimension;
@@ -12,10 +14,10 @@ pub use nd::Axis;
 pub use nd::IxDyn;
 
 #[derive(Debug)]
-pub struct Histogram<D>
+pub struct Histogram<A, D>
 {
     edges: Vec<Vec<BinEdges>>,
-    pub counts: nd::Array<f64, IxDyn>,
+    pub counts: nd::Array<A, IxDyn>,
     dim: PhantomData<D>,
 }
 
@@ -28,7 +30,7 @@ pub trait Widths {
     fn widths(&self, axis:usize) -> Vec<f64>;
 }
 
-impl<D> Centers for Histogram<D>
+impl<A, D> Centers for Histogram<A, D>
 {
     /// The center position of each bin along axis
     fn centers(&self, axis: usize) -> Vec<f64> {
@@ -39,7 +41,7 @@ impl<D> Centers for Histogram<D>
     }
 }
 
-impl<D> Widths for Histogram<D>
+impl<A, D> Widths for Histogram<A, D>
 {
     /// The width of each bin along `axis`
     fn widths(&self, axis:usize) -> Vec<f64>{
@@ -52,7 +54,9 @@ impl<D> Widths for Histogram<D>
 
 macro_rules! impl_histogram {
     ($N:expr, $($idx:expr)*) => {
-        impl Histogram<[usize; $N]> {
+        impl<A> Histogram<A, [usize; $N]>
+            where A: Copy + libnum::Zero + Add + AddAssign + libnum::One + PartialOrd
+        {
             /// Find the bin index containing `value` on `axis`
             /// Return None if the the value is not in range
             pub fn find_bin_index_axis(&self, axis: usize, value: f64) -> Option<usize>{
@@ -77,18 +81,18 @@ macro_rules! impl_histogram {
             pub fn fill(&mut self, values: &[f64; $N])
             {
                 if let Some(idxs) = self.find_bin_indices(values) {
-                    self.counts[idxs.as_ref()] += 1.0;
+                    self.counts[idxs.as_ref()] += A::one();
                 }
             }
             pub fn fill_by_index<I>(&mut self, indices: [usize; $N])
             {
-                self.counts[indices.as_ref()] += 1.0;
+                self.counts[indices.as_ref()] += A::one();
             }
             pub fn fill_by_index_bulk<T>(&mut self, indices_slice: T)
                 where T: IntoIterator<Item=[usize; $N]>
             {
                 for idxs in indices_slice {
-                    self.counts[idxs.as_ref()] += 1.0;
+                    self.counts[idxs.as_ref()] += A::one();
                 }
             }
             pub fn fill_bulk<T>(&mut self, values: T, npairs: usize)
@@ -99,17 +103,19 @@ macro_rules! impl_histogram {
                                .into_iter()
                                .filter_map(|v| self.find_bin_indices(&v)));
                 for idxs in indices {
-                    self.counts[idxs.as_ref()] += 1.0;
+                    self.counts[idxs.as_ref()] += A::one();
                 }
             }
 
-            pub fn add(&mut self, other: &Histogram<[usize; $N]>) {
+            pub fn add(&mut self, other: &Histogram<A, [usize; $N]>) {
                 // assert_eq!(self.edges.as_slice(), other.edges.as_slice());
                 self.counts += &other.counts;
             }
         }
 
-        impl Extend<[f64; $N]> for Histogram<[usize; $N]> {
+        impl<A> Extend<[f64; $N]> for Histogram<A, [usize; $N]>
+            where A: Copy + libnum::Num + AddAssign + PartialOrd
+        {
             fn extend<T>(&mut self, values: T)
                 where T: IntoIterator<Item=[f64; $N]>
             {
@@ -117,7 +123,7 @@ macro_rules! impl_histogram {
                     .filter_map(|v| self.find_bin_indices(&v))
                     .collect();
                 for idxs in indices {
-                    self.counts[idxs.as_ref()] += 1.0;
+                    self.counts[idxs.as_ref()] += A::one();
                 }
             }
         }
@@ -151,7 +157,8 @@ macro_rules! impl_histogram_builder {
                 }
             }
             /// Create a new n-dimensional histogram
-            pub fn build(&self) -> Option<Histogram<[usize; $N]>>
+            pub fn build<A>(&self) -> Option<Histogram<A, [usize; $N]>>
+                where A: Clone + libnum::Num
             {
                 let edges: Vec<Vec<BinEdges>> = self.edges
                     .iter()
@@ -165,8 +172,8 @@ macro_rules! impl_histogram_builder {
                     shape[dim] = edges[dim].len();
                 }
                 
-                let counts = nd::ArrayD::<f64>::zeros(IxDyn(shape.as_ref()));
-                Some(Histogram::<[usize; $N]> {
+                let counts = nd::ArrayD::<A>::zeros(IxDyn(shape.as_ref()));
+                Some(Histogram::<A, [usize; $N]> {
                     counts: counts,
                     edges: edges,
                     dim: PhantomData,
@@ -241,7 +248,7 @@ mod tests {
         let h = HistogramBuilder::<[usize; 2]>::new()
             .add_equal_width_axis(1, 0., 1.)
             .add_equal_width_axis(1, 0., 1.)
-            .build().unwrap();
+            .build::<f32>().unwrap();
         assert_eq!(h.find_bin_indices(&[-1.0, -1.0]), None, "Wrong indices");
         assert_eq!(h.find_bin_indices(&[2.0, 2.0]), None, "Wrong indices");
         assert_eq!(h.find_bin_indices(&[0.5, 0.5]), Some([0, 0]), "Wrong indices");
@@ -252,7 +259,7 @@ mod tests {
         let h = HistogramBuilder::<[usize; 2]>::new()
             .add_equal_width_axis(1, 0., 1.)
             .add_equal_width_axis(1, 0., 1.)
-            .build().unwrap();
+            .build::<f32>().unwrap();
         assert_eq!(h.edges[0].len(), 1);
         assert_eq!(h.counts, nd::arr2(&[[0.]]).into_dyn());
 
@@ -260,7 +267,7 @@ mod tests {
             .add_equal_width_axis(1, 0., 1.)
             .add_equal_width_axis(1, 0., 1.)
             .add_equal_width_axis(1, 0., 1.)
-            .build().unwrap();
+            .build::<f32>().unwrap();
 
         assert_eq!(h.counts, nd::arr3(&[[[0.]]]).into_dyn());
     }
@@ -270,14 +277,14 @@ mod tests {
         // Only 1 dim added
         let opt = HistogramBuilder::<[usize; 2]>::new()
             .add_equal_width_axis(1, 0., 1.)
-            .build();
+            .build::<f32>();
         assert!(opt.is_none());
         // added 3 dims
         let opt = HistogramBuilder::<[usize; 2]>::new()
             .add_equal_width_axis(1, 0., 1.)
             .add_equal_width_axis(1, 0., 1.)
             .add_equal_width_axis(1, 0., 1.)
-            .build();
+            .build::<f32>();
         assert!(opt.is_none());
     }
 
@@ -306,7 +313,7 @@ mod tests {
         let h = HistogramBuilder::<[usize; 2]>::new()
             .add_equal_width_axis(2, -1., 1.)
             .add_equal_width_axis(2, -1., 1.)
-            .build().unwrap();
+            .build::<f32>().unwrap();
         assert_eq!(h.edges[0][0].lower, -1.0);
         assert_eq!(h.edges[0][0].upper, 0.0);
         assert_eq!(h.edges[0][1].lower, 0.0);
