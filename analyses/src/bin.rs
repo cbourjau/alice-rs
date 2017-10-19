@@ -78,20 +78,20 @@ fn filter_tracks(mut ev: Event) -> Event {
     ev
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use test::Bencher;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use test::Bencher;
 
-    #[bench]
-    fn bench_pairs(b: &mut Bencher) {
-        b.iter(|| {
-            let files: Vec<_> = alice_open_data::all_files_10h()
-                .expect("No data files found. Did you download with alice-open-data?")
-                .into_iter()
-                .take(2)
-                .collect();
-            pair_analysis(files)
-        });
-    }
-}
+//     #[bench]
+//     fn bench_pairs(b: &mut Bencher) {
+//         b.iter(|| {
+//             let files: Vec<_> = alice_open_data::all_files_10h()
+//                 .expect("No data files found. Did you download with alice-open-data?")
+//                 .into_iter()
+//                 .take(2)
+//                 .collect();
+//             pair_analysis(files)
+//         });
+//     }
+// }
