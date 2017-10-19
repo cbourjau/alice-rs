@@ -4,5 +4,6 @@ version = "0.1.0"
 authors = ["cbourjau <christian.bourjau@cern.ch>"]
 
 [dependencies]
-ndarray = "^0.10" # {path = "../../rust-ndarray"}
+ndarray = {version="^0.10", features = ["serde-1"]} # {path = "../../rust-ndarray"}
 itertools = "^0.6.1"
+serde = "^1.0"
