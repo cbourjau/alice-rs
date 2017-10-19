@@ -9,6 +9,9 @@ extern crate num_traits as libnum;
 extern crate rand;
 extern crate indicatif;
 extern crate alice_open_data;
+extern crate serde;
+extern crate bincode;
+
 
 pub mod analyses;
 pub use analyses::{ProcessEvent, Visualize, ParticlePairDistributions, Merge};

@@ -6,6 +6,8 @@ use gnuplot as gpl;
 use gnuplot::AxesCommon;
 use gnuplot::PlotOption::*;
 use libnum;
+use serde::Serialize;
+use bincode::{serialize, Infinite};
 
 use histogram::*;
 
@@ -16,6 +18,8 @@ use super::utils::COLORS;
 use super::{ProcessEvent, Visualize, Merge};
 use super::ArrayBaseExt;
 
+use std::io::prelude::*;
+use std::fs::File;
 
 pub struct ParticlePairDistributions {
     singles: Histogram<f32, [usize; 5]>,
@@ -252,6 +256,15 @@ fn compute_vn_delta_and_uncertainties(dphi: &nd::ArrayD<f32>, rel_uncert_dphi: &
     (vndelta, abs_vn_uncert)
 }
 
+fn dump_to_file<A, D>(a: &nd::Array<A, D>, name: &str)
+    where A: Serialize,
+          D: nd::Dimension + Serialize
+{
+    let buf = serialize(&a, Infinite).unwrap();
+    let mut f = File::create(name).expect("Could not create file");
+    f.write(buf.as_slice()).expect("Could not write to file buffer");
+}
+
 impl Visualize for ParticlePairDistributions {
     fn visualize(&self) {
         println!("Visualizing");
@@ -268,6 +281,9 @@ impl Visualize for ParticlePairDistributions {
         // average over \tilde{\phi} dimension; the one which was phi1
         let dphi = phi_delta_phi_tilde.nanmean(Axis(1));
         let dphi_uncert = self.get_relative_uncert_dphi();
+        println!("{:?}, {:?}", dphi.shape(), dphi_uncert.shape());
+        dump_to_file(&dphi, "dphi");
+        dump_to_file(&dphi_uncert, "uncert");
         {
             let mut dphi_plot = fg.axes2d().set_pos_grid(2, 2, 0);
             plot_delta_phi_projection(&mut dphi_plot,
