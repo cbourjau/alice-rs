@@ -33,7 +33,7 @@ fn main() {
     let mut analyses = dataset.install(&pair_analysis);
     let (mut analysis, analyses) = analyses.split_first_mut().unwrap();
     for a in analyses.into_iter().skip(1) {
-        analysis.merge(&a);
+        analysis.merge(a);
     }
     analysis.visualize();
 }
@@ -42,18 +42,18 @@ fn pair_analysis(events: DatasetProducer) -> analyses::ParticlePairDistributions
 {
     events
         // Event selection
-        .filter(|ref ev| {
+        .filter(|ev| {
             ev.primary_vertex.as_ref()
                 .map(|pv| pv.z.abs() < 8.)
                 .unwrap_or(false)
         })
-        .filter(|ref ev| ev.multiplicity > 1)
-        .filter(|ref ev| ev.trigger_mask.contains(trigger_mask::MINIMUM_BIAS))
+        .filter(|ev| ev.multiplicity > 1)
+        .filter(|ev| ev.trigger_mask.contains(trigger_mask::MINIMUM_BIAS))
         // Track selection
-        .map(|ev| filter_tracks(ev))
+        .map(filter_tracks)
         // Analysis; Fold this chunk of events
-        .fold(analyses::ParticlePairDistributions::new(), |analysis, ref ev| {
-            analysis.process_event(ev)
+        .fold(analyses::ParticlePairDistributions::new(), |analysis, ev| {
+            analysis.process_event(&ev)
         })
 
 }
@@ -65,12 +65,12 @@ fn filter_tracks(mut ev: Event) -> Event {
         // see AliESDtrackCuts.cxx:1366
         ev.tracks = ev.tracks
             .into_iter()
-            .filter(|ref tr| tr.flags.contains(track::ITS_REFIT))
-            .filter(|ref tr| tr.dca_to_point_xy(pv.x, pv.y) < 2.4)
-            .filter(|ref tr| tr.dca_to_point_z(pv.z) < 3.2)
-            .filter(|ref tr| tr.eta().abs() < 0.8)
-            .filter(|ref tr| tr.quality_tpc.ncls > 70)
-            .filter(|ref tr| tr.pt() > 0.15)
+            .filter(|tr| tr.flags.contains(track::ITS_REFIT))
+            .filter(|tr| tr.dca_to_point_xy(pv.x, pv.y) < 2.4)
+            .filter(|tr| tr.dca_to_point_z(pv.z) < 3.2)
+            .filter(|tr| tr.eta().abs() < 0.8)
+            .filter(|tr| tr.quality_tpc.ncls > 70)
+            .filter(|tr| tr.pt() > 0.15)
             .collect();
     }
     // Shuffle selected tracks to avoid correlations from datataking orderings

@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 use std::convert::{AsRef};
 use std::sync::{Arc, Mutex};
+use std::thread;
 
-use chan;
-use chan::Receiver;
+use chan::{self, Receiver};
 use rayon;
 use indicatif::ProgressBar;
 
@@ -26,6 +26,9 @@ impl Dataset {
     {
         Dataset {receiver: setup_io_threads(paths, n_workers)}
     }
+}
+impl Iterator for Dataset {
+    type Item = Event;
 
     /// Load the next event from the file
     fn next(&mut self) -> Option<Event> {
@@ -33,7 +36,7 @@ impl Dataset {
     }
 }
 
-fn progress_bar(rx: chan::Receiver<()>, nfiles: u64) {
+fn progress_bar(rx: &Receiver<()>, nfiles: u64) {
     let pbar = ProgressBar::new(nfiles);
     loop {
         // Select will block until recv() succeeds
@@ -55,9 +58,8 @@ fn setup_io_threads<T>(paths: T, workers: usize) -> Receiver<Event>
     let (tx, rx) = chan::sync::<Event>(buf_size);
     // ProgressBar lives in its own thread; and increments when getting a message
     let (tx_progress, rx_progress) = chan::async::<()>();
-    use std::thread;
     let nfiles = paths.as_ref().len() as u64;
-    thread::spawn(move || progress_bar(rx_progress, nfiles));
+    thread::spawn(move || progress_bar(&rx_progress, nfiles));
 
     // FIXME: ROOT's global interpreter can't handle if if we open the
     // the first two files simultaniously...

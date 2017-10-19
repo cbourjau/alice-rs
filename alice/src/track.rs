@@ -167,9 +167,7 @@ impl Track {
         let diff_x = self.x - xv;
         let diff_y = self.parameters.loc_y - yv;
         let loc_sin = self.parameters.loc_sin;
-        let ret = (diff_x * loc_sin
-                   - diff_y * ((1. - loc_sin) * (1. + loc_sin)).sqrt()).abs();
-        ret
+        (diff_x * loc_sin - diff_y * ((1. - loc_sin) * (1. + loc_sin)).sqrt()).abs()
     }
     // Distance of closes approch of this track in z
     pub fn dca_to_point_z(&self, z: f64) -> f64 {

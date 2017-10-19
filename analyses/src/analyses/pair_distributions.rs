@@ -178,7 +178,7 @@ impl Merge<ParticlePairDistributions> for ParticlePairDistributions {
 /// Plot the \Delta\phi projection for various multiplicities
 /// dphi: Shape (mult, dphi, pt1, pt2)
 fn plot_delta_phi_projection(plot: &mut gpl::Axes2D,
-                                    x: &Vec<f64>,
+                                    x: &[f64],
                                     dphi: &nd::ArrayD<f32>,
                                     yerr: &nd::ArrayD<f32>)
 {
@@ -208,7 +208,7 @@ fn plot_delta_phi_projection(plot: &mut gpl::Axes2D,
 /// coefficients. Each coefficient has the same uncertainty!
 /// Variance of Vn is sum of variances of the dimension decomposed; i.e. sum along dphi
 /// Input: dphi(multiplicity, dphi, pt, pt) used for decomposition
-///        rel_uncert_dphi; shape (multiplicity, dphi, pt, pt)
+///        `rel_uncert_dphi`; shape (multiplicity, dphi, pt, pt)
 /// Return shape: (pt, pt, multiplicity)
 fn get_absolute_uncert_vn<A>(dphi: &nd::ArrayD<A>, rel_uncert_dphi: &nd::ArrayD<A>)
                           -> nd::ArrayD<A>
@@ -229,7 +229,7 @@ fn compute_vn_delta_and_uncertainties(dphi: &nd::ArrayD<f32>, rel_uncert_dphi: &
     let vndelta = dphi
         .decompose(Axis(1))
         .mapv(|v| v.to_polar().0); // Only keep the amplitude
-    let abs_vn_uncert = get_absolute_uncert_vn(&dphi, rel_uncert_dphi);
+    let abs_vn_uncert = get_absolute_uncert_vn(dphi, rel_uncert_dphi);
     let rel_vn_uncert = {
         &abs_vn_uncert
             .insert_axis(nd::Axis(1))

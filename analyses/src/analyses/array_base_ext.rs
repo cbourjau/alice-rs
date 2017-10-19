@@ -28,7 +28,7 @@ impl<A, S, D> ArrayBaseExt<A, S, D> for ArrayBase<S, D>
         where A: Clone + rustfft::FFTnum + Debug
     {
         // Prepare the output array
-        let mut out = self.clone().mapv(|_| Complex::<A>::zero());
+        let mut out = self.mapv(|_| Complex::<A>::zero());
 
         // Prepare 1D output array for fft
         let out_len = self.shape()[axis.index()];
@@ -54,13 +54,13 @@ impl<A, S, D> ArrayBaseExt<A, S, D> for ArrayBase<S, D>
               D: RemoveAxis
     {
         // Create a mask of the same shape as `a` and set it all to zero
-        let mask = self.mapv(|val| match val.is_nan() {
-            true => A::zero(),
-            false => A::one(),
+        let mask = self.mapv(|val| {
+            if val.is_nan() {A::zero()}
+            else {A::one()}
         });
-        let fixed_invalid = self.mapv(|val| match val.is_nan() {
-            true => A::zero(),
-            false => val,
+        let fixed_invalid = self.mapv(|val| {
+            if val.is_nan() {A::zero()}
+            else {val}
         });
         let sum = fixed_invalid.sum_axis(axis);
         sum / &mask.sum_axis(axis)
