@@ -2,10 +2,11 @@ use std::path::PathBuf;
 use std::convert::{AsRef};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Instant;
 
 use chan::{self, Receiver};
 use rayon;
-use indicatif::ProgressBar;
+use indicatif::{ProgressBar, ProgressStyle};
 
 use event::Event;
 use esd::ESD;
@@ -36,17 +37,34 @@ impl Iterator for Dataset {
     }
 }
 
-fn progress_bar(rx: &Receiver<()>, nfiles: u64) {
+fn progress_bar(rx: &Receiver<i64>, nfiles: u64) {
     let pbar = ProgressBar::new(nfiles);
+    pbar.set_style(
+        ProgressStyle::default_bar()
+            .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
+    );
+    let mut n_files_done = 0;
+    let mut n_evts_done = 0;
+    let started = Instant::now();
     loop {
         // Select will block until recv() succeeds
         chan_select! {
             rx.recv() -> v => match v {
                 None => {},
-                Some(()) => pbar.inc(1)
+                Some(n_evts) => {
+                    n_files_done += 1;
+                    n_evts_done += n_evts;
+                    pbar.inc(1);
+                    let rate = n_evts_done / started.elapsed().as_secs() as i64;
+                    pbar.set_message(&format!("Evts/s: {}", rate));
+                    if n_files_done >= nfiles {
+                        break
+                    }
+                }
             }
         }
-    } 
+    }
+    pbar.finish();
 }
 
 fn setup_io_threads<T>(paths: T, workers: usize) -> Receiver<Event>
@@ -57,7 +75,8 @@ fn setup_io_threads<T>(paths: T, workers: usize) -> Receiver<Event>
     let buf_size = 5;
     let (tx, rx) = chan::sync::<Event>(buf_size);
     // ProgressBar lives in its own thread; and increments when getting a message
-    let (tx_progress, rx_progress) = chan::async::<()>();
+    // That message also contains the number of events processed from the file
+    let (tx_progress, rx_progress) = chan::async::<i64>();
     let nfiles = paths.as_ref().len() as u64;
     thread::spawn(move || progress_bar(&rx_progress, nfiles));
 
@@ -92,7 +111,7 @@ fn setup_io_threads<T>(paths: T, workers: usize) -> Receiver<Event>
                         // We are out of events in this file
                         // Increment progress bar and get out of here
                         None => {
-                            tx_progress.send(());
+                            tx_progress.send(ievent);
                             break
                         }
                     };
