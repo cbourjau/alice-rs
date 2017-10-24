@@ -4,14 +4,16 @@
 #include <TError.h>
 #include <TFile.h>
 #include <TTree.h>
+#include <TROOT.h>
 
 #include "ESDmerged.h"
 
 
 ESD_t::ESD_t(const char* path) : fChain(0) 
 {
+  ROOT::EnableImplicitMT(4);
+  ROOT::EnableThreadSafety();
   gErrorIgnoreLevel = kFatal;
-
   fFile = TFile::Open(path);
   if (!fFile) {
     // Loading the first event will return 0 and avoid a crash
@@ -71,12 +73,21 @@ void ESD_t::Init(TTree *tree)
   // Some branches might not exist; don't show errors!
   // gErrorIgnoreLevel = kFatal;
   fChain->SetBranchStatus("*",0);  // disable all branches. Segfault if not done! WOOP!
-  fChain->SetBranchStatus("PrimaryVertex.*", 1);  // enable Primary Vertex
-  fChain->SetBranchStatus("Tracks.*", 1);  // enable Tracks
+
+  // Re-enable only the needed branches. This save HUGE amounts of IO and unzipping!
+  fChain->SetBranchStatus("PrimaryVertex.AliVertex.fNContributors", 1);
+  fChain->SetBranchStatus("PrimaryVertex.AliVertex.fPosition*", 1);
   fChain->SetBranchStatus("AliMultiplicity.fNtracks", 1);  // enable Tracks
-  fChain->SetBranchStatus("AliESDRun.*", 1);  // enable ESD run data
-  fChain->SetBranchStatus("AliESDHeader.*", 1);  // needed for trigger mask
-  // fChain->SetBranchStatus("AliESDVZERO.*", 1);  // enable ESD run data
+  fChain->SetBranchStatus("AliESDRun.fRunNumber", 1);
+  fChain->SetBranchStatus("AliESDRun.fTriggerClasses", 1);
+  fChain->SetBranchStatus("AliESDHeader.fTriggerMask", 1);  // needed for trigger mask
+  fChain->SetBranchStatus("Tracks", 1);  // enable Track counter Tracks_
+  fChain->SetBranchStatus("Tracks.fTPC*", 1);  // enable TPC quality flag branches
+  fChain->SetBranchStatus("Tracks.*TPC", 1);  // enable TPC quality flag branches
+  fChain->SetBranchStatus("Tracks.fP*", 1);  // enable ExternalTrackParam
+  fChain->SetBranchStatus("Tracks.fX", 1);  // enable ExternalTrackParam
+  fChain->SetBranchStatus("Tracks.fAlpha", 1);  // enable ExternalTrackParam
+  fChain->SetBranchStatus("Tracks.fFlags", 1);  // enable ExternalTrackParam
 
   // These two branches cause a memory leak. Probably because they represent arrays of pointers
   // Thus, disabling them for now. Deletion of these would be possible with the other
