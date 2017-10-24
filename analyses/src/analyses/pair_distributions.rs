@@ -107,13 +107,13 @@ impl ParticlePairDistributions {
     fn get_relative_uncert_dphi(&self) -> nd::Array<f32, nd::IxDyn> {
         // Shape: (mult, phi, phi, pt, pt)
         let p_sum = self.pairs.counts
-            .sum_axis(Axis(2))  // eta1
-            .sum_axis(Axis(2))  // eta2
+            // .sum_axis(Axis(2))  // eta1
+            // .sum_axis(Axis(2))  // eta2
             .sum_axis(Axis(0));  // z_vtx position
         // Coordinate transform: (phi1, phi2) -> ((phi1 + phi2), (phi1 - phi2))
-        let p_sum = roll_diagonal(p_sum, nd::Axis(1));
+        let p_sum = roll_diagonal(p_sum, nd::Axis(3));
         // Sum over (phi1 + phi2); thats the dimension which was phi1
-        let p_sum = p_sum.sum_axis(Axis(1));
+        let p_sum = p_sum.sum_axis(Axis(3));
         // Absolute uncertainties assuming binomila distribution: sqrt(N)
         // Thus, relative: sqrt(N) / N = 1 / sqrt(N)
         p_sum.mapv(|n| 1.0 / n.powf(0.5))
@@ -274,17 +274,19 @@ impl Visualize for ParticlePairDistributions {
         fg.set_terminal("wxt enhanced", "");
 
         let corr2 = self.finalize();
-        // __average__ over z, eta1, eta2 (should be all at once, actually)!
-        // Resulting shape: (multiplicity, phi, phi, pt, pt)
+        // Resulting shape: (multiplicity, eta, eta, phi, phi, pt, pt)
         let phi_phi = get_phi_phi(&corr2);
         // transform coordinates (rotate 45 degrees)
-        let phi_delta_phi_tilde = roll_diagonal(phi_phi, nd::Axis(1));
+        let phi_delta_phi_tilde = roll_diagonal(phi_phi, nd::Axis(3));
         // average over \tilde{\phi} dimension; the one which was phi1
-        let dphi = phi_delta_phi_tilde.nanmean(Axis(1));
+        let dphi = phi_delta_phi_tilde.nanmean(Axis(3));
         let dphi_uncert = self.get_relative_uncert_dphi();
-        println!("{:?}, {:?}", dphi.shape(), dphi_uncert.shape());
+        // Write current state to file
         dump_to_file(&dphi, "dphi");
         dump_to_file(&dphi_uncert, "uncert");
+        dump_to_file(&self.pairs.counts, "pairs");
+        // average over eta, eta for plotting
+        return;
         {
             let mut dphi_plot = fg.axes2d().set_pos_grid(2, 2, 0);
             plot_delta_phi_projection(&mut dphi_plot,
@@ -405,12 +407,13 @@ fn roll_by_one<'a, A, D>(a: &mut nd::ArrayViewMut<'a, A, D>, phi_ax: nd::Axis)
 }
 
 /// Average the given array of shape (z, mult, eta, eta, phi, phi, pt, pt) to
-/// (mult, phi, phi, pt, pt)
+/// (mult, eta, eta, phi, phi, pt, pt)
 fn get_phi_phi<A>(a: &nd::ArrayD<A>) -> nd::ArrayD<A>
     where A: libnum::Float
 {
-    a.nanmean(Axis(2))
-        .nanmean(Axis(2))
+    a
+        // .nanmean(Axis(2))
+        // .nanmean(Axis(2))
         .nanmean(Axis(0))
 }
 
