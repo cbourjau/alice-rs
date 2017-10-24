@@ -31,9 +31,10 @@ impl ParticlePairDistributions {
     pub fn new() -> ParticlePairDistributions {
         // eta, phi, z
         let nphi = 20;
-        let neta = 16;
+        let (neta, eta_min, eta_max) = (20, -1.0, 1.0);
         let (nzvtx, zmin, zmax) = (8, -8., 8.);
-        let pt_edges = [0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0];
+        let pt_edges = [0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 2.5, 3.0,
+                        4.0, 5.0];
         let multiplicity_edges = [// 7., 24., 63., 140.,
                                   276.,
                                   510.,
@@ -45,7 +46,7 @@ impl ParticlePairDistributions {
             singles: HistogramBuilder::<[usize; 5]>::new()
                 .add_equal_width_axis(nzvtx, zmin, zmax)
                 .add_variable_width_axis(&multiplicity_edges)
-                .add_equal_width_axis(neta, -0.8, 0.8)
+                .add_equal_width_axis(neta, eta_min, eta_max)
                 .add_equal_width_axis(nphi, 0., 2. * PI)
                 .add_variable_width_axis(&pt_edges)
                 .build()
@@ -53,8 +54,8 @@ impl ParticlePairDistributions {
             pairs: HistogramBuilder::<[usize; 8]>::new()
                 .add_equal_width_axis(nzvtx, zmin, zmax)
                 .add_variable_width_axis(&multiplicity_edges)
-                .add_equal_width_axis(neta, -0.8, 0.8)
-                .add_equal_width_axis(neta, -0.8, 0.8)
+                .add_equal_width_axis(neta, eta_min, eta_max)
+                .add_equal_width_axis(neta, eta_min, eta_max)
                 .add_equal_width_axis(nphi, 0., 2. * PI)
                 .add_equal_width_axis(nphi, 0., 2. * PI)
                 .add_variable_width_axis(&pt_edges)
