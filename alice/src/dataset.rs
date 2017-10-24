@@ -175,18 +175,16 @@ mod tests {
 
     #[test]
     fn fold_stream() {
-        use futures::future::{ok, Future};
         let files: Vec<_> = alice_open_data::all_files_10h().unwrap()
             .into_iter()
             .take(5)
             .collect();
-        let ds = event_stream(files.as_slice(), 2);
+        let ds = Dataset::new(files, 2);
         // let blub = ds.map(|_| 1).collect();
         // println!("{:?}", blub.wait());
         let nevents = ds
             .filter(|ev| ev.primary_vertex.is_some())
-            .fold(0, |acc, _| ok(acc + 1))
-            .wait().unwrap();
+            .fold(0, |acc, _| acc + 1);
         assert!(nevents > 0);
     }    
 }
