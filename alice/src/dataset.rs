@@ -72,7 +72,7 @@ fn setup_io_threads<T>(paths: T, workers: usize) -> Receiver<Event>
 {
     let conf = rayon::Configuration::new().num_threads(workers);
     let pool = rayon::ThreadPool::new(conf).unwrap();
-    let buf_size = 5;
+    let buf_size = 100;
     let (tx, rx) = chan::sync::<Event>(buf_size);
     // ProgressBar lives in its own thread; and increments when getting a message
     // That message also contains the number of events processed from the file
