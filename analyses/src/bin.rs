@@ -12,8 +12,6 @@ extern crate rayon;
 
 mod selections;
 
-use rand::{thread_rng, Rng};
-
 use alice::dataset::{Dataset, DatasetProducer};
 use alice::track;
 use alice::trigger_mask;
@@ -29,9 +27,8 @@ fn main() {
     let files: Vec<_> = alice_open_data::all_files_10h()
         .expect("No data files found. Did you download with alice-open-data?")
         .into_iter()
-        .take(20)
         .collect();
-    let dataset = Dataset::new(files, 4);
+    let dataset = Dataset::new(files, 2);
     let mut analyses = dataset.install(&pair_analysis);
     let (mut analysis, analyses) = analyses.split_first_mut().unwrap();
     for a in analyses.into_iter().skip(1) {

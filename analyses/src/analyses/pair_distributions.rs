@@ -6,8 +6,6 @@ use gnuplot as gpl;
 use gnuplot::AxesCommon;
 use gnuplot::PlotOption::*;
 use libnum;
-use serde::Serialize;
-use bincode::{serialize, Infinite};
 
 use histogram::*;
 
@@ -255,15 +253,6 @@ fn compute_vn_delta_and_uncertainties(dphi: &nd::ArrayD<f32>, rel_uncert_dphi: &
         (&vns_uncert + &v0_uncert) * &vndelta
     };
     (vndelta, abs_vn_uncert)
-}
-
-fn dump_to_file<A, D>(a: &nd::Array<A, D>, name: &str)
-    where A: Serialize,
-          D: nd::Dimension + Serialize
-{
-    let buf = serialize(&a, Infinite).unwrap();
-    let mut f = File::create(name).expect("Could not create file");
-    f.write(buf.as_slice()).expect("Could not write to file buffer");
 }
 
 impl Visualize for ParticlePairDistributions {

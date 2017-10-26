@@ -5,11 +5,12 @@ use std::thread;
 use std::time::Instant;
 
 use chan::{self, Receiver};
-use rayon;
+use rayon::{self, join};
 use indicatif::{ProgressBar, ProgressStyle};
 
 use event::Event;
 use esd::ESD;
+use analysis::traits::Merge;
 
 
 lazy_static! {
@@ -55,8 +56,11 @@ fn progress_bar(rx: &Receiver<i64>, nfiles: u64) {
                     n_files_done += 1;
                     n_evts_done += n_evts;
                     pbar.inc(1);
-                    let rate = n_evts_done / started.elapsed().as_secs() as i64;
-                    pbar.set_message(&format!("Evts/s: {}", rate));
+                    // This might end up being called within 0s!
+                    if started.elapsed().as_secs() > 0 {
+                        let rate = n_evts_done / started.elapsed().as_secs() as i64;
+                        pbar.set_message(&format!("Evts/s: {}", rate));
+                    }
                     if n_files_done >= nfiles {
                         break
                     }
@@ -144,18 +148,26 @@ pub struct DatasetProducer {
 
 
 impl<'f> Dataset {
-    pub fn install<F, T>(self, f: &'f F) -> Vec<T>
+    /// Excute `f` on this dataset. The analysis will be run in 4
+    /// parallel threads The name of this function is somewhat related
+    /// to rayon's `install`, but not really.
+    pub fn install<F, T>(self, f: &'f F) -> T
         where F: Fn(DatasetProducer) -> T + Sync,
-              T: Send
+              T: Send + Merge
     {
         let prod = DatasetProducer {
             dataset: self
         };
-        use rayon::join;
-
-        let ((t1, t2), (t3, t4)) = join(|| {join(|| {f(prod.clone())}, || f(prod.clone()))},
-                                  || {join(|| {f(prod.clone())}, || f(prod.clone()))});
-        vec![t1, t2, t3, t4]
+        // use 4 threads;
+        // FIXME: This should not be hard coded!
+        let ((mut t1, t2), (t3, t4)) =
+            join(|| {join(|| {f(prod.clone())}, || f(prod.clone()))},
+                       || {join(|| {f(prod.clone())}, || f(prod.clone()))});
+        // merge the output of the parallel threads into one
+        for a in [t2, t3, t4].iter() {
+            t1.merge(a);
+        }
+        t1
     }
 }
 

@@ -1,13 +1,27 @@
-// use libnum;
-// use ndarray as nd;
-// use ndarray::{Axis, Array, ArrayBase, ArrayView, Data, Dimension, IntoDimension};
+/// A few utilities which might be useful when writing analyses
+use std::io::prelude::*;
+use std::fs::File;
+use ndarray as nd;
+use serde::Serialize;
+use bincode::{serialize, Infinite};
 
-// use super::ArrayBaseExt;
 
-
+/// A nice color set for Gnuplot
 pub const COLORS: [&str; 9] = ["#4D4D4D","#5DA5DA","#FAA43A","#60BD68",
                                "#F17CB0","#B2912F","#B276B2","#DECF3F",
                                "#F15854"];
+
+/// Dump an ndarray to the given file.
+/// The binary layout is:
+/// `(array_version: u8, ndim: u64, shape: [ndim; u64], a_size: u64, a: [a_size; A])`
+pub fn dump_to_file<A, D>(a: &nd::Array<A, D>, name: &str)
+    where A: Serialize,
+          D: nd::Dimension + Serialize
+{
+    let buf = serialize(&a, Infinite).unwrap();
+    let mut f = File::create(name).expect("Could not create file");
+    f.write_all(buf.as_slice()).expect("Could not write to file buffer");
+}
 
 
 // pub fn keep_axes<A, D, NewDim>(a: &ArrayView<A, D>, keep: NewDim) -> Array<A, nd::IxDyn>

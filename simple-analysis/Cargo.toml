@@ -1,0 +1,11 @@
+[package]
+name = "simple-analysis"
+version = "0.1.0"
+authors = ["cbourjau <christian.bourjau@cern.ch>"]
+
+[dependencies]
+alice = {path = "../alice" }
+alice-open-data = {path = "../alice-open-data"}
+alice-sys = {path = "../alice-sys" }
+gnuplot = "^0.0.22"
+histogram = {path = "../histogram" }

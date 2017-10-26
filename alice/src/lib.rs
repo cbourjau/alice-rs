@@ -9,6 +9,13 @@ extern crate chan;
 extern crate rayon;
 #[macro_use]
 extern crate lazy_static;
+extern crate ndarray;
+extern crate rustfft;
+extern crate num_traits as libnum;
+extern crate rand;
+extern crate serde;
+extern crate bincode;
+
 
 pub mod dataset;
 pub mod event;
@@ -17,6 +24,8 @@ pub mod track;
 pub mod trigger_mask;
 pub mod vzero;
 pub mod esd;
+
+pub mod analysis;
 
 
 #[cfg(test)]

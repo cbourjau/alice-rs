@@ -10,15 +10,11 @@ histogram = {path = "../histogram" }
 gnuplot = "^0.0.22"
 glob = "^0.2.11"
 ndarray = {version="^0.10.12", features = ["serde-1"]}
-rand = "^0.3.16"
 indicatif = "^0.6.0"
 rustfft = "^2.0.0"
 num-traits = "^0.1.40"
 alice-open-data = {path = "../alice-open-data"}
 rayon = "^0.8.2"
-serde = "^1.0"
-serde_derive = "^1.0"
-bincode = "^0.9"
 
 [profile.release]
 debug = false

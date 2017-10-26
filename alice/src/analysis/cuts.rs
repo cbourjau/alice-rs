@@ -1,4 +1,9 @@
-/// Default event and track selection
+use ::event::Event;
+use ::track;
+use trigger_mask;
+use rand::{thread_rng, Rng};
+
+/// Default event and track selection (cuts in particle physics lingo)
 
 /// Return true if the given event passes the recommended selection criterion
 pub fn default_event_filter(event: &Event) -> bool {
