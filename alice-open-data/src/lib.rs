@@ -83,7 +83,7 @@ pub fn test_file() -> Result<PathBuf, Error> {
     Ok(dir)
 }
 
-/// Path to all files of LHC10h
+/// Path to all files of `LHC10h`
 pub fn all_files_10h() -> Result<Vec<PathBuf>, Error> {
     let mut search_dir = data_dir()?;
     search_dir.push("alice/data/2010/LHC10h/**/AliESDs.root");

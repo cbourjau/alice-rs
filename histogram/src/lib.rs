@@ -62,7 +62,7 @@ macro_rules! impl_histogram {
             pub fn find_bin_index_axis(&self, axis: usize, value: f64) -> Option<usize>{
                 let (edges1d, value) = (&self.edges[axis], value);
                 edges1d
-                    .binary_search_by(|bin| bin.cmp(value))
+                    .binary_search_by(|bin| bin.cmp_with(value))
                     .ok()
             }
             
@@ -140,6 +140,7 @@ impl_histogram!(7, 0 1 2 3 4 5 6);
 impl_histogram!(8, 0 1 2 3 4 5 6 7);
 
 
+#[derive(Default)]
 pub struct HistogramBuilder<D>
 {
     edges: Vec<Vec<f64>>,
@@ -220,7 +221,9 @@ impl BinEdges {
     pub fn center (&self) -> f64 {
         self.lower + 0.5 * self.width()
     }
-    pub fn cmp (&self, value: f64) -> Ordering {
+    /// Compute if a given `value` is below, within or above the given binary
+    /// A bins interval is half open on [low, high)
+    pub fn cmp_with (&self, value: f64) -> Ordering {
         if value < self.lower {
             Ordering::Greater
         } else if value < self.upper {
@@ -230,6 +233,7 @@ impl BinEdges {
         }
     }
 }
+
 
 /// Turn a vector of edges to a vector of `BinEdges`
 fn edges_to_bins(edges1d: &[f64]) -> Vec<BinEdges>{
@@ -326,8 +330,8 @@ mod tests {
     fn bin_edges() {
         let be = BinEdges {lower: 0.0, upper: 1.0};
         // Read as "Bin is greater than value"!
-        assert_eq!(be.cmp(2.0), Ordering::Less);
-        assert_eq!(be.cmp(0.5), Ordering::Equal);
-        assert_eq!(be.cmp(-1.0), Ordering::Greater);
+        assert_eq!(be.cmp_with(2.0), Ordering::Less);
+        assert_eq!(be.cmp_with(0.5), Ordering::Equal);
+        assert_eq!(be.cmp_with(-1.0), Ordering::Greater);
     }
 }

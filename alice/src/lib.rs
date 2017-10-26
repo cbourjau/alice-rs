@@ -7,8 +7,6 @@ extern crate indicatif;
 #[macro_use]
 extern crate chan;
 extern crate rayon;
-#[macro_use]
-extern crate lazy_static;
 extern crate ndarray;
 extern crate rustfft;
 extern crate num_traits as libnum;

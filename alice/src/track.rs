@@ -20,22 +20,22 @@ bitflags! {
         const TOF_OUT = 0x2000;
         const TOF_REFIT = 0x4000;
         const TOF_PID = 0x8000;
-        const HMPID_OUT = 0x10000;
-        const HMPID_PID = 0x20000;
-        const EMCAL_MATCH = 0x40000;
-        const TRD_BACKUP = 0x80000;
-        const TOF_MISMATCH = 0x100000;
-        const PHOS_MATCH = 0x200000;
-        const ITS_UPG = 0x400000;
-        const SKIP_FRIEND = 0x800000;
-        const GLOBAL_MERGE = 0x1000000;
-        const MULT_IN_V0 = 0x2000000;
-        const MULT_SEC = 0x4000000;
-        const EMBEDDED = 0x8000000;
-        const ITS_PURE_SA = 0x10000000; 
-        const TRDS_TOP = 0x20000000; 
-        const ESD_PID = 0x40000000; 
-        const TIME = 0x80000000;
+        const HMPID_OUT = 0x10_000;
+        const HMPID_PID = 0x20_000;
+        const EMCAL_MATCH = 0x40_000;
+        const TRD_BACKUP = 0x80_000;
+        const TOF_MISMATCH = 0x100_000;
+        const PHOS_MATCH = 0x200_000;
+        const ITS_UPG = 0x400_000;
+        const SKIP_FRIEND = 0x800_000;
+        const GLOBAL_MERGE = 0x1_000_000;
+        const MULT_IN_V0 = 0x2_000_000;
+        const MULT_SEC = 0x4_000_000;
+        const EMBEDDED = 0x8_000_000;
+        const ITS_PURE_SA = 0x10_000_000; 
+        const TRDS_TOP = 0x20_000_000; 
+        const ESD_PID = 0x40_000_000; 
+        const TIME = 0x80_000_000;
     }
 }
 
@@ -144,7 +144,7 @@ impl Track {
         } else if phi >= 2. * PI {
             phi -= 2. * PI;
         }
-        return phi;
+        phi
     }
     pub fn theta(&self) -> f64 {
         // 0.5*TMath::Pi() - TMath::ATan(fP[3]);

@@ -15,7 +15,7 @@ fn main() {
         .into_iter()
         .take(200)
         .collect();
-    if files.len() == 0 {
+    if files.is_empty() {
         panic!("Somehow no files were found! Something is fishy!");
     }
     let dataset = Dataset::new(files, 2);

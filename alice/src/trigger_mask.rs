@@ -4,8 +4,8 @@ use alice_sys as ffi;
 
 bitflags! {
     pub struct TriggerMask: u64 {
-        const MINIMUM_BIAS = 0b00000001;
-        const HIGH_MULT =    0b00000010;
+        const MINIMUM_BIAS = 0b0000_0001;
+        const HIGH_MULT =    0b0000_0010;
     }
 }
 
@@ -56,14 +56,14 @@ fn fired_trigger_strings(esd: &ffi::ESD_t) -> Vec<&str> {
 /// Get the trigger mask for a given trigger string in a given run
 fn string_to_mask(s: &str, run_number: u32) -> TriggerMask {
     // LHC10h
-    if 136851 <= run_number && run_number <= 139517 {
+    if 136_851 <= run_number && run_number <= 139_517 {
         match s {
-            "CMBAC-B-NOPF-ALL" => MINIMUM_BIAS,
-            "CMBS2A-B-NOPF-ALL"  => MINIMUM_BIAS,
-            "CMBS2C-B-NOPF-ALL"  => MINIMUM_BIAS,
-            "CMBACS2-B-NOPF-ALL" => MINIMUM_BIAS,
+            "CMBAC-B-NOPF-ALL"  |
+            "CMBS2A-B-NOPF-ALL" |
+            "CMBS2C-B-NOPF-ALL" |
+            "CMBACS2-B-NOPF-ALL"|
             "CMBACS2-B-NOPF-ALLNOTRD" => MINIMUM_BIAS,
-            "C0SMH-B-NOPF-ALL" => HIGH_MULT,
+            "C0SMH-B-NOPF-ALL" |
             "C0SMH-B-NOPF-ALLNOTRD" => HIGH_MULT,
             _ => TriggerMask::empty(),
         }

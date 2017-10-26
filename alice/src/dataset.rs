@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 use std::convert::{AsRef};
-use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
 
@@ -11,11 +10,6 @@ use indicatif::{ProgressBar, ProgressStyle};
 use event::Event;
 use esd::ESD;
 use analysis::traits::Merge;
-
-
-lazy_static! {
-    static ref ESD_FACTORY:Arc<Mutex<fn(&PathBuf)-> ESD >> = Arc::new(Mutex::new(ESD::new));
-}
 
 #[derive(Clone)]
 pub struct Dataset {
@@ -90,15 +84,13 @@ fn setup_io_threads<T>(paths: T, workers: usize) -> Receiver<Event>
         let tx = tx.clone();
         let tx_progress = tx_progress.clone();
         let path = path.clone();
-        let fact = ESD_FACTORY.clone();
         // One thread per file. The file is only opened in the thread;
         // Rayon takes care of not running all threads at once.
         pool.spawn(
             move || {
                 let mut ievent = -1;
                 let mut esd = {
-                    let fact = fact.lock().unwrap();
-                    fact(&path)
+                    ESD::new(&path)
                 };
                 loop {
                     ievent += 1;
@@ -107,7 +99,7 @@ fn setup_io_threads<T>(paths: T, workers: usize) -> Receiver<Event>
                             let esd_raw = unsafe { &mut *esd.raw };
                             let ev = Event::new_from_esd(esd_raw);
                             // chan::send never panics, but might dead lock!
-                            if ev.tracks.len() > 40000 {
+                            if ev.tracks.len() > 4_0000 {
                                 println!("ntracks: {:?}", ev.tracks.len());
                             }
                             tx.send(ev);
@@ -164,7 +156,7 @@ impl<'f> Dataset {
             join(|| {join(|| {f(prod.clone())}, || f(prod.clone()))},
                        || {join(|| {f(prod.clone())}, || f(prod.clone()))});
         // merge the output of the parallel threads into one
-        for a in [t2, t3, t4].iter() {
+        for a in &[t2, t3, t4] {
             t1.merge(a);
         }
         t1
