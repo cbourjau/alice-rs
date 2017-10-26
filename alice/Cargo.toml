@@ -6,12 +6,10 @@ authors = ["cbourjau <christian.bourjau@cern.ch>"]
 [dependencies]
 libc = "*"
 bitflags = "^0.9.1"
-log = "^0.3.8"
 alice-sys = {path = "../alice-sys"}
 alice-open-data = {path = "../alice-open-data"}
 chan = "^0.1.19"
 rayon = "^0.8.2"
-lazy_static = "0.2"
 indicatif = "^0.8"
 ndarray = {version="^0.10.12", features = ["serde-1"]}
 rustfft = "^2.0.0"
