@@ -21,6 +21,8 @@ pub mod track;
 pub mod trigger_mask;
 pub mod vzero;
 pub mod esd;
+pub mod track_traits;
+pub mod event_traits;
 
 pub mod analysis;
 
@@ -31,6 +33,7 @@ mod tests {
     use dataset::Dataset;
     use track;
     use trigger_mask::TriggerMask;
+    use track_traits::Longitude;
     extern crate alice_open_data;
     
     #[test]

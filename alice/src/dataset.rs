@@ -12,6 +12,7 @@ use alice_sys::setup_root;
 use event::Event;
 use esd::ESD;
 use analysis::traits::Merge;
+use event_traits::{Tracks};
 
 #[derive(Clone)]
 pub struct Dataset {
@@ -104,8 +105,8 @@ fn setup_io_threads<T>(paths: T, workers: usize) -> Receiver<Event>
                             let esd_raw = unsafe { &mut *esd.raw };
                             let ev = Event::new_from_esd(esd_raw);
                             // chan::send never panics, but might dead lock!
-                            if ev.tracks.len() > 4_0000 {
-                                println!("ntracks: {:?}", ev.tracks.len());
+                            if ev.tracks().len() > 4_0000 {
+                                println!("ntracks: {:?}", ev.tracks().len());
                             }
                             tx.send(ev);
                         },

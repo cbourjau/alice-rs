@@ -8,8 +8,9 @@ use gnuplot::{Figure, AxesCommon};
 
 use histogram::*;
 
-use alice::event::Event;
-use alice::analysis::traits::{Merge, ProcessEvent, Visualize};
+use alice::analysis::traits::{Merge, Visualize};
+use alice::track_traits::{Azimuth, Longitude};
+use alice::event_traits::{Tracks, PrimaryVertex};
 
 pub struct Distribution {
     pub single_particles: Histogram<f32, [usize; 3]>,
@@ -37,14 +38,18 @@ impl Distribution {
     }
 }
 
-impl ProcessEvent for Distribution {
-    fn process_event(mut self, event: &Event) -> Self {
+impl Distribution {
+    pub fn process_event<E, T>(mut self, event: &E) -> Self
+        where E: Tracks<T> + PrimaryVertex,
+              T: Azimuth + Longitude
+    {
         // Fill only if we have a valid z-vtx position
-        event.primary_vertex.as_ref().map(|pv| {
+        if let Some(prime_vertex) = event.primary_vertex() {
             self.single_particles
-                .extend(event.tracks.iter().map(|tr| [tr.eta(), tr.phi(), pv.z]));
-            self.z_vertex.fill(&[pv.z]);
-        });
+                .extend(
+                    event.tracks().iter().map(|tr| [tr.eta(), tr.phi(), prime_vertex.z]));
+            self.z_vertex.fill(&[prime_vertex.z]);
+        };
         self
     }
 }

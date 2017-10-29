@@ -5,7 +5,7 @@ extern crate histogram;
 
 use alice::dataset::{Dataset, DatasetProducer};
 use alice::analysis::cuts;
-use alice::analysis::traits::{ProcessEvent, Visualize};
+use alice::analysis::traits::{Visualize};
 
 mod distribution;
 

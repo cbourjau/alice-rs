@@ -2,7 +2,7 @@ use alice_sys as ffi;
 use primary_vertex::PrimaryVertex;
 use track::Track;
 use trigger_mask::TriggerMask;
-// use vzero::V0;
+use event_traits;
 
 #[derive(Debug)]
 pub struct Event {
@@ -23,5 +23,17 @@ impl Event {
             // vzero: V0::from_esd(esd),
             trigger_mask: TriggerMask::new(esd)
         }
+    }
+}
+
+impl event_traits::Tracks<Track> for Event {
+    fn tracks(&self) -> &Vec<Track> {
+        &self.tracks
+    }
+}
+
+impl event_traits::PrimaryVertex for Event {
+    fn primary_vertex(&self) -> Option<&PrimaryVertex> {
+        self.primary_vertex.as_ref()
     }
 }

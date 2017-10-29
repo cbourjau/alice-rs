@@ -1,6 +1,8 @@
 use alice_sys::ESD_t;
 use std::f64::consts::PI;
 
+use track_traits::{Azimuth, Longitude, TransverseMomentum};
+
 bitflags! {
     /// Trackflags based on AliVTrack
     pub struct Flags: u64 {
@@ -163,26 +165,6 @@ impl Track {
         tracks
     }
 
-    pub fn phi(&self) -> f64 {
-        let mut phi = self.parameters.loc_sin.asin() + self.alpha;
-        if phi < 0. {
-            phi += 2. * PI;
-        } else if phi >= 2. * PI {
-            phi -= 2. * PI;
-        }
-        phi
-    }
-    pub fn theta(&self) -> f64 {
-        // 0.5*TMath::Pi() - TMath::ATan(fP[3]);
-        0.5 * PI - self.parameters.tang.atan()
-    }
-    pub fn eta(&self) -> f64 {
-        // -TMath::Log(TMath::Tan(0.5 * Theta()))
-        -((0.5 * self.theta()).tan()).ln()
-    }
-    pub fn pt(&self) -> f64 {
-        1.0 / self.parameters.one_over_pt.abs()
-    }
     /// Estimate the distance of closest approach of this track to a given point
     /// neglecting the track curvature. This returns the closest approach in the xy plane
     pub fn dca_to_point_xy(&self, x: f64, y: f64) -> f64 {
@@ -198,5 +180,30 @@ impl Track {
     // Distance of closes approch of this track in z
     pub fn dca_to_point_z(&self, z: f64) -> f64 {
         self.parameters.loc_z - z
+    }
+}
+
+impl Azimuth for Track {
+    fn phi(&self) -> f64 {
+        let mut phi = self.parameters.loc_sin.asin() + self.alpha;
+        if phi < 0. {
+            phi += 2. * PI;
+        } else if phi >= 2. * PI {
+            phi -= 2. * PI;
+        }
+        phi
+    }
+}
+
+impl Longitude for Track {
+    fn theta(&self) -> f64 {
+        // 0.5*TMath::Pi() - TMath::ATan(fP[3]);
+        0.5 * PI - self.parameters.tang.atan()
+    }
+}
+
+impl TransverseMomentum for Track {
+    fn pt(&self) -> f64 {
+        1.0 / self.parameters.one_over_pt.abs()
     }
 }
