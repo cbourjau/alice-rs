@@ -8,9 +8,6 @@ pub struct ESD {
     pub raw: *mut ffi::ESD_t
 }
 
-unsafe impl Send for ESD {}
-unsafe impl Sync for ESD {}
-
 impl ESD {
     pub fn new(path: &PathBuf) -> ESD {
         let path = path.to_str().expect("Cannot convert path to string");
