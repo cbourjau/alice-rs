@@ -80,12 +80,18 @@ void ESD_t::Init(TTree *tree)
   fChain->SetBranchStatus("AliESDRun.fTriggerClasses", 1);
   fChain->SetBranchStatus("AliESDHeader.fTriggerMask", 1);  // needed for trigger mask
   fChain->SetBranchStatus("Tracks", 1);  // enable Track counter Tracks_
-  fChain->SetBranchStatus("Tracks.fTPC*", 1);  // enable TPC quality flag branches
-  fChain->SetBranchStatus("Tracks.*TPC", 1);  // enable TPC quality flag branches
-  fChain->SetBranchStatus("Tracks.fP*", 1);  // enable ExternalTrackParam
-  fChain->SetBranchStatus("Tracks.fX", 1);  // enable ExternalTrackParam
-  fChain->SetBranchStatus("Tracks.fAlpha", 1);  // enable ExternalTrackParam
-  fChain->SetBranchStatus("Tracks.fFlags", 1);  // enable ExternalTrackParam
+  // enable TPC quality flag branches
+  fChain->SetBranchStatus("Tracks.fTPCchi2", 1);
+  fChain->SetBranchStatus("Tracks.fTPCncls", 1);
+  // enable ExternalTrackParam
+  fChain->SetBranchStatus("Tracks.fP*", 1);
+  fChain->SetBranchStatus("Tracks.fX", 1);
+  fChain->SetBranchStatus("Tracks.fAlpha", 1);
+  fChain->SetBranchStatus("Tracks.fFlags", 1);
+  // enable (some) ITS quality attributes
+  fChain->SetBranchStatus("Tracks.fITSchi2", 1);
+  fChain->SetBranchStatus("Tracks.fITSncls", 1);
+  
 
   // These two branches cause a memory leak. Probably because they represent arrays of pointers
   // Thus, disabling them for now. Deletion of these would be possible with the other
