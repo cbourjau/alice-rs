@@ -11,8 +11,6 @@
 
 ESD_t::ESD_t(const char* path) : fChain(0) 
 {
-  ROOT::EnableImplicitMT(4);
-  ROOT::EnableThreadSafety();
   gErrorIgnoreLevel = kFatal;
   fFile = TFile::Open(path);
   if (!fFile) {
@@ -968,4 +966,12 @@ Bool_t ESD_t::Notify()
   // user if needed. The return value is currently not used.
 
   return kTRUE;
+}
+
+// Prime the ROOT environment for parallel processing
+void setup_root()
+{
+  ROOT::EnableImplicitMT(4);
+  ROOT::EnableThreadSafety();
+  gErrorIgnoreLevel = kFatal;
 }

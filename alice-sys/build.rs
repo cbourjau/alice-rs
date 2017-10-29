@@ -42,6 +42,7 @@ fn main() {
         // Whitelist esd help functions in that file
         .whitelisted_function("esd_.*")
         .whitelisted_function("tobjarray_.*")
+        .whitelisted_function("setup_root")
         .opaque_type(r"T\w+")
         // Do not generate unstable Rust code that
         // requires a nightly rustc and enabling

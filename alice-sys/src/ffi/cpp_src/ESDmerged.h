@@ -1910,6 +1910,8 @@ extern "C" {
       return "";
     }
   }
+  // Prime the ROOT environment for parallel processing
+  void setup_root();
 }
 
 

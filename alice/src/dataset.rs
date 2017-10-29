@@ -7,6 +7,8 @@ use chan::{self, Receiver};
 use rayon::{self, join};
 use indicatif::{ProgressBar, ProgressStyle};
 
+use alice_sys::setup_root;
+
 use event::Event;
 use esd::ESD;
 use analysis::traits::Merge;
@@ -20,6 +22,9 @@ impl Dataset {
     pub fn new<T>(paths: T, n_workers: usize) -> Dataset
         where T: AsRef<[PathBuf]>
     {
+        // Set up ROOT; The ROOT interpreter has to be fired up single threaded.
+        // This also makes ROOT thread aware and sets the log level
+        unsafe {setup_root()};
         Dataset {receiver: setup_io_threads(paths, n_workers)}
     }
 }
