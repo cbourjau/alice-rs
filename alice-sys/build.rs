@@ -5,14 +5,25 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    let root_base = env::var("ROOTSYS").expect("ROOT include not found!");
-    let root_inc = format!("{}/include", root_base);
-    let root_lib = format!("{}/lib", root_base);
+    let root_inc = {
+        match env::var("ROOTSYS") {
+            Ok(root_base) => format!("{}/include", root_base),
+            // Fallback (should at least work for Arch)
+            Err(_) => "/usr/include/root".to_string()
+        }
+    };
+    let root_lib = {
+        match env::var("ROOTSYS") {
+            Ok(root_base) => format!("{}/lib", root_base),
+            // Fallback (should at least work for Arch)
+            Err(_) => "/usr/lib/root".to_string()
+        }
+    };
 
     let mut cfg = gcc::Build::new();
     cfg
         .cpp(true) // Switch to C++ library compilation.
-        .flag("-std=c++11")
+        .flag("-std=c++14")
         .include(&root_inc)
         // The auto-generated file for the ESD root tree
         .file("src/ffi/cpp_src/ESD.cxx");
@@ -36,7 +47,7 @@ fn main() {
     let bindings = bindgen::Builder::default()
         .clang_arg("-x")
         .clang_arg("c++")
-        .clang_arg("-std=c++11")
+        .clang_arg("-std=c++14")
         .clang_arg(format!("-I{}", root_inc))
         .whitelisted_type("ESD")
         // Whitelist esd help functions in that file
