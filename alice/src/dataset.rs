@@ -84,8 +84,6 @@ fn setup_io_threads<T>(paths: T, workers: usize) -> Receiver<Event>
     let nfiles = paths.as_ref().len() as u64;
     thread::spawn(move || progress_bar(&rx_progress, nfiles));
 
-    // FIXME: ROOT's global interpreter can't handle if if we open the
-    // the first two files simultaniously...
     for path in paths.as_ref() {
         let tx = tx.clone();
         let tx_progress = tx_progress.clone();

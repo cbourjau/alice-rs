@@ -18,7 +18,8 @@ fn main() {
     if files.is_empty() {
         panic!("Somehow no files were found! Something is fishy!");
     }
-    let dataset = Dataset::new(files, 2);
+    let io_threads = 2;
+    let dataset = Dataset::new(files, io_treads);
     let analysis_result = dataset.install(&single_distribution_analysis);
     analysis_result.visualize();
 }
