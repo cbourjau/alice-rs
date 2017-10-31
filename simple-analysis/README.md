@@ -19,4 +19,4 @@ Lastly, we visualize the results using the `gnuplot-rs` crate. Usually, one woul
 The final figure produces is shown below. The top tow figures show the distribution of particles in the longitudinal (`eta`) and azimuthal (`phi`) dimension.
 The bottom figure shows the distribution of where exactly the collision took place within the detector. Namely, The collisions may be slightly displaced from the center of the detector along the beam axis.
 
-[[./result.png|alt=result]]
+![result-plot](./result.png)
