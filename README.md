@@ -6,21 +6,20 @@ This repository demonstrates how the public data released by the the CERN based 
 
 This collection of crates provides and demonstrates:
 
-* A library/binary for downloading a desired amount of the publicly released data. See `alice-open-data`.
-* Reading of so-called Event-summary-data (ESD) from [ROOT](https://root.cern.ch/)'s binary file format.
-  This is achieved through automatically generated c++ code from ROOT (MakeClass) as well as from the Rust side (bindgen). See `alice-sys`.
+* A library/binary for downloading a desired amount of the publicly released data. See the [alice-download](https://github.com/cbourjau/alice-rs/tree/master/alice-download) crate. The [alice-open-data](https://github.com/cbourjau/alice-rs/tree/master/alice-open-data) crate provides some conviniences for latter locating and reading the downloaded files
+* Reading of so-called Event Summary Data (ESD) from [ROOT](https://root.cern.ch/)'s binary file format.
+  This is achieved through automatically generated c++ code from ROOT (TTree::MakeClass) as well as from the Rust side (bindgen). See [alice-sys](https://github.com/cbourjau/alice-rs/tree/master/alice-sys).
 * A safe wrapper around a limited subset of the automatically generated bindings.
-  These bindings enable a convinient asynchronous IO and re-organize the data with a rustic interface. Alternative backends like databases would be integrated at this this level. See `alice`
+  These bindings enable a convinient asynchronous IO and re-organize the data with a rustic interface. Alternative backends like databases would be integrated at this this level. See the  [alice](https://github.com/cbourjau/alice-rs/tree/master/alice) crate
 * High performace n-dimensional histograms for streaming data.
-  Maintains a binned count of the data which can be successivly filled. See `histogram`
-* Example analysis reproducing published results using all of the above crates. See `analyses`
+  Maintains a binned count of the data which can be successivly filled. See [histogram](https://github.com/cbourjau/alice-rs/tree/master/histogram)
+* A very simple analysis demonstrating how it all plays together. See [simple-analysis](https://github.com/cbourjau/alice-rs/tree/master/alice-download)
 
 ## Dependencies
 
-There are no dependencies on any ALICE specific software. However, the public data was released in the [ROOT](https://root.cern.ch/) framework's binary data format. Therefore, a working ROOT 5 or 6 installation is required for the IO process.
+There are no dependencies on any ALICE specific software! However, the public data was released in the [ROOT](https://root.cern.ch/) framework's binary data format. Therefore, a working ROOT 6 installation is required for the IO process.
 
-Furthermore, various excellent crates from the rust ecosystem have been leveraged. Most notably gcc-rs, bindgen, and ndarray.
-
+Furthermore, various excellent crates from the rust ecosystem have been leveraged. Most notably gcc-rs, bindgen, bitflags, chan, rayon, and ndarray. I am truely amazed by all of them! 
 
 ## CERN, LHC, and ALICE
 
@@ -28,7 +27,7 @@ ALICE (A Large Ion Collider Experiment) is the dedicated Heavy Ion experiment at
 
 ## CERN open data
 
-ALICE, as well as some other CERN based experiments have released a small subset of their recorded data into the public domain. The dataset in question for this project is in total approximately 6.5TB. However, only 10-100 GB are necessary to meaningfully run the example analyses in this project.
+ALICE, as well as some other CERN based experiments have released a small subset of their recorded data into the public domain. The dataset in question for this project is in total approximately 6.5TB. While some analyses really need all the data they can get, others (like the example one) can be run on just a ~1GB.
 
 
 ## Why this project?
@@ -37,21 +36,22 @@ I started this project with the intend of learning the Rust programming language
 
 In the mean time I was able to strip of more and more dependencies to the ALICE software stack (aka. [AliRoot](https://github.com/alisw/AliRoot) and [AliPhysics](https://github.com/alisw/AliPhysics)). Finally I reached the point where I was able to drop all of the ~5M lines of code and solely depend on the ROOT framework to read the binary data from disk.
 
-This was the point where I realized that this project might be of interest to a wider group of people. Currently, the only way to analyze the published data is through the huge and largely undocumented ALICE framework, which I consider an almost insurmountable entry barrier. Even if somebody does not want to learn Rust, this repository might still provide valuable clues on how to analyze ALICE's data with minimal dependencies.
+I realized that this project might be of interest to a wider group of people who would like to use the ALICE public data but are understandibly lost in the ALICE software stack. Currently, the only way to analyze the published data is through that huge and largely undocumented ALICE framework, which I consider an almost insurmountable entry barrier. Even if somebody does not want to learn Rust, this repository might still provide valuable clues on how to analyze ALICE's data with minimal dependencies.
 
 Perhaps not surprisingly, removing so much code and indirection from the analysis improved the performance significantly. 
 
 ## Performance
 
 It is difficult to write a true apples to apples bench mark, though.
-Running any analysis through the ALICE framework implicitly does many more things which you might or might not want.
+Running any analysis through the ALICE framework implicitly does many more things which you might or (probably) might not want.
 With this caveat aside, it is safe to say that ALICE-rs is faster than the standard AliRoot/AliPhysics stack by at least a factor of six if you just want some straight forward results.
 Three main points are mainly responsible for this.
 
 *(Given that I am very new to Rust, I am sure that this design can still be improved and I would be very greatful for any such tips and recommendations!)*
 
 ### Reading only the data needed
-AliRoot always reads in all the data of a given collision (aka "event") instead of selecting only the "columns" of interest. This is probably due to a monolithic design choice. The data is exposed to the user in one huge "event" object which encompasses all possible data associated with the current event. Its all or nothing.
+AliRoot always reads in all the data of a given collision (aka "event") instead of selecting only the "columns" of interest. This is due to a monolithic design choice. The data is exposed to the user in one huge "event" object which encompasses all possible data associated with the current event. Its all or nothing and it all has to be read from disc and decompressed.
+
 This project reads in only the data directly needed for the analysis. The data is split up in small individual structs which are then composes into a very minimal "event" struct.
 Possibly missing data can easily be handled with Rust's `Option` enum.
 Clearly, some similar design could have been chosen in (modern) c++ as well.
@@ -59,7 +59,7 @@ However, it is still a testament to the benefits of having data in simple struct
 
 
 ### Having a parallel io thread with a FIFO buffer
-In the standard framework, each collision is read in from disk and processed sequentially. ALICE-rs does these two things in separate threads using the MPSC model from Rust's standard library which even comes with a FIFO buffer for free. This is something which I would have dreaded to do in c++. In Rust it turned out to be a piece of cake in Rust.
+In the standard framework, each collision is read in from disk and processed sequentially. ALICE-rs does these two things in separate threads using `chan`'s MPMC model which even comes with a buffer finite buffer. This is something which I would have dreaded to do in c++. In Rust it turned out to be a piece of cake in Rust.
 
 
 ### A high performance n-dimensional histogram
