@@ -13,13 +13,12 @@ fn main() {
     let files: Vec<_> = alice_open_data::all_files_10h()
         .expect("No data files found. Did you download with alice-open-data?")
         .into_iter()
-        .take(200)
         .collect();
     if files.is_empty() {
         panic!("Somehow no files were found! Something is fishy!");
     }
     let io_threads = 2;
-    let dataset = Dataset::new(files, io_treads);
+    let dataset = Dataset::new(files, io_threads);
     let analysis_result = dataset.install(&single_distribution_analysis);
     analysis_result.visualize();
 }
