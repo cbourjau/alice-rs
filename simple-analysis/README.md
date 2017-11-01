@@ -13,7 +13,7 @@ Lastly, we `fold` all validated events into our analysis object (`Distributions`
 
 
 This concludes the treatment of a single stream of events. However, as noted above, we want to do this on `M` streams in parallel (Truth be told, currently `M` is hard-coded to 4, but that will be fixed soon). The steering of the entire analysis is done in the `main` function. First we locate the local files with the `alice_open_data` crate. Then we instantiate a new `Dataset` from these files using `2` io threads.
-We then `install` the logic of how to analyze a single stream of events (`single_distribution_analysis`) into the `Dataset`. The `Dataset` takes care internaly of the parallelization and will return the merged results to us.
+We then `install` the logic of how to analyze a single stream of events (`single_distribution_analysis`) into the `Dataset`. The `Dataset` takes care internally of the parallelization and will return the merged results to us.
 
 Lastly, we visualize the results using the `gnuplot-rs` crate. Usually, one would want to do more sophisticated post-processing on the histograms; often in numpy. But making figures out of Rust has a nice feel to it!
 

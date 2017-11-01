@@ -4,7 +4,7 @@ alice
 The high level wrapper around `alice-sys`. The idea is to wrap the clunky concept of a "ROOT" tree into an `Iterator` over `Event`s.
 An analysis is then implemented in a "map-reduce" fashion over this iterator.
 
-The clunky object exposed by `alice-sys` is called `ESD_t` in this crate. That object is essentialy a large struct which is constantly overwritten whenever the next "event" is read from disk. The idea is therefore to:
+The clunky object exposed by `alice-sys` is called `ESD_t` in this crate. That object is essentially a large struct which is constantly overwritten whenever the next "event" is read from disk. The idea is therefore to:
 
 1. Call `load_event` on the `ESD_t` object to have the latest event in memory
 2. Create a thin wrapper around it called `ESD` (this might actually not be necessary?)
