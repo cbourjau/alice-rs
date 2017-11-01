@@ -3,7 +3,7 @@ extern crate alice;
 extern crate gnuplot;
 extern crate histogram;
 
-use alice::dataset::{Dataset, DatasetProducer};
+use alice::dataset::Dataset;
 use alice::analysis::cuts;
 use alice::analysis::traits::{Visualize};
 
@@ -23,8 +23,10 @@ fn main() {
     analysis_result.visualize();
 }
 
-
-fn single_distribution_analysis(events: DatasetProducer) -> distribution::Distribution {
+/// Filters and folds a stream of `events`; producing the result of the analysis
+/// The idea of this function is that it may be applied to `M` streams in parallel.
+/// For that, the returned object must implementent `alice::Merge`
+fn single_distribution_analysis(events: Dataset) -> distribution::Distribution {
     events
     // Event selection
         .filter(cuts::default_event_filter)

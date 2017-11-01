@@ -14,12 +14,17 @@ use esd::ESD;
 use analysis::traits::Merge;
 use event_traits::{Tracks};
 
+
+/// A dataset is a collection of events. Events may be accessed
+/// throught the `Iterator` trait
 #[derive(Clone)]
 pub struct Dataset {
     receiver: Receiver<Event>,
 }
 
 impl Dataset {
+    /// Create a new dataset from the files in `paths`. The dataset
+    /// will use `n_workers` threads to read and unzip the data
     pub fn new<T>(paths: T, n_workers: usize) -> Dataset
         where T: AsRef<[PathBuf]>
     {
@@ -29,15 +34,38 @@ impl Dataset {
         Dataset {receiver: setup_io_threads(paths, n_workers)}
     }
 }
+
 impl Iterator for Dataset {
     type Item = Event;
 
-    /// Load the next event from the file
+    /// Produce the next event from this dataset
     fn next(&mut self) -> Option<Event> {
         self.receiver.recv()
     }
 }
 
+impl<'f> Dataset {
+    /// Excute `f` on this dataset. The analysis will be run in 4
+    /// parallel threads The name of this function is somewhat related
+    /// to rayon's `install`, but not really.
+    pub fn install<F, T>(self, f: &'f F) -> T
+        where F: Fn(Dataset) -> T + Sync,
+              T: Send + Merge
+    {
+        // use 4 threads;
+        // FIXME: This should not be hard coded!
+        let ((mut t1, t2), (t3, t4)) =
+            join(|| {join(|| {f(self.clone())}, || f(self.clone()))},
+                       || {join(|| {f(self.clone())}, || f(self.clone()))});
+        // merge the output of the parallel threads into one
+        for a in &[t2, t3, t4] {
+            t1.merge(a);
+        }
+        t1
+    }
+}
+
+/// Function to be executed in its own thread taking care of the progress bar
 fn progress_bar(rx: &Receiver<i64>, nfiles: u64) {
     let pbar = ProgressBar::new(nfiles);
     pbar.set_style(
@@ -71,6 +99,8 @@ fn progress_bar(rx: &Receiver<i64>, nfiles: u64) {
     pbar.finish();
 }
 
+/// Spin up `workers` parallel IO threads. The threads will send the
+/// read events to the returned receiver
 fn setup_io_threads<T>(paths: T, workers: usize) -> Receiver<Event>
     where T: AsRef<[PathBuf]>
 {
@@ -102,7 +132,11 @@ fn setup_io_threads<T>(paths: T, workers: usize) -> Receiver<Event>
                         Some(_) => {
                             let esd_raw = unsafe { &mut *esd.raw };
                             let ev = Event::new_from_esd(esd_raw);
-                            // chan::send never panics, but might dead lock!
+                            // keep an eye on the number of tracks in
+                            // an event. There are some hardcoded
+                            // limits on the c++ side. Those limits
+                            // should be sufficient though, but needs
+                            // more tests.
                             if ev.tracks().len() > 4_0000 {
                                 println!("ntracks: {:?}", ev.tracks().len());
                             }
@@ -120,51 +154,6 @@ fn setup_io_threads<T>(paths: T, workers: usize) -> Receiver<Event>
         )
     }
     rx
-}
-
-impl Iterator for DatasetProducer {
-    type Item = Event;
-
-    /// Load the next event from the file
-    fn next(&mut self) -> Option<Event> {
-        self.dataset.next()
-        // let mut ds = self.dataset.lock().expect("Could not get lock");
-        // if let Some(ev) = ds.event_stream.by_ref().wait().next() {
-        //     return ev.ok();
-        // } else {
-        //     return None;
-        // }
-    }
-}
-
-#[derive(Clone)]
-pub struct DatasetProducer {
-    dataset: Dataset
-}
-
-
-impl<'f> Dataset {
-    /// Excute `f` on this dataset. The analysis will be run in 4
-    /// parallel threads The name of this function is somewhat related
-    /// to rayon's `install`, but not really.
-    pub fn install<F, T>(self, f: &'f F) -> T
-        where F: Fn(DatasetProducer) -> T + Sync,
-              T: Send + Merge
-    {
-        let prod = DatasetProducer {
-            dataset: self
-        };
-        // use 4 threads;
-        // FIXME: This should not be hard coded!
-        let ((mut t1, t2), (t3, t4)) =
-            join(|| {join(|| {f(prod.clone())}, || f(prod.clone()))},
-                       || {join(|| {f(prod.clone())}, || f(prod.clone()))});
-        // merge the output of the parallel threads into one
-        for a in &[t2, t3, t4] {
-            t1.merge(a);
-        }
-        t1
-    }
 }
 
 
