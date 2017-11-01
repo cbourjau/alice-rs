@@ -4,7 +4,8 @@ use std::f64::consts::PI;
 use track_traits::{Azimuth, Longitude, TransverseMomentum};
 
 bitflags! {
-    /// Trackflags based on AliVTrack
+    /// Various attributes of tracks.
+    /// Flags are based on those found in AliRoot's AliVTrack.[h,cxx]
     pub struct Flags: u64 {
         const ITS_IN = 0x1;
         const ITS_OUT = 0x2;
@@ -41,6 +42,9 @@ bitflags! {
     }
 }
 
+/// An obscure set of parameters which makes sense for the actual
+/// reconstruction of the tracks, but is a pain for subsequent
+/// analysis
 #[derive(Debug, Clone)]
 struct TrackParameters {
     loc_y: f64,
@@ -130,6 +134,7 @@ impl QualityITS {
     }    
 }
 
+/// Bundling of data commonly associated with a given track
 #[derive(Debug)]
 pub struct Track {
     // So called external track parameters
@@ -177,7 +182,7 @@ impl Track {
         let loc_sin = self.parameters.loc_sin;
         (diff_x * loc_sin - diff_y * ((1. - loc_sin) * (1. + loc_sin)).sqrt()).abs()
     }
-    // Distance of closes approch of this track in z
+    /// Distance of closes approch of this track in z
     pub fn dca_to_point_z(&self, z: f64) -> f64 {
         self.parameters.loc_z - z
     }

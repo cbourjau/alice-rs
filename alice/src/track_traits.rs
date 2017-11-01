@@ -18,5 +18,6 @@ pub trait Longitude {
 }
 
 pub trait TransverseMomentum {
+    /// Transverse momentum of the given track
     fn pt(&self) -> f64;
 }

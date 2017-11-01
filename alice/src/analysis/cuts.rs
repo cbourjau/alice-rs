@@ -7,7 +7,8 @@ use ::trigger_mask;
 use ::track_traits::{Longitude, TransverseMomentum};
 
 
-/// Return true if the given event passes the recommended selection criterion
+/// A simple but reasonable default event selection
+/// Returns true if the given event passes the recommended selection criterion
 pub fn default_event_filter(event: &Event) -> bool {
     // Check if the event has a reconstructed primary vertex
     if let Some(ref pv) = event.primary_vertex {

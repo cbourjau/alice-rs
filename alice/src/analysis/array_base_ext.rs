@@ -7,13 +7,15 @@ use libnum;
 
 use std::fmt::Debug;
 
+/// Some extention traits for ndarrays
 pub trait ArrayBaseExt<A, S, D>
-    // where A: Clone + rustfft::FFTnum,
-    //       S: Data<Elem=A>,
-    //       D: Dimension
+
 {
+    /// Perform a fourier decomposition along the given `axis`
     fn decompose (&self, axis: Axis) -> Array<Complex<A>, D>
         where A: Clone + rustfft::FFTnum + Debug;
+
+    /// Compute the mean along the given `axis` ignorning `nan` values
     fn nanmean(&self, axis: Axis) -> Array<A, D::Smaller>
     where A: libnum::Float,
           S: DataMut<Elem=A>,

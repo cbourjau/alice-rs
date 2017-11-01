@@ -1,6 +1,6 @@
 # ALICE-rs #
 
-This repository demonstrates how the public data released by the the CERN based ALICE collaboration can be analysed with the Rust programming language and with minimal further external dependencies.
+This repository demonstrates how the [public data](http://opendata.cern.ch/collection/ALICE-Reconstructed-Data) released by the the CERN based ALICE collaboration can be analysed with the Rust programming language and with minimal further external dependencies.
 
 **This is not an official ALICE or CERN project**
 
@@ -19,7 +19,7 @@ This collection of crates provides and demonstrates:
 
 There are no dependencies on any ALICE specific software! However, the public data was released in the [ROOT](https://root.cern.ch/) framework's binary data format. Therefore, a working ROOT 6 installation is required for the IO process.
 
-Furthermore, various excellent crates from the rust ecosystem have been leveraged. Most notably gcc-rs, bindgen, bitflags, chan, rayon, and ndarray. I am truely amazed by all of them! 
+Furthermore, various excellent crates from the rust ecosystem have been leveraged. Most notably gcc-rs, bindgen, bitflags, chan, rayon, gnuplot-rs, and ndarray. I am truely amazed by all of them! 
 
 ## CERN, LHC, and ALICE
 
@@ -44,8 +44,8 @@ Perhaps not surprisingly, removing so much code and indirection from the analysi
 
 It is difficult to write a true apples to apples bench mark, though.
 Running any analysis through the ALICE framework implicitly does many more things which you might or (probably) might not want.
-With this caveat aside, it is safe to say that ALICE-rs is faster than the standard AliRoot/AliPhysics stack by at least a factor of six if you just want some straight forward results.
-Three main points are mainly responsible for this.
+With this caveat aside, it is safe to say that ALICE-rs is faster than the standard AliRoot/AliPhysics stack by an order of magnitude if you just want some straight forward results.
+Three main points are mainly responsible for this (Spoiler: Most of it is not due to Rust).
 
 *(Given that I am very new to Rust, I am sure that this design can still be improved and I would be very greatful for any such tips and recommendations!)*
 

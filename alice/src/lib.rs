@@ -1,3 +1,7 @@
+/// This create provide a high leven access to the data stored in
+/// .root files and which is read through the `alice-sys`
+/// crate. Furthermore, this crate provide some utilities for later
+/// analyses; for example default event and track selections.
 extern crate libc;
 #[macro_use]
 extern crate bitflags;
@@ -19,13 +23,12 @@ pub mod event;
 pub mod primary_vertex;
 pub mod track;
 pub mod trigger_mask;
-pub mod vzero;
-pub mod esd;
 pub mod track_traits;
 pub mod event_traits;
-
 pub mod analysis;
 
+mod esd;
+// mod vzero; // Currently, no V0 stuff is read from the files
 
 #[cfg(test)]
 mod tests {

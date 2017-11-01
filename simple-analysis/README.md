@@ -1,6 +1,6 @@
 # simple-analysis
 This crate demonstrates how all the other parts work together.
-The stream of event coming from the IO processes is split up into `M` parallel streams (`DatasetProducer`s).
+The stream of event coming from the IO processes is split up into `M` parallel streams (each stream being a `Dataset` by itself).
 Each of these `M` streams is processed in its own thread.
 The processing of one stream is seen in the function `single_distribution_analysis` in `main.rs`.
 The very first step of every analysis is the validation of the event. Oftentimes, one is only interested in event which fulfill very particular criteria. In this case, we just use a set of standard criteria (`cuts` in particle physics lingo) provided by the `alice` crate.

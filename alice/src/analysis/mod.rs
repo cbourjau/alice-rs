@@ -1,3 +1,5 @@
+/// A few utilities which can be used in subsequent analyses
+
 pub mod traits;
 mod array_base_ext;
 pub mod utils;

@@ -3,6 +3,7 @@ use std::ffi::CStr;
 use alice_sys as ffi;
 
 bitflags! {
+    /// Triggers are low level qualifier of an event. One event may "fire" several triggers.
     pub struct TriggerMask: u64 {
         const MINIMUM_BIAS = 0b0000_0001;
         const HIGH_MULT =    0b0000_0010;
