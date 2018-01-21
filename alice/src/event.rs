@@ -50,3 +50,10 @@ impl event_traits::PrimaryVertex for Event {
         self.primary_vertex.as_ref()
     }
 }
+
+impl event_traits::Multiplicity for Event {
+    /// Return the number of reconstructed tracks. Not very sophisticated...
+    fn multiplicity(&self) -> f64 {
+        self.multiplicity as f64
+    }
+}

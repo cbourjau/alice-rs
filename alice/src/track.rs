@@ -4,6 +4,19 @@ use std::f64::consts::PI;
 use track_traits::{Azimuth, Longitude, TransverseMomentum};
 
 bitflags! {
+    /// Clusters in the ITS associated with the curren track
+    /// See AliESDTrack::HasPointOnITSLayer
+    pub struct ItsClusters: u8 {
+        const SPD_INNER = 1 << 0;
+        const SPD_OUTER = 1 << 1;
+        const SDD_INNER = 1 << 2;
+        const SDD_OUTER = 1 << 3;
+        const SSD_INNER = 1 << 4;
+        const SSD_OUTER = 1 << 5;
+    }
+}
+
+bitflags! {
     /// Various attributes of tracks.
     /// Flags are based on those found in AliRoot's AliVTrack.[h,cxx]
     pub struct Flags: u64 {
@@ -45,7 +58,7 @@ bitflags! {
 /// An obscure set of parameters which makes sense for the actual
 /// reconstruction of the tracks, but is a pain for subsequent
 /// analysis
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct TrackParameters {
     loc_y: f64,
     loc_z: f64,
@@ -69,7 +82,7 @@ impl TrackParameters {
 /// Things related to the quality of TPC tracks (incomplete)
 /// Note: If you want to enable more of thoes make sure to read the
 /// activate the appropriate branch in the TTree!
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct QualityTPC {
     // d: f64,
     // z: f64,
@@ -118,8 +131,12 @@ impl QualityTPC {
 /// A non-exhaustive list of quality attributs from the Inner Tracking System (ITS)
 #[derive(Debug)]
 pub struct QualityITS {
+    /// Quality of fit to the used clusters (?)
     chi2: f64,
-    n_clusters: i8
+    /// Total number of clusters used for this track (?)
+    n_clusters: i8,
+    /// Layers of the ITS which had clusters
+    pub clusters_on_layer: ItsClusters,
 }
 
 impl QualityITS {
@@ -127,6 +144,9 @@ impl QualityITS {
         QualityITS {
             chi2: esd.Tracks_fITSchi2[idx],
             n_clusters: esd.Tracks_fITSncls[idx],
+            clusters_on_layer: ItsClusters::from_bits(esd.Tracks_fITSClusterMap[idx] as u8)
+                .expect(&format!("Got unexpectd ITS cluster map {:?}",
+                                 esd.Tracks_fITSClusterMap[idx])),
         }
     }
     pub fn chi2_per_cluster(&self) -> f64 {

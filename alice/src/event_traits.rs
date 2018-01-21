@@ -23,3 +23,10 @@ pub trait PrimaryVertex {
     /// Returns `None` if no primary vertex was reconstructed for this event.
     fn primary_vertex(&self) -> Option<&primary_vertex::PrimaryVertex>;
 }
+
+pub trait Multiplicity {
+    /// The multiplicity of the event
+    /// There are many different estimators for the multiplicity, so I
+    /// think this part of the API will need to change very soon!
+    fn multiplicity(&self) -> f64;
+}

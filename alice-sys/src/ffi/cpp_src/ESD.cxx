@@ -91,6 +91,7 @@ void ESD_t::Init(TTree *tree)
   // enable (some) ITS quality attributes
   fChain->SetBranchStatus("Tracks.fITSchi2", 1);
   fChain->SetBranchStatus("Tracks.fITSncls", 1);
+  fChain->SetBranchStatus("Tracks.fITSClusterMap", 1);
   
 
   // These two branches cause a memory leak. Probably because they represent arrays of pointers

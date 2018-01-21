@@ -20,8 +20,8 @@ pub struct Distribution {
 impl Distribution {
     pub fn new() -> Distribution {
         // eta, phi, z
-        let nphi = 200;
-        let neta = 200;
+        let nphi = 120;
+        let neta = 120;
         let (nzvtx, zmin, zmax) = (80, -8., 8.);
         Distribution {
             single_particles: HistogramBuilder::<[usize; 3]>::new()

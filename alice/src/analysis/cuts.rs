@@ -41,11 +41,30 @@ pub fn filter_tracks(mut ev: Event) -> Event {
         // see AliESDtrackCuts.cxx:1366
         ev.tracks = ev.tracks
             .into_iter()
+        // Part of the SPD were turned off due to cooling issues in
+        // LHC10h data-taking In order to keep a flat acceptance in
+        // phi and eta, we allow tracks without a hit in the SPD to
+        // _not_ have an ITS refit The expense of this looser cut is
+        // an increased number of secondary particles
+            // .filter(|tr| {
+            //     // SPD && ITS_REFIT
+            //     (tr.quality_its.clusters_on_layer.intersects(
+            //         track::SPD_INNER | track::SPD_OUTER)
+            //      & tr.flags.contains(track::ITS_REFIT)) ||
+            //     // !SPD && ITS_REFIT
+            //     (!tr.quality_its.clusters_on_layer.intersects(
+            //         track::SPD_INNER | track::SPD_OUTER)
+            //      & tr.flags.contains(track::ITS_REFIT)) ||
+            //     // !SPD && !ITS_REFIT
+            //     (!tr.quality_its.clusters_on_layer.intersects(
+            //         track::SPD_INNER | track::SPD_OUTER)
+            //      & !tr.flags.contains(track::ITS_REFIT))
+        // })
             .filter(|tr| tr.flags.contains(track::ITS_REFIT))
             .filter(|tr| tr.flags.contains(track::TPC_REFIT))
             .filter(|tr| tr.dca_to_point_xy(pv.x, pv.y) < 2.4)
             .filter(|tr| tr.dca_to_point_z(pv.z) < 3.2)
-            .filter(|tr| tr.eta().abs() < 1.0)
+            .filter(|tr| tr.eta().abs() < 0.9)
             .filter(|tr| tr.pt() > 0.15)
             .filter(|tr| tr.quality_tpc.n_clusters > 70)
             .filter(|tr| tr.quality_tpc.chi2_per_cluster() <= 4.0)
