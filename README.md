@@ -2,6 +2,10 @@
 
 This repository demonstrates how the [public data](http://opendata.cern.ch/collection/ALICE-Reconstructed-Data) released by the CERN based ALICE collaboration can be analyzed with the Rust programming language and with minimal further external dependencies.
 
+Here are some example figures produced with this project. The first two show the distribution of particles in the longitudinal and azimuthal dimensions. The third figure shows where the collisions happend along the direction of the particle beams in the collider:
+
+![result-plot](./simple-analysis/result.png)
+
 **This is not an official ALICE or CERN project**
 
 This collection of crates provides and demonstrates:
