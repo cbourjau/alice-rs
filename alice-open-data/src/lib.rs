@@ -42,7 +42,7 @@ pub struct FileDetails {
 impl FileDetails {
     /// The url pointing to the current file
     pub fn url(&self) -> String {
-        let url = "http://opendata.cern.ch".to_string();
+        let url = "eospublichttp.cern.ch".to_string();
         url + &self.file_path
     }
 
@@ -62,7 +62,19 @@ impl FileDetails {
             DirBuilder::new().recursive(true).create(dir)?;
         }
         let mut f = File::create(dest)?;
-        let mut resp = reqwest::get(&self.url())?;
+
+        // read a local binary DER encoded certificate
+        let mut buf = Vec::new();
+        File::open("eospublichttpcernch.crt")?.read_to_end(&mut buf)?;
+
+        // create a certificate
+        let cert = reqwest::Certificate::from_der(&buf)?;
+
+        // get a client builder
+        let client = reqwest::Client::builder()
+            .add_root_certificate(cert)
+            .build()?;
+        let mut resp = client.get(&self.url()).send()?;
         copy(&mut resp, &mut f)?;
         Ok(())
     }
