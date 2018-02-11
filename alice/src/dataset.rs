@@ -49,14 +49,14 @@ impl<'f> Dataset {
     /// parallel threads The name of this function is somewhat related
     /// to rayon's `install`, but not really.
     pub fn install<F, T>(self, f: &'f F) -> T
-        where F: Fn(Dataset) -> T + Sync,
+        where F: Fn(Box<Iterator<Item=Event>>) -> T + Sync,
               T: Send + Merge
     {
         // use 4 threads;
         // FIXME: This should not be hard coded!
         let ((mut t1, t2), (t3, t4)) =
-            join(|| {join(|| {f(self.clone())}, || f(self.clone()))},
-                       || {join(|| {f(self.clone())}, || f(self.clone()))});
+            join(|| {join(|| {f(Box::new(self.clone()))}, || f(Box::new(self.clone())))},
+                       || {join(|| {f(Box::new(self.clone()))}, || f(Box::new(self.clone())))});
         // merge the output of the parallel threads into one
         for a in &[t2, t3, t4] {
             t1.merge(a);

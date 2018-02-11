@@ -69,6 +69,7 @@ struct TrackParameters {
 
 impl TrackParameters {
     fn new(paras: &[f64; 5usize]) -> TrackParameters {
+        let paras = paras.clone();
         TrackParameters {
             loc_y: paras[0],
             loc_z: paras[1],
