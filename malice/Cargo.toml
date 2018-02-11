@@ -1,0 +1,23 @@
+[package]
+name = "malice"
+version = "0.1.0"
+authors = ["cbourjau <christian.bourjau@cern.ch>"]
+
+[dependencies]
+nom = "3.2.1"
+root-io = { path = "../root-io", version="0.1.0" }
+failure = "0.1.1"
+alice-sys = { path = "../alice-sys", version="0.1.0"  }
+bitflags = "1.0.1"
+
+[dev-dependencies]
+alice-open-data = { path = "../alice-open-data", version="0.1.0"  }
+criterion = "0.1.2"
+
+[[bench]]
+name = "rust_vs_root"
+harness = false
+
+[profile.release]
+debug = true
+lto = true
