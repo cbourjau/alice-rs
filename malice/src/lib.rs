@@ -5,11 +5,13 @@ extern crate alice_sys;
 #[macro_use]
 extern crate bitflags;
 
-mod event;
+pub mod event;
 pub mod dataset_rust;
 mod esd;
 pub mod dataset_cpp;
 pub mod track;
+pub mod merge;
+pub mod primary_vertex;
 
 #[cfg(test)]
 mod tests {

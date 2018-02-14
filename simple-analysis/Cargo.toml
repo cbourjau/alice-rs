@@ -4,7 +4,8 @@ version = "0.1.0"
 authors = ["cbourjau <christian.bourjau@cern.ch>"]
 
 [dependencies]
-alice = {path = "../alice" }
+malice = {path = "../malice" }
+root-io = { path = "../root-io" }
 alice-open-data = {path = "../alice-open-data"}
 alice-sys = {path = "../alice-sys" }
 gnuplot = "^0.0.22"

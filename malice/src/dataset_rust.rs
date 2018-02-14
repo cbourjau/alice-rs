@@ -22,6 +22,8 @@ pub struct DatasetIntoIter {
     tracks_fitschi2: ColumnVarIntoIter<f32>,
     tracks_fitsncls: ColumnVarIntoIter<i8>,
     tracks_fitsclustermap: ColumnVarIntoIter<u8>,
+    tracks_ftpcchi2: ColumnVarIntoIter<f32>,
+    tracks_ftpcncls: ColumnVarIntoIter<u16>,
 }
 
 impl DatasetIntoIter {
@@ -39,9 +41,13 @@ impl DatasetIntoIter {
             tracks_fp: ColumnVarIntoIter::new(&t, "Tracks.fP[5]", |i| count_fixed!(i, f32, be_f32, 5), &track_counter)?,
             tracks_falpha: ColumnVarIntoIter::new(&t, "Tracks.fAlpha", be_f32, &track_counter)?,
             tracks_fflags: ColumnVarIntoIter::new(&t, "Tracks.fFlags", be_u64, &track_counter)?,
-            tracks_fitschi2: ColumnVarIntoIter::new(&t, "Tracks.fITSchi2", parse_its_chi2, &track_counter)?,
+
+            tracks_fitschi2: ColumnVarIntoIter::new(&t, "Tracks.fITSchi2", |i| parse_custom_mantissa(i, 8), &track_counter)?,
             tracks_fitsncls: ColumnVarIntoIter::new(&t, "Tracks.fITSncls", be_i8, &track_counter)?,
-            tracks_fitsclustermap: ColumnVarIntoIter::new(&t, "Tracks.fITSClusterMap", be_u8, &track_counter)?,
+            tracks_fitsclustermap: ColumnVarIntoIter::new(&t, "Tracks.fITSClusterMap", be_u8, &track_counter)?,            
+
+            tracks_ftpcncls: ColumnVarIntoIter::new(&t, "Tracks.fTPCncls", be_u16, &track_counter)?,
+            tracks_ftpcchi2: ColumnVarIntoIter::new(&t, "Tracks.fTPCchi2", |i| parse_custom_mantissa(i, 8), &track_counter)?,
         })
     }
 }
@@ -70,6 +76,9 @@ impl Iterator for DatasetIntoIter {
             tracks_fitsclustermap: self.tracks_fitsclustermap.next()?.into_iter()
                 .map(|v| ItsClusters::from_bits(v).unwrap())
                 .collect(),
+
+            tracks_ftpcchi2: self.tracks_ftpcchi2.next()?,
+            tracks_ftpcncls: self.tracks_ftpcncls.next()?,
         })
     }
 }
@@ -103,9 +112,9 @@ fn parse_trigger_classes(input: &[u8]) -> IResult<&[u8], Vec<String>> {
 /// (check the YAML code for ALIESD)
 /// This function reconstructs a float from the exponent and mantissa
 /// TODO: Use ByteOrder crate to be cross-platform!
-fn parse_its_chi2(input: &[u8]) -> IResult<&[u8], f32> {
+fn parse_custom_mantissa(input: &[u8], nbits: usize) -> IResult<&[u8], f32> {
     pair!(input, be_u8, be_u16).map(|(exp, man)| {
-        let nbits = 8;
+        // let nbits = 8;
         let mut s = exp as u32;
         // Move the exponent into the last 23 bits
         s <<= 23;
@@ -117,7 +126,7 @@ fn parse_its_chi2(input: &[u8]) -> IResult<&[u8], f32> {
 
 #[cfg(test)]
 mod tests {
-    extern crate alice_open_data;
+    // extern crate alice_open_data;
     use super::*;
     use root_io::RootFile;
     #[test]

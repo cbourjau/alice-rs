@@ -5,12 +5,14 @@
 
 use std::f64::consts::PI;
 use gnuplot::{Figure, AxesCommon};
+use malice::event::Event;
+use malice::track;
 
 use histogram::*;
 
-use alice::analysis::traits::{Merge, Visualize};
-use alice::track_traits::{Azimuth, Longitude};
-use alice::event_traits::{Tracks, PrimaryVertex};
+// use malice::{Merge};
+// use alice::track_traits::{Azimuth, Longitude};
+// use alice::event_traits::{Tracks, PrimaryVertex};
 
 pub struct Distribution {
     pub single_particles: Histogram<f32, [usize; 3]>,
@@ -39,32 +41,55 @@ impl Distribution {
 }
 
 impl Distribution {
-    pub fn process_event<E, T>(mut self, event: &E) -> Self
-        where E: Tracks<T> + PrimaryVertex,
-              T: Azimuth + Longitude
+    pub fn process_event(mut self, event: &Event) -> Self
     {
-        // Fill only if we have a valid z-vtx position
-        if let Some(prime_vertex) = event.primary_vertex() {
+        // Fill only if we have a valid primary vertex
+        if let Some(prime_vtx) = event.primary_vertex() {
             self.single_particles
                 .extend(
-                    event.tracks().iter().map(|tr| [tr.eta(), tr.phi(), prime_vertex.z]));
-            self.z_vertex.fill(&[prime_vertex.z]);
+                    event.tracks()
+                    // .filter(|tr| {
+                    //     // SPD && ITS_REFIT
+                    //     (tr.quality_its.clusters_on_layer.intersects(
+                    //         track::SPD_INNER | track::SPD_OUTER)
+                    //      & tr.flags.contains(track::ITS_REFIT)) ||
+                    //     // !SPD && ITS_REFIT
+                    //     (!tr.quality_its.clusters_on_layer.intersects(
+                    //         track::SPD_INNER | track::SPD_OUTER)
+                    //      & tr.flags.contains(track::ITS_REFIT)) ||
+                    //     // !SPD && !ITS_REFIT
+                    //     (!tr.quality_its.clusters_on_layer.intersects(
+                    //         track::SPD_INNER | track::SPD_OUTER)
+                    //      & !tr.flags.contains(track::ITS_REFIT))
+                    // })
+                        .filter(|tr| tr.flags.contains(track::Flags::ITS_REFIT))
+                        .filter(|tr| tr.flags.contains(track::Flags::TPC_REFIT))
+                        .filter(|tr| tr.dca_to_point_xy(prime_vtx.x, prime_vtx.y) < 2.4)
+                        .filter(|tr| tr.dca_to_point_z(prime_vtx.z) < 3.2)
+                        .filter(|tr| tr.eta().abs() < 0.9)
+
+                        .filter(|tr| tr.pt() > 0.15)
+                        .filter(|tr| tr.tpc_ncls > 70)
+                    // .filter(|tr| tr.quality_tpc.chi2_per_cluster() <= 4.0)
+                    // .filter(|tr| tr.quality_its.chi2_per_cluster() <= 36.0)                        
+                        .map(|tr| [tr.eta() as f64, tr.phi() as f64, prime_vtx.z as f64]));
+            self.z_vertex.fill(&[prime_vtx.z as f64]);
         };
         self
     }
 }
 
-impl Merge for Distribution {
-    fn merge(&mut self, b: &Self) {
-        // We simply add the content of the one histograms in this case.
-        // For other analyses, this might be a more complicted operation
-        self.single_particles.add(&b.single_particles);
-        self.z_vertex.add(&b.z_vertex);
-    }
-}
+// impl Merge for Distribution {
+//     fn merge(&mut self, b: &Self) {
+//         // We simply add the content of the one histograms in this case.
+//         // For other analyses, this might be a more complicted operation
+//         self.single_particles.add(&b.single_particles);
+//         self.z_vertex.add(&b.z_vertex);
+//     }
+// }
 
-impl Visualize for Distribution {
-    fn visualize(&self) {
+impl Distribution {
+    pub fn visualize(&self) {
         let mut fg = Figure::new();
 
         fg.axes2d()

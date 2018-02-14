@@ -64,7 +64,9 @@ impl Iterator for DatasetIntoIter {
             tracks_fitsncls: esd.Tracks_fITSncls[..n_tracks].to_vec(),
             tracks_fitsclustermap: esd.Tracks_fITSClusterMap[..n_tracks].into_iter()
                 .map(|v| ItsClusters::from_bits(*v).unwrap())
-                .collect()
+                .collect(),
+            tracks_ftpcchi2: esd.Tracks_fTPCchi2[..n_tracks].into_iter().map(|v| *v as f32).collect(),
+            tracks_ftpcncls: esd.Tracks_fTPCncls[..n_tracks].to_vec(),
         })
     }
 }

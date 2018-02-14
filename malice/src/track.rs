@@ -60,6 +60,9 @@ pub struct Track {
     pub itschi2: f32,
     pub itsncls: i8,
     pub itsclustermap: ItsClusters,
+    pub tpc_chi2: f32,
+    pub tpc_ncls: u16,
+    
 }
 
 /// An obscure set of parameters which makes sense for the actual
