@@ -2,14 +2,19 @@ extern crate serde;
 extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
+#[macro_use]
+extern crate failure;
+extern crate curl;
 extern crate reqwest;
 extern crate glob;
 
 use std::env;
-use std::io::{self, Read};
+use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::fs::{File, DirBuilder};
-use std::io::copy;
+// use std::io::copy;
+use curl::easy::Easy;
+use failure::Error;
 
 
 /// The json data of the datasets is wrapped in an object with key "Dataset"
@@ -42,7 +47,7 @@ pub struct FileDetails {
 impl FileDetails {
     /// The url pointing to the current file
     pub fn url(&self) -> String {
-        let url = "eospublichttp.cern.ch".to_string();
+        let url = "https://eospublichttp.cern.ch".to_string();
         url + &self.file_path
     }
 
@@ -61,28 +66,22 @@ impl FileDetails {
         if let Some(dir) = dest.parent() {
             DirBuilder::new().recursive(true).create(dir)?;
         }
-        let mut f = File::create(dest)?;
-
-        // read a local binary DER encoded certificate
-        let mut buf = Vec::new();
-        File::open("eospublichttpcernch.crt")?.read_to_end(&mut buf)?;
-
-        // create a certificate
-        let cert = reqwest::Certificate::from_der(&buf)?;
-
-        // get a client builder
-        let client = reqwest::Client::builder()
-            .add_root_certificate(cert)
-            .build()?;
-        let mut resp = client.get(&self.url()).send()?;
-        copy(&mut resp, &mut f)?;
+        let mut easy = Easy::new();
+        easy.ssl_verify_peer(false).unwrap();
+        easy.url(&self.url()).unwrap();
+        easy.write_function(|data| {
+            let mut f = File::create("test.root").unwrap();
+            Ok(f.write(data).unwrap())
+            //Ok(stdout().write(data).unwrap())
+        }).unwrap();
+        easy.perform().unwrap();
         Ok(())
     }
 }
 
 /// Base path to the local ALICE open data directory
 pub fn data_dir() -> Result<PathBuf, Error> {
-    let mut dir = env::home_dir().ok_or(Error::NoHomeDir)?;
+    let mut dir = env::home_dir().ok_or(format_err!("No home directory"))?;
     dir.push("lhc_open_data");
     Ok(dir)
 }
@@ -128,31 +127,6 @@ pub fn file_details_of_run(run: u32) -> Result<Vec<FileDetails>, Error> {
     Ok(wrapper.dataset.file_details)
 }
 
-#[derive(Debug)]
-pub enum Error {
-    Io(io::Error),
-    HttpError(reqwest::Error),
-    ParseJson(serde_json::Error),
-    NoHomeDir,
-}
-
-impl From<reqwest::Error> for Error {
-    fn from(err: reqwest::Error) -> Error {
-        Error::HttpError(err)
-    }
-}
-
-impl From<io::Error> for Error {
-    fn from(err: io::Error) -> Error {
-        Error::Io(err)
-    }
-}
-
-impl From<serde_json::Error> for Error {
-    fn from(err: serde_json::Error) -> Error {
-        Error::ParseJson(err)
-    }
-}
 
 #[cfg(test)]
 mod tests {
