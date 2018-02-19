@@ -1,6 +1,5 @@
 [workspace]
 members = [
- "alice",
  "alice-download",
  "alice-open-data",
  "alice-sys",
