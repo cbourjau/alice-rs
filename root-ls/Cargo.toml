@@ -2,6 +2,13 @@
 name = "root-ls"
 version = "0.1.0"
 authors = ["cbourjau <christian.bourjau@cern.ch>"]
+description = "CLI tool to inspect the content and layout of `.root` files"
+repository = "https://github.com/cbourjau/alice-rs"
+readme = "README.md"
+keywords = ["root", "cern", "alice", "lhc", "physics"]
+categories = ["science", "command-line-utilities"]
+license = "MPL-2.0"
+
 
 [dependencies]
 clap = "^2"
