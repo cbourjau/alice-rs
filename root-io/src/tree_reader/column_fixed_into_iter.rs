@@ -1,9 +1,5 @@
-use std::thread;
 use failure::Error;
 use nom::*;
-
-use crossbeam_channel::Receiver;
-use crossbeam_channel::bounded;
 
 use tree_reader::tree::Tree;
 use tree_reader::branch::TBranch;
@@ -79,17 +75,14 @@ use tree_reader::branch::TBranch;
 /// }
 /// ```
 pub struct ColumnFixedIntoIter<T> {
-    /// Parser for one element (note: There are many elements in one entry!)
-    item_parser: Box<Fn(&[u8]) -> IResult<&[u8], T>>,    
-    /// Reciever which gets the chunks of read data from a different thread
-    chunk_rx: Receiver<Result<Vec<u8>, Error>>,
-    /// Content of the latest read container
-    current_chunk: Vec<u8>,
+    /// Containers holding the data
+    containers: Box<Iterator<Item=T>>,
 }
 
 impl<T> ColumnFixedIntoIter<T> {
     pub fn new<P>(t: &Tree, name: &str, p: P) -> Result<ColumnFixedIntoIter<T>, Error>
-    where P: 'static + Fn(&[u8]) -> IResult<&[u8], T>
+    where P: 'static + Fn(&[u8]) -> IResult<&[u8], T>,
+          T: 'static
     {
         let b: &TBranch = t.branches().iter()
             .find(|b| b.name == name)
@@ -98,28 +91,19 @@ impl<T> ColumnFixedIntoIter<T> {
                                t.branches().iter()
                                .map(|b| b.name.to_owned()).collect::<Vec<_>>())
             )?;
-        let containers = b.containers().to_owned();
-        let name  = name.to_string();
-        // Create a bounded channel for the read data chunks
-        let (tx, rx) = bounded(0);
-        thread::spawn(move || {
-            for (i, c) in containers.into_iter().enumerate() {
-                let fname = c.file();
-                match tx.send(c.into_vec()) {
-                    Ok(()) => {}
-                    Err(e) => {println!("Send error happened for {} on iteration {}  in file {:?}: \n {}",
-                                        name, i,
-                                        fname,
-                                        e.0.expect("IO error?!").as_slice().to_hex(16));
-                               break;
+        let containers = Box::new(
+            b.containers().to_owned().into_iter()
+                // Read and decompress data into a vec
+                .flat_map(|c| c.raw_data())
+                .flat_map(move |(n_entries, raw_slice)| {
+                    let s: &[u8] = raw_slice.as_slice(); 
+                    match count!(s, p, n_entries as usize) {
+                        IResult::Done(_, o) => o,
+                        _ => panic!("Parser failed unexpectedly!"),
                     }
-                };
-            }
-        });
+                }));
         Ok(ColumnFixedIntoIter {
-            item_parser: Box::new(p),
-            chunk_rx: rx,
-            current_chunk: vec![],
+            containers: containers,
         })
     }
 }
@@ -127,26 +111,6 @@ impl<T> ColumnFixedIntoIter<T> {
 impl<T> Iterator for ColumnFixedIntoIter<T> {
     type Item = T;
     fn next(&mut self) -> Option<Self::Item> {
-        // Refil chunks (we parse from this chunk until its empty)
-        if self.current_chunk.is_empty() {
-            if let Ok(buf) = self.chunk_rx.recv() {
-                self.current_chunk =
-                    buf.expect("Could not read data container from disk");
-            } else {
-                // The above errored if the channel was closed (due to being done)
-                return None;
-            }
-        }
-        let (chunk, ret) = {
-            let s = self.current_chunk.as_slice();
-            let parse_res = (self.item_parser)(s);
-            if let IResult::Done(s, ret) = parse_res {
-                (s.to_vec(), ret)
-            } else {
-                panic!("Error applying parser!");
-            }
-        };
-        self.current_chunk = chunk;
-        Some(ret)
+        self.containers.next()
     }
 }

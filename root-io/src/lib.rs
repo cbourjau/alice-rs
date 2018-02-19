@@ -31,7 +31,6 @@ extern crate quote;
 extern crate failure;
 extern crate flate2;
 extern crate xz2;
-extern crate crossbeam_channel;
 
 // pub mod core_types;
 pub mod core;

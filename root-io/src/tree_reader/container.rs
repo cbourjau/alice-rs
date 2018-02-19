@@ -15,10 +15,15 @@ pub(crate) enum Container {
 }
 
 impl Container {
-    /// Return the assosiated data, reading it from disk if necessary
-    pub(crate) fn into_vec(self) -> Result<Vec<u8>, Error> {
+    /// Return the number of entries and the data; reading it from disk if necessary
+    pub(crate) fn raw_data(self) -> Result<(u32, Vec<u8>), Error> {
         match self {
-            Container::InMemory(v) => Ok(v),
+            Container::InMemory(buf) => {
+                match tbasket2vec(buf.as_slice()) {
+                    IResult::Done(_, v) => Ok(v),
+                    _ => Err(format_err!("tbasket2vec parser failed"))
+                }
+            },
             Container::OnDisk(p, seek, len) => {
                 let f = File::open(&p)?;
                 let mut reader = BufReader::new(f);
@@ -33,24 +38,26 @@ impl Container {
             }
         }
     }
-    /// For debugging: Try to find the file of this container. Out of luck if the container was inlined
-    pub(crate) fn file(&self) -> Option<PathBuf> {
-        match *self {
-            // No file name available
-            Container::InMemory(_) => None,
-            Container::OnDisk(ref p, _, _) => Some(p.to_owned())
-        }
-    }
+    // /// For debugging: Try to find the file of this container. Out of luck if the container was inlined
+    // pub(crate) fn file(&self) -> Option<PathBuf> {
+    //     match *self {
+    //         // No file name available
+    //         Container::InMemory(_) => None,
+    //         Container::OnDisk(ref p, _, _) => Some(p.to_owned())
+    //     }
+    // }
 }
 
-fn tbasket2vec(input: &[u8]) -> IResult<&[u8], Vec<u8>>
+/// Return a tuple indicating the number of elements in this basket
+/// and the content as a Vec<u8>
+fn tbasket2vec(input: &[u8]) -> IResult<&[u8], (u32, Vec<u8>)>
 {
     do_parse!(input,
               hdr: tkey_header >>
               _ver: be_u16 >>
               _buf_size: be_u32 >>
               _entry_size: be_u32 >>
-	      _n_entry_buf: be_u32 >>
+	      n_entry_buf: be_u32 >>
 	      last: be_u32 >>
 	      _flag: be_i8 >>
               buf: rest >>
@@ -64,7 +71,7 @@ fn tbasket2vec(input: &[u8]) -> IResult<&[u8], Vec<u8>>
                   // would be to easy! Its only filled up to `last`,
                   // whereby we have to take the key_len into account...
                   let useful_bytes = (last - hdr.key_len as u32) as usize;
-                  buf.as_slice()[..useful_bytes].to_vec()
+                  (n_entry_buf, buf.as_slice()[..useful_bytes].to_vec())
               }))
 }
 

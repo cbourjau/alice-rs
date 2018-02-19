@@ -126,7 +126,7 @@ fn parse_custom_mantissa(input: &[u8], nbits: usize) -> IResult<&[u8], f32> {
 
 #[cfg(test)]
 mod tests {
-    // extern crate alice_open_data;
+    extern crate alice_open_data;
     use super::*;
     use root_io::RootFile;
     #[test]

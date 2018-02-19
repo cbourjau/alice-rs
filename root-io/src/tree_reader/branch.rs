@@ -79,6 +79,18 @@ impl TBranch {
             .map(|l| l.type_name().to_string())
             .collect()
     }
+
+    /// Number of events in each basket. This might be important to know when parsing basket for variale length objects
+    pub(crate) fn n_events_per_basket(&self) -> Vec<usize> {
+        // basketentry is index of first element in each basket, e.g. [0, 2, 4]
+        self.fbasketentry.iter()
+            // the last event index is not in fbasketentry
+            .chain([self.fentries].into_iter())
+            .collect::<Vec<_>>()
+            .windows(2)
+            .map(|window| (window[1] - window[0]) as usize)
+            .collect()
+    }
 }
 
 
