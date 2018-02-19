@@ -1,5 +1,11 @@
 # root-io
 
+[![Crates.io Version](https://img.shields.io/crates/v/root-io.svg)](https://crates.io/crates/root-io)
+
+
+## Documentation
+https://docs.rs/root-io/0.1.1/root_io/
+
 `root-io` provides basic support for reading data stored in binary `.root` files commonly used in particle physics experiments. This crates provides:
 
   - Core types and parsers to read the layout description of custom classes contained in a given file

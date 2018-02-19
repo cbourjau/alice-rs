@@ -1,5 +1,8 @@
 # root-ls
 
+[![Crates.io Version](https://img.shields.io/crates/v/root-ls.svg)](https://crates.io/crates/root-ls)
+
+
 A command line tool to inspect the types of objects contained in a `.root` file similar to ROOT's `TFile::ShowStreamerInfo()` function. However, `root-ls` is also able to produce (proably buggy) Rust code as a starting point to write a custom parser for the content of a file. If you are in that sort of business, you should take a look at the [`root-io`](https://crates.io/crates/root-io) crate.
 
 ## Installation

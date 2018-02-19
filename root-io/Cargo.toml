@@ -1,6 +1,6 @@
 [package]
 name = "root-io"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["cbourjau <christian.bourjau@cern.ch>"]
 exclude = ["*test_data/", "*.root"]
 description = "Reading of `.root` binary files which are commonly used in particle physics"
@@ -12,7 +12,6 @@ license = "MPL-2.0"
 
 
 [dependencies]
-alice-open-data = { path="../alice-open-data/", version="0.1.0"}
 flate2 = "0.2"
 xz2 = "^0.1.4"
 bitflags = "1.0.0"
