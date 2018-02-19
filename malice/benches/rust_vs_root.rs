@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate criterion;
 extern crate root_io;
-extern crate alice_bench;
+extern crate malice;
 
 use criterion::{Bencher, Criterion, Fun};
 
@@ -10,7 +10,7 @@ extern crate alice_open_data;
 use root_io::RootFile;
 
 fn read_rust(n_files: usize) {
-    use alice_bench::dataset_rust::DatasetIntoIter;
+    use malice::dataset_rust::DatasetIntoIter;
     let _max_chi2 = alice_open_data::all_files_10h().unwrap()
         .into_iter()
         .take(n_files)
@@ -26,7 +26,7 @@ fn read_rust(n_files: usize) {
 }
 
 fn read_cpp(n_files: usize) {
-    use alice_bench::dataset_cpp::DatasetIntoIter;
+    use malice::dataset_cpp::DatasetIntoIter;
     let _max_chi2 = alice_open_data::all_files_10h().unwrap()
         .into_iter()
         .take(n_files)
@@ -50,11 +50,11 @@ fn bench_cpp(b: &mut Bencher, n_files: &usize) {
 fn criterion_benchmark(c: &mut Criterion) {
     let funs = vec![
         Fun::new("Rust", bench_rust),
-        // Fun::new("cpp", bench_cpp),
+        Fun::new("cpp", bench_cpp),
     ];
-    let n_files = 10;
+    let n_files = 1;
     c
-        .sample_size(10)
+        .sample_size(5)
         .warm_up_time(::std::time::Duration::from_secs(10))
         .measurement_time(::std::time::Duration::from_secs(200))
         .with_plots()

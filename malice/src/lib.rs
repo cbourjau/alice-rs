@@ -1,13 +1,16 @@
 extern crate nom;
 extern crate failure;
 extern crate root_io;
+#[cfg(feature = "cpp")]
 extern crate alice_sys;
 #[macro_use]
 extern crate bitflags;
 
 pub mod event;
 pub mod dataset_rust;
+#[cfg(feature = "cpp")]
 mod esd;
+#[cfg(feature = "cpp")]
 pub mod dataset_cpp;
 pub mod track;
 pub mod merge;
@@ -19,6 +22,7 @@ mod tests {
     use root_io::RootFile;
 
     #[test]
+    #[cfg(feature = "cpp")]
     fn rust_cpp_identical_many_files() {
         use super::dataset_rust::DatasetIntoIter as DsIntoIter_rust;
         use super::dataset_cpp::DatasetIntoIter as DsIntoIter_cpp;
@@ -49,6 +53,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "cpp")]
     fn rust_cpp_identical_funky_file_1() {
         use super::dataset_rust::DatasetIntoIter as DsIntoIter_rust;
         use super::dataset_cpp::DatasetIntoIter as DsIntoIter_cpp;
@@ -74,6 +79,7 @@ mod tests {
         }
     }
     #[test]
+    #[cfg(feature = "cpp")]
     fn rust_cpp_identical_funky_file_2() {
         use super::dataset_rust::DatasetIntoIter as DsIntoIter_rust;
         use super::dataset_cpp::DatasetIntoIter as DsIntoIter_cpp;

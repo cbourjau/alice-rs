@@ -3,12 +3,18 @@ name = "malice"
 version = "0.1.0"
 authors = ["cbourjau <christian.bourjau@cern.ch>"]
 
+[features]
+default = []
+cpp = ["alice-sys"]
+
 [dependencies]
 nom = "3.2.1"
 root-io = { path = "../root-io", version="0.1.0" }
 failure = "0.1.1"
-alice-sys = { path = "../alice-sys", version="0.1.0"  }
 bitflags = "1.0.1"
+
+# Optional dependencies
+alice-sys = { path = "../alice-sys", version="0.1.0", optional = true }
 
 [dev-dependencies]
 alice-open-data = { path = "../alice-open-data", version="0.1.0"  }
