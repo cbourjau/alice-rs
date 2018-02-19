@@ -193,7 +193,7 @@ impl TStreamer {
     /// Get the comment associated with this particular member
     pub(crate) fn member_comment(&self) -> Ident {
         let cmt = &self.elem().name.title;
-        Ident::new(format!("\n/// {}\n", cmt))
+        Ident::new(cmt.to_string())
     }
     /// The name of the member/field to be used in the generated struct
     pub(crate) fn member_name(&self) -> Ident {
@@ -205,7 +205,10 @@ impl TStreamer {
 impl ToTokens for TStreamer {
     /// Converts TStreamer to "\n///comment \n name: type"
     fn to_tokens(&self, tokens: &mut Tokens) {
+        // insert a new line befor and after the comment!
+        tokens.append("\n/// ");
         self.member_comment().to_tokens(tokens);
+        tokens.append("\n");
         self.member_name().to_tokens(tokens);
         tokens.append(": ");
         self.type_name().to_tokens(tokens);
