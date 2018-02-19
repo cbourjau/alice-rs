@@ -143,7 +143,7 @@ fn tbranch<'s>(input: &'s [u8], context: & Context<'s>) -> IResult<&'s [u8], TBr
                       .collect();
                   // Remove tailing empty baskets informations
                   let fbaskets = fbaskets.into_iter()
-                      .filter(|s| s.obj.len() > 0)
+                      .filter(|s| !s.obj.is_empty())
                       .map(|s| Container::InMemory(s.obj.to_vec()));
                   let nbaskets = fwritebasket as usize;
                   let fbasketbytes = fbasketbytes.into_iter()

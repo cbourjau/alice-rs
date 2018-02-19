@@ -80,19 +80,19 @@ pub struct ColumnFixedIntoIter<T> {
 }
 
 impl<T> ColumnFixedIntoIter<T> {
-    pub fn new<P>(t: &Tree, name: &str, p: P) -> Result<ColumnFixedIntoIter<T>, Error>
+    pub fn new<P>(tr: &Tree, name: &str, p: P) -> Result<ColumnFixedIntoIter<T>, Error>
     where P: 'static + Fn(&[u8]) -> IResult<&[u8], T>,
           T: 'static
     {
-        let b: &TBranch = t.branches().iter()
+        let br: &TBranch = tr.branches().iter()
             .find(|b| b.name == name)
-            .ok_or(format_err!("Branch {} not found in tree: \n {:#?}",
-                               name,
-                               t.branches().iter()
-                               .map(|b| b.name.to_owned()).collect::<Vec<_>>())
+            .ok_or_else(|| format_err!("Branch {} not found in tree: \n {:#?}",
+                                       name,
+                                       tr.branches().iter()
+                                       .map(|b| b.name.to_owned()).collect::<Vec<_>>())
             )?;
         let containers = Box::new(
-            b.containers().to_owned().into_iter()
+            br.containers().to_owned().into_iter()
                 // Read and decompress data into a vec
                 .flat_map(|c| c.raw_data())
                 .flat_map(move |(n_entries, raw_slice)| {

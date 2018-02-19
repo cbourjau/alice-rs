@@ -1,6 +1,6 @@
 //! This module contains the core structs and parsers needed to read
 //! the self-description of a root file. These parsers can be used to
-//! build new parsers using the root-inspect cli.
+//! build new parsers using the [root-ls](https://github.com/cbourjau/alice-rs) cli.
 
 pub mod types;
 pub mod parsers;

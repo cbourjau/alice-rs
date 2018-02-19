@@ -6,8 +6,8 @@ use ::code_gen::utils::{sanitize, alias_or_lifetime, type_is_core};
 use ::code_gen::rust::{ToRustType, ToRustParser};
 
 
-/// Union of all posible TStreamers. See figure at
-/// https://root.cern.ch/doc/master/classTStreamerElement.html
+/// Union of all posible `TStreamers`. See figure at
+/// <https://root.cern.ch/doc/master/classTStreamerElement.html>
 /// for inheritence of ROOT classes
 #[derive(Debug)]
 pub(crate) enum TStreamer {

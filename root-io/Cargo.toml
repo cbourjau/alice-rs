@@ -2,6 +2,14 @@
 name = "root-io"
 version = "0.1.0"
 authors = ["cbourjau <christian.bourjau@cern.ch>"]
+exclude = ["*.root"]
+description = "Reading of `.root` binary files which are commonly used in particle physics"
+repository = "https://github.com/cbourjau/alice-rs"
+readme = "README.md"
+keywords = ["root", "cern", "alice", "lhc", "physics"]
+categories = ["parser-implementations", "science", "data-structures"]
+license = "MPL-2.0"
+
 
 [dependencies]
 alice-open-data = { path="../alice-open-data/", version="0.1.0"}

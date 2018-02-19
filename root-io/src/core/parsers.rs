@@ -185,7 +185,7 @@ named!(
     do_parse!(magic: take_str!(2) >>
               _header: take!(7) >>
               comp_buf: call!(nom::rest) >>
-              ret: expr_res!(decode_reader(comp_buf, &magic)) >> 
+              ret: expr_res!(decode_reader(comp_buf, magic)) >> 
               (ret)
     )
 );
@@ -202,8 +202,8 @@ named!(
 
 /// Figure out the class we are looking at. The data might not be
 /// saved locally but rather in a reference to some other place in the
-/// buffer.This is modeled after ROOT's TBufferFile::ReadObjectAny and
-/// TBufferFile::ReadClass
+/// buffer.This is modeled after ROOT's `TBufferFile::ReadObjectAny` and
+/// `TBufferFile::ReadClass`
 #[allow(unused_variables)]
 pub fn classinfo(input: &[u8]) -> nom::IResult<&[u8], ClassInfo>
 {
@@ -284,7 +284,7 @@ pub fn raw_no_context(input: &[u8]) -> nom::IResult<&[u8], (ClassInfo, &[u8])>
     let first = do_parse!(input,
               ci: classinfo >>
               rest: call!(nom::rest) >> 
-              ((ci, rest))
+              (ci, rest)
     );
     if first.is_done() {
         let (_, (ci, rest)) = first.unwrap();

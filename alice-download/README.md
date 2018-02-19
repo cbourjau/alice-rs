@@ -7,7 +7,7 @@ This is a small tool which is capable of downloading a specified amount of the A
 Do the following in order to download 5GB of ALICE's data
 
 ```bash
-	cd alice-download
-	cargo run --release -- 5
+	cargo install alice-download
+	alice-download 5
 ```
 

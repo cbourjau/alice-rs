@@ -23,7 +23,7 @@ pub struct ColumnVarIntoIter<T> {
 impl<T> ColumnVarIntoIter<T> {
     /// Create a new iterator over the branch `name` in the given
     /// `Tree`
-    pub fn new<P>(t: &Tree, name: &str, p: P, el_counter: &[u32]) -> Result<ColumnVarIntoIter<T>, Error>
+    pub fn new<P>(tr: &Tree, name: &str, p: P, el_counter: &[u32]) -> Result<ColumnVarIntoIter<T>, Error>
     where P: 'static + Fn(&[u8]) -> IResult<&[u8], T>,
           T: 'static + ::std::fmt::Debug
     {
@@ -32,16 +32,16 @@ impl<T> ColumnVarIntoIter<T> {
         // happens! Currently, I'm parsing all _elements_ of a basket,
         // ignoring the size of each event. I then chunk the numer of
         // elements into the size of the entry in the `next` function        
-        let b: &TBranch = t.branches().iter()
+        let br: &TBranch = tr.branches().iter()
             .find(|b| b.name == name)
-            .ok_or(format_err!("Branch {} not found in tree: \n {:#?}",
-                               name,
-                               t.branches().iter()
-                               .map(|b| b.name.to_owned()).collect::<Vec<_>>())
+            .ok_or_else(|| format_err!("Branch {} not found in tree: \n {:#?}",
+                                       name,
+                                       tr.branches().iter()
+                                       .map(|b| b.name.to_owned()).collect::<Vec<_>>())
             )?;
         let mut n_elems_per_event = el_counter.iter();
         let n_elems_per_basket: Vec<u32> =
-            b.n_events_per_basket()
+            br.n_events_per_basket()
             .into_iter()
             .map(|nevts_this_bskt| {
                 (0..nevts_this_bskt)
@@ -50,7 +50,7 @@ impl<T> ColumnVarIntoIter<T> {
             })
             .collect();
         let containers = Box::new(
-            b.containers().to_owned().into_iter()
+            br.containers().to_owned().into_iter()
                 // Read and decompress data into a vec
                 .flat_map(|c| c.raw_data())
                 .zip(n_elems_per_basket.into_iter())

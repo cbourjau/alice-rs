@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use nom::HexDisplay;
 
 bitflags! {
-    pub struct Flags: u64 {
+    pub(crate) struct Flags: u64 {
         const BYTE_COUNT_MASK = 0x4000_0000;
         const BYTE_COUNT_VMASK = 0x4000;      // 16384
         const CLASS_MASK = 0x8000_0000;
@@ -12,7 +12,7 @@ bitflags! {
     }
 }
 bitflags! {
-    pub struct TObjectFlags: u32 {
+    pub(crate) struct TObjectFlags: u32 {
         const IS_ON_HEAP = 0x0100_0000;
         const IS_REFERENCED = 1 << 4;
     }

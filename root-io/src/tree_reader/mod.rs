@@ -1,9 +1,9 @@
-//! A convinience wrapper for ROOT Trees. This module contains a
-//! parser for a so-called "Tree". A Tree may be thought of as a table
-//! where each row represnts a particle collision. Each column may
-//! contain one or several elements per collision. This module
-//! provides two Iterator structs in order to iterate over these
-//! columns ("TBranches" in ROOT lingo).
+//! A convenience wrapper and needed parsers to work with ROOT's
+//! `TTree`s. A Tree may be thought of as a table where each row
+//! represents a particle collision. Each column may contain one or
+//! several elements per collision. This module provides two Iterator
+//! structs in order to iterate over these columns (`TBranches` in
+//! ROOT lingo).
 
 mod branch;
 mod column_fixed_into_iter;
