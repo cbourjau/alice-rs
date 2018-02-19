@@ -7,6 +7,5 @@ authors = ["cbourjau <christian.bourjau@cern.ch>"]
 malice = {path = "../malice" }
 root-io = { path = "../root-io" }
 alice-open-data = {path = "../alice-open-data"}
-alice-sys = {path = "../alice-sys" }
 gnuplot = "^0.0.22"
 histogram = {path = "../histogram" }

@@ -2,7 +2,6 @@
 members = [
  "alice-download",
  "alice-open-data",
- "alice-sys",
  "histogram",
  "simple-analysis",
  "root-io",
