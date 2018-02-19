@@ -6,5 +6,6 @@ members = [
  "histogram",
  "simple-analysis",
  "root-io",
+ "root-ls",
  "malice",
 ]

@@ -1,0 +1,10 @@
+[package]
+name = "root-ls"
+version = "0.1.0"
+authors = ["cbourjau <christian.bourjau@cern.ch>"]
+
+[dependencies]
+clap = "^2"
+failure = "0.1.1"
+root-io = { path = "../root-io", version="0.1.0" }
+rustfmt = "0.9.0"
