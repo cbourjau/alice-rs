@@ -17,7 +17,7 @@ fn main() {
     let matches = App::new("Inspect root files")
         .version("0.1.0")
         .arg(Arg::with_name("INPUT")
-             .help("Sets the input file to use")
+             .help("Input .root file")
              .required(true)
              .index(1))
         .setting(AppSettings::VersionlessSubcommands)
@@ -39,14 +39,16 @@ fn main() {
         .get_matches();
     let in_path = PathBuf::from(matches.value_of("INPUT").unwrap());
     let f = root_io::RootFile::new_from_file(&in_path).expect("Failed to open file");
+
     if let Some(matches) = matches.subcommand_matches("inspect") {
         inspect_file(&f, matches);
-    }
-    if matches.subcommand_matches("to-yaml").is_some() {
+    } else if matches.subcommand_matches("to-yaml").is_some() {
         sinfo_to_yaml(&f);
-    }
-    if let Some(matches) = matches.subcommand_matches("to-rust") {
+    } else if let Some(matches) = matches.subcommand_matches("to-rust") {
         to_rust(&f, matches).unwrap();
+    } else {
+        // Write help if no sub command is given
+        println!("{}", matches.usage());
     }
 }
 
