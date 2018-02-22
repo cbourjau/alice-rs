@@ -66,7 +66,7 @@ Benchmark #2: ./target/release/deps/malice-0650b02bfc3cb85f bench_cpp
 
 ```
 
-In both cases, the Rust version processed the set of files ~30% (warm catch) and ~70% (cold catch) faster. The cold catch is arguably the more realistic bench mark since one will visit each file in a set only once per analysis. Note that these benchmarks used no concurrency at all. The real value of the Rust version is that it can easily be used multithreaded, while the ROOT-implementation cannot.
+In both cases, the Rust version processed the set of files ~30% (warm cache) and ~70% (cold cache) faster. The cold catch is arguably the more realistic bench mark since one will visit each file in a set only once per analysis. Note that these benchmarks used no concurrency at all. The real value of the Rust version is that it can easily be used multithreaded, while the ROOT-implementation cannot.
 
 Note also, that the standard ALICE framework, which is build on top of ROOT, was not benchmarked. The ALICE framework always reads in and decompresses all the data of a given file, even though a normal analysis only needs to access less then 10% of it. This makes the standard ALICE framework significantly less performant than this set of crates.
 
