@@ -15,6 +15,7 @@ pub mod dataset_cpp;
 pub mod track;
 pub mod merge;
 pub mod primary_vertex;
+pub mod utils;
 
 #[cfg(test)]
 mod tests {
@@ -134,6 +135,42 @@ mod tests {
         //     println!("{}", i);
         //     assert_eq!(rust_ev, cpp_ev);
         // }
-    }        
+    }
+
+    #[test]
+    fn bench_rust() {
+        let n_files = 50;
+        use super::dataset_rust::DatasetIntoIter;
+        let _max_chi2 = alice_open_data::all_files_10h().unwrap()
+            .into_iter()
+            .take(n_files)
+            .map(|path| RootFile::new_from_file(&path).expect("Failed to open file"))
+            .map(|rf| rf.items()[0].as_tree().unwrap())
+            .flat_map(|tree| {
+                match DatasetIntoIter::new(&tree) {
+                    Ok(s) => s,
+                    Err(err) => panic!("An error occured! Message: {}", err)
+                }})
+            .flat_map(|event| event.tracks().map(|tr| tr.itschi2).collect::<Vec<_>>())
+            .fold(0.0, |max, chi2| if chi2 > max {chi2} else {max});
+    }
+
+    #[test]
+    #[cfg(feature = "cpp")]
+    fn bench_cpp() {
+        let n_files = 50;
+        use super::dataset_cpp::DatasetIntoIter;
+        let _max_chi2 = alice_open_data::all_files_10h().unwrap()
+            .into_iter()
+            .take(n_files)
+            .flat_map(|path| {
+                match DatasetIntoIter::new(&path) {
+                    Ok(s) => s,
+                    Err(err) => panic!("An error occured! Message: {}", err)
+                }})
+            .flat_map(|event|event.tracks().map(|tr| tr.itschi2).collect::<Vec<_>>())
+            .fold(0.0, |max, chi2| if chi2 > max {chi2} else {max});
+    }
+    
 }
 
