@@ -9,9 +9,9 @@ Here are some (not pretty) example figures produced with this project. The first
 ![result-plot](./simple-analysis/result.png)
 
 This collection of crates provides and demonstrates:
-* A [parser](https://github.com/cbourjau/alice-rs/tree/master/root-io) for reading the [ROOT](https://root.cern.ch/) binary file format. This is the standard format used particle physics.
-* A micro-framwork providing some essential tools for writing an analysis [mALICE](https://github.com/cbourjau/alice-rs/tree/master/malice) crate
-* A library/binary for downloading a desired amount of the publicly released data. See the [alice-download](https://github.com/cbourjau/alice-rs/tree/master/alice-download) crate. The [alice-open-data](https://github.com/cbourjau/alice-rs/tree/master/alice-open-data) crate provides some conveniences for latter locating and reading the downloaded files
+* A [parser](https://github.com/cbourjau/alice-rs/tree/master/root-io) for reading the [ROOT](https://root.cern.ch/) binary file format. This is the standard format used in particle physics.
+* The [mALICE](https://github.com/cbourjau/alice-rs/tree/master/malice) framework providing some essential tools for writing an analysis of the public data.
+* A library/binary for downloading a desired amount of the publicly released data. See the [alice-download](https://github.com/cbourjau/alice-rs/tree/master/alice-download) crate. The [alice-open-data](https://github.com/cbourjau/alice-rs/tree/master/alice-open-data) crate provides some conveniences for later locating and reading the downloaded files
 * High performance n-dimensional histograms for streaming data.
   Maintains a binned count of the data which can be successively filled. See [histogram](https://github.com/cbourjau/alice-rs/tree/master/histogram)
 * **A  simple analysis demonstrating how it all plays together. See [simple-analysis](https://github.com/cbourjau/alice-rs/tree/master/simple-analysis)**
