@@ -1,12 +1,20 @@
-extern crate ndarray;
+extern crate bincode;
+extern crate failure;
 extern crate itertools;
+extern crate ndarray;
 extern crate num_traits as libnum;
+extern crate serde;
 
 use ndarray as nd;
+use serde::Serialize;
+use bincode::serialize;
+use failure::Error;
 
 use std::cmp::Ordering;
 use std::marker::PhantomData;
 use std::ops::{Add, AddAssign};
+use std::fs::File;
+use std::io::prelude::*;
 
 // Re-export some ndarray things
 pub use nd::Dimension;
@@ -14,41 +22,31 @@ pub use nd::Axis;
 pub use nd::IxDyn;
 
 #[derive(Debug)]
-pub struct Histogram<A, D>
-{
+pub struct Histogram<A, D> {
     edges: Vec<Vec<BinEdges>>,
     pub counts: nd::Array<A, IxDyn>,
     dim: PhantomData<D>,
 }
 
-
 pub trait Centers {
-    fn centers (&self, axis: usize) -> Vec<f64>;
+    fn centers(&self, axis: usize) -> Vec<f64>;
 }
 
 pub trait Widths {
-    fn widths(&self, axis:usize) -> Vec<f64>;
+    fn widths(&self, axis: usize) -> Vec<f64>;
 }
 
-impl<A, D> Centers for Histogram<A, D>
-{
+impl<A, D> Centers for Histogram<A, D> {
     /// The center position of each bin along axis
     fn centers(&self, axis: usize) -> Vec<f64> {
-        self.edges[axis]
-            .iter()
-            .map(|bin| bin.center())
-            .collect()
+        self.edges[axis].iter().map(|bin| bin.center()).collect()
     }
 }
 
-impl<A, D> Widths for Histogram<A, D>
-{
+impl<A, D> Widths for Histogram<A, D> {
     /// The width of each bin along `axis`
-    fn widths(&self, axis:usize) -> Vec<f64>{
-        self.edges[axis]
-            .iter()
-            .map(|bin| bin.width())
-            .collect()
+    fn widths(&self, axis: usize) -> Vec<f64> {
+        self.edges[axis].iter().map(|bin| bin.width()).collect()
     }
 }
 
@@ -65,7 +63,7 @@ macro_rules! impl_histogram {
                     .binary_search_by(|bin| bin.cmp_with(value))
                     .ok()
             }
-            
+
             /// Find indices of bins along each axis
             fn find_bin_indices(&self, values: &[f64; $N]) -> Option<[usize; $N]> {
                 let mut idxs = [0; $N];
@@ -111,6 +109,19 @@ macro_rules! impl_histogram {
                 // assert_eq!(self.edges.as_slice(), other.edges.as_slice());
                 self.counts += &other.counts;
             }
+
+            /// Dump histogram (without edges) to a file of `name`.
+            /// The binary layout is:
+            /// `(array_version: u8, ndim: u64, shape: [ndim; u64], a_size: u64, a: [a_size; A])`
+            pub fn dump_to_file(&self, name: &str) -> Result<(), Error>
+            where A: Serialize,
+            {
+                let buf = serialize(&self.counts)?;
+                let mut f = File::create(name)?;
+                f.write_all(buf.as_slice())?;
+                Ok(())
+            }
+
         }
 
         impl<A> Extend<[f64; $N]> for Histogram<A, [usize; $N]>
@@ -139,10 +150,8 @@ impl_histogram!(6, 0 1 2 3 4 5);
 impl_histogram!(7, 0 1 2 3 4 5 6);
 impl_histogram!(8, 0 1 2 3 4 5 6 7);
 
-
 #[derive(Default)]
-pub struct HistogramBuilder<D>
-{
+pub struct HistogramBuilder<D> {
     edges: Vec<Vec<f64>>,
     phantom: PhantomData<D>,
 }
@@ -172,7 +181,7 @@ macro_rules! impl_histogram_builder {
                 for dim in 0..$N {
                     shape[dim] = edges[dim].len();
                 }
-                
+
                 let counts = nd::ArrayD::<A>::zeros(IxDyn(shape.as_ref()));
                 Some(Histogram::<A, [usize; $N]> {
                     counts: counts,
@@ -193,7 +202,7 @@ macro_rules! impl_histogram_builder {
                                                -> &'a mut HistogramBuilder<[usize; $N]> {
                 self.edges.push(edges1d.to_vec());
                 self
-            }            
+            }
         }
     }
 }
@@ -213,17 +222,16 @@ struct BinEdges {
     upper: f64,
 }
 
-
 impl BinEdges {
-    pub fn width (&self) -> f64 {
+    pub fn width(&self) -> f64 {
         self.upper - self.lower
     }
-    pub fn center (&self) -> f64 {
+    pub fn center(&self) -> f64 {
         self.lower + 0.5 * self.width()
     }
     /// Compute if a given `value` is below, within or above the given binary
     /// A bins interval is half open on [low, high)
-    pub fn cmp_with (&self, value: f64) -> Ordering {
+    pub fn cmp_with(&self, value: f64) -> Ordering {
         if value < self.lower {
             Ordering::Greater
         } else if value < self.upper {
@@ -234,12 +242,14 @@ impl BinEdges {
     }
 }
 
-
 /// Turn a vector of edges to a vector of `BinEdges`
-fn edges_to_bins(edges1d: &[f64]) -> Vec<BinEdges>{
+fn edges_to_bins(edges1d: &[f64]) -> Vec<BinEdges> {
     edges1d
         .windows(2)
-        .map(|window| BinEdges {lower: window[0], upper: window[1]})
+        .map(|window| BinEdges {
+            lower: window[0],
+            upper: window[1],
+        })
         .collect()
 }
 
@@ -252,10 +262,15 @@ mod tests {
         let h = HistogramBuilder::<[usize; 2]>::new()
             .add_equal_width_axis(1, 0., 1.)
             .add_equal_width_axis(1, 0., 1.)
-            .build::<f32>().unwrap();
+            .build::<f32>()
+            .unwrap();
         assert_eq!(h.find_bin_indices(&[-1.0, -1.0]), None, "Wrong indices");
         assert_eq!(h.find_bin_indices(&[2.0, 2.0]), None, "Wrong indices");
-        assert_eq!(h.find_bin_indices(&[0.5, 0.5]), Some([0, 0]), "Wrong indices");
+        assert_eq!(
+            h.find_bin_indices(&[0.5, 0.5]),
+            Some([0, 0]),
+            "Wrong indices"
+        );
     }
 
     #[test]
@@ -263,7 +278,8 @@ mod tests {
         let h = HistogramBuilder::<[usize; 2]>::new()
             .add_equal_width_axis(1, 0., 1.)
             .add_equal_width_axis(1, 0., 1.)
-            .build::<f32>().unwrap();
+            .build::<f32>()
+            .unwrap();
         assert_eq!(h.edges[0].len(), 1);
         assert_eq!(h.counts, nd::arr2(&[[0.]]).into_dyn());
 
@@ -271,7 +287,8 @@ mod tests {
             .add_equal_width_axis(1, 0., 1.)
             .add_equal_width_axis(1, 0., 1.)
             .add_equal_width_axis(1, 0., 1.)
-            .build::<f32>().unwrap();
+            .build::<f32>()
+            .unwrap();
 
         assert_eq!(h.counts, nd::arr3(&[[[0.]]]).into_dyn());
     }
@@ -297,7 +314,8 @@ mod tests {
         let mut h = HistogramBuilder::<[usize; 2]>::new()
             .add_equal_width_axis(2, 0., 2.)
             .add_equal_width_axis(2, 0., 2.)
-            .build().unwrap();
+            .build()
+            .unwrap();
         // underflow both bins
         h.fill(&[-5., -5.]);
         assert_eq!(h.counts, nd::arr2(&[[0., 0.], [0., 0.]]).into_dyn());
@@ -317,7 +335,8 @@ mod tests {
         let h = HistogramBuilder::<[usize; 2]>::new()
             .add_equal_width_axis(2, -1., 1.)
             .add_equal_width_axis(2, -1., 1.)
-            .build::<f32>().unwrap();
+            .build::<f32>()
+            .unwrap();
         assert_eq!(h.edges[0][0].lower, -1.0);
         assert_eq!(h.edges[0][0].upper, 0.0);
         assert_eq!(h.edges[0][1].lower, 0.0);
@@ -328,7 +347,10 @@ mod tests {
 
     #[test]
     fn bin_edges() {
-        let be = BinEdges {lower: 0.0, upper: 1.0};
+        let be = BinEdges {
+            lower: 0.0,
+            upper: 1.0,
+        };
         // Read as "Bin is greater than value"!
         assert_eq!(be.cmp_with(2.0), Ordering::Less);
         assert_eq!(be.cmp_with(0.5), Ordering::Equal);

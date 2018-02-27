@@ -57,10 +57,10 @@ pub struct Track {
     pub(crate) parameters: TrackParameters,
     pub(crate) alpha: f32,
     pub flags: Flags,
-    pub itschi2: f32,
-    pub itsncls: i8,
-    pub itsclustermap: ItsClusters,
-    pub tpc_chi2: f32,
+    pub(crate) its_chi2: f32,
+    pub its_ncls: i8,
+    pub its_clustermap: ItsClusters,
+    pub(crate) tpc_chi2: f32,
     pub tpc_ncls: u16,
     
 }
@@ -131,5 +131,17 @@ impl Track {
     /// Distance of closes approch of this track in z
     pub fn dca_to_point_z(&self, z: f32) -> f32 {
         self.parameters.loc_z - z
+    }
+
+    /// Chi^2 normalized to the number of clusters. This is a measure
+    /// of how well the reconstruction fit the observed clusters
+    pub fn tpc_chi2_per_cluster(&self) -> f32 {
+        self.tpc_chi2 / self.tpc_ncls as f32
+    }
+
+    /// Chi^2 normalized to the number of clusters. This is a measure
+    /// of how well the reconstruction fit the observed clusters
+    pub fn its_chi2_per_cluster(&self) -> f32 {
+        self.its_chi2 / self.its_ncls as f32
     }    
 }

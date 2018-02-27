@@ -15,6 +15,7 @@ pub mod dataset_cpp;
 pub mod track;
 pub mod merge;
 pub mod primary_vertex;
+pub mod utils;
 
 #[cfg(test)]
 mod tests {

@@ -9,3 +9,4 @@ root-io = { path = "../root-io" }
 alice-open-data = {path = "../alice-open-data"}
 gnuplot = "^0.0.22"
 histogram = {path = "../histogram" }
+failure = "0.1.1"
