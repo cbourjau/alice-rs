@@ -151,7 +151,7 @@ mod tests {
                     Ok(s) => s,
                     Err(err) => panic!("An error occured! Message: {}", err)
                 }})
-            .flat_map(|event| event.tracks().map(|tr| tr.itschi2).collect::<Vec<_>>())
+            .flat_map(|event| event.tracks().map(|tr| tr.its_chi2).collect::<Vec<_>>())
             .fold(0.0, |max, chi2| if chi2 > max {chi2} else {max});
     }
 
@@ -168,7 +168,7 @@ mod tests {
                     Ok(s) => s,
                     Err(err) => panic!("An error occured! Message: {}", err)
                 }})
-            .flat_map(|event|event.tracks().map(|tr| tr.itschi2).collect::<Vec<_>>())
+            .flat_map(|event|event.tracks().map(|tr| tr.its_chi2).collect::<Vec<_>>())
             .fold(0.0, |max, chi2| if chi2 > max {chi2} else {max});
     }
     
