@@ -1,3 +1,5 @@
+//! Backend using the ROOT c++ framwork. You probably don't want to use this.
+
 use std::path::PathBuf;
 
 use failure::Error;

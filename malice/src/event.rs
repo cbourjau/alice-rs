@@ -1,3 +1,5 @@
+//! Structs and `bitflags` related to a given event
+
 use std::slice::Iter;
 use track::{Track, TrackParameters, Flags, ItsClusters};
 use primary_vertex::PrimaryVertex;
@@ -5,12 +7,14 @@ use primary_vertex::PrimaryVertex;
 bitflags! {
     /// Triggers are low level qualifier of an event. One event may "fire" several triggers.
     pub struct TriggerMask: u64 {
+        /// Exact definition may vary from run-to-run. Should be used as the default trigger
         const MINIMUM_BIAS = 0b0000_0001;
+        /// Exact definition vary from run-to-run. Marks an event with very high activity
         const HIGH_MULT =    0b0000_0010;
     }
 }
 
-/// A model for the / a subset of the ESD data
+/// A model for a subset of an event as stored in the published data
 #[derive(Debug, PartialEq)]
 pub struct Event {
     pub(crate) primaryvertex_alivertex_fposition: [f32; 3],
@@ -29,7 +33,7 @@ pub struct Event {
     pub(crate) tracks_ftpcncls: Vec<u16>,
 }
 
-/// Iterator over the tracks of an event
+/// Iterator over [`Track`](struct.Track.html)s
 pub struct TracksIter<'e> {
     pub(crate) x: Iter<'e, f32>,
     pub(crate) p: Iter<'e, TrackParameters>,  // fn(&[f32; 5]) -> TrackParameters>,
@@ -44,6 +48,7 @@ pub struct TracksIter<'e> {
 }
 
 impl Event {
+    /// Iterator over **all** `Track`s in this event
     pub fn tracks(&self) -> TracksIter {
         TracksIter {
             x: self.tracks_fx.iter(),
@@ -58,6 +63,7 @@ impl Event {
             tpc_ncls: self.tracks_ftpcncls.iter(),
         }
     }
+    /// The primary vertex of this event, if it exists. Else `None`
     pub fn primary_vertex(&self) -> Option<PrimaryVertex>{
         // 0 contributors means that there is no primar vertex
         if self.primaryvertex_alivertex_fncontributors > 0 {
@@ -70,11 +76,12 @@ impl Event {
         }
     }
 
-    /// Return the number of reconstructed tracks. Not very sophisticated...
+    /// Return the number of reconstructed tracks. Not very sophisticated, and probably not wuite what you want! Should rather be the number of **valid** tracks. FIXME.
     pub fn multiplicity(&self) -> f32 {
         self.tracks_fx.len() as f32
     }
 
+    /// The `TriggerMask` of this event. Use this to select minimum bias events, for example
     pub fn trigger_mask(&self) -> TriggerMask {
         // The infromation which triggers fired is stored in a bitmask
         // Then we use the bit mask to find the string describing the

@@ -52,6 +52,7 @@ bitflags! {
     }
 }
 
+/// A `Track` is a reconstruction of the trajectory of a particle traversing the detector.
 pub struct Track {
     pub(crate) x: f32,
     pub(crate) parameters: TrackParameters,
@@ -133,13 +134,13 @@ impl Track {
         self.parameters.loc_z - z
     }
 
-    /// Chi^2 normalized to the number of clusters. This is a measure
+    /// Chi<sup>2</sup> normalized to the number of clusters. This is a measure
     /// of how well the reconstruction fit the observed clusters
     pub fn tpc_chi2_per_cluster(&self) -> f32 {
         self.tpc_chi2 / self.tpc_ncls as f32
     }
 
-    /// Chi^2 normalized to the number of clusters. This is a measure
+    /// Chi<sup>2</sup> normalized to the number of clusters. This is a measure
     /// of how well the reconstruction fit the observed clusters
     pub fn its_chi2_per_cluster(&self) -> f32 {
         self.its_chi2 / self.its_ncls as f32

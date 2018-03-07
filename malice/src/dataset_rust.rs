@@ -1,5 +1,7 @@
+//! Structs and iterators concerned with iterating over events stored in `root_io::Tree`s.
+
 use failure::Error;
-use nom::*;
+use nom;
 
 use root_io::tree_reader::{ColumnFixedIntoIter, ColumnVarIntoIter, Tree};
 use root_io::core::types::ClassInfo;
@@ -9,6 +11,7 @@ use root_io::core::parsers::{tobjarray_no_context, tnamed};
 use event::Event;
 use track::{TrackParameters, ItsClusters, Flags};
 
+/// Iterator over `Event`s stored in the underlying dataset.
 pub struct DatasetIntoIter {
     aliesdrun_frunnumber: ColumnFixedIntoIter<i32>,
     aliesdrun_ftriggerclasses: ColumnFixedIntoIter<Vec<String>>,
@@ -27,7 +30,9 @@ pub struct DatasetIntoIter {
 }
 
 impl DatasetIntoIter {
+    /// Create a new `DatasetIntoIter` from the given `root_io::Tree`. The `Tree` must be a so-called "ESD" tree.
     pub fn new(t: &Tree) -> Result<DatasetIntoIter, Error> {
+        use nom::*;
         let track_counter: Vec<_> = ColumnFixedIntoIter::new(&t, "Tracks", be_u32)?.collect();
         Ok(DatasetIntoIter {
             aliesdrun_frunnumber: ColumnFixedIntoIter::new(&t, "AliESDRun.fRunNumber", be_i32)?,
@@ -88,7 +93,7 @@ impl Iterator for DatasetIntoIter {
 /// different "menu" of available triggers. The trigger menu is saved
 /// as an `TObjArray` of `TNamed` objects for each event. This breaks
 /// it down to a simple vector
-fn parse_trigger_classes(input: &[u8]) -> IResult<&[u8], Vec<String>> {
+fn parse_trigger_classes(input: &[u8]) -> nom::IResult<&[u8], Vec<String>> {
     let vals = length_value!(input, checked_byte_count, tobjarray_no_context);
     vals.map(|arr| {
         arr.iter()
@@ -97,7 +102,7 @@ fn parse_trigger_classes(input: &[u8]) -> IResult<&[u8], Vec<String>> {
                     ClassInfo::References(0) => "".to_string(),
                     _ => {
                         match tnamed(el.as_slice()).map(|tn| tn.name) {
-                            IResult::Done(_, n) => n,
+                            nom::IResult::Done(_, n) => n,
                             _ => panic!()
                         }
                     }
@@ -112,7 +117,8 @@ fn parse_trigger_classes(input: &[u8]) -> IResult<&[u8], Vec<String>> {
 /// (check the YAML code for ALIESD)
 /// This function reconstructs a float from the exponent and mantissa
 /// TODO: Use ByteOrder crate to be cross-platform!
-fn parse_custom_mantissa(input: &[u8], nbits: usize) -> IResult<&[u8], f32> {
+fn parse_custom_mantissa(input: &[u8], nbits: usize) -> nom::IResult<&[u8], f32> {
+    use nom::*; // cannot use module path in macro
     pair!(input, be_u8, be_u16).map(|(exp, man)| {
         // let nbits = 8;
         let mut s = exp as u32;

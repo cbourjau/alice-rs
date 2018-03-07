@@ -17,13 +17,11 @@ extern crate histogram;
 extern crate malice;
 extern crate root_io;
 
-use malice::event::Event;
-use malice::utils::default_track_filter;
 use histogram::*;
-
-use malice::dataset_rust::DatasetIntoIter as DsIntoIter;
-use malice::utils::default_event_filter;
 use root_io::RootFile;
+
+use malice::{Event, DatasetIntoIter as DsIntoIter};
+use malice::{default_track_filter, default_event_filter};
 
 fn main() {
     // Iterator over files of the Open Data set
@@ -43,7 +41,7 @@ fn main() {
         });
 
     // Fold the `malice::event::Events` with the analysis	
-    let analysis: SimpleAnalysis = events
+    let _analysis_result: SimpleAnalysis = events
         // Apply a sensible default event filter
         .filter(default_event_filter)
         .fold(SimpleAnalysis::new(), |analysis, ev| { analysis.process_event(&ev) });
