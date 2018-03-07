@@ -12,4 +12,4 @@ license = "MPL-2.0"
 [dependencies]
 indicatif = "^0.6.0"
 clap = "^2"
-alice-open-data = {path = "../alice-open-data/", version = "0.1.0"}
+alice-open-data = "0.1.0"
