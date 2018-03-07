@@ -8,8 +8,8 @@ extern crate root_io;
 use std::sync::mpsc;
 use std::thread::spawn;
 
-use malice::dataset_rust::DatasetIntoIter as DsIntoIter;
-use malice::utils::default_event_filter;
+use malice::DatasetIntoIter as DsIntoIter;
+use malice::default_event_filter;
 use root_io::RootFile;
 
 mod distribution;

@@ -4,3 +4,4 @@
 */target/*
 *tar.gz
 *.clang_complete
+*.root

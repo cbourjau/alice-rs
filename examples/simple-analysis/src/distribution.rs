@@ -5,8 +5,8 @@
 
 use std::f64::consts::PI;
 use gnuplot::{Figure, AxesCommon};
-use malice::event::Event;
-use malice::utils::default_track_filter;
+use malice::Event;
+use malice::default_track_filter;
 use failure::Error;
 
 use histogram::*;
@@ -14,6 +14,7 @@ use histogram::*;
 pub struct SimpleAnalysis {
     pub single_particles: Histogram<f32, [usize; 3]>,
     pub z_vertex: Histogram<i32, [usize; 1]>,
+    pub multiplicity: Histogram<f32, [usize; 1]>,
 }
 
 impl SimpleAnalysis {
@@ -21,6 +22,7 @@ impl SimpleAnalysis {
         // eta, phi, z
         let nphi = 120;
         let neta = 120;
+        let nmult = 3000;
         let (nzvtx, zmin, zmax) = (100, -10., 10.);
         SimpleAnalysis {
             single_particles: HistogramBuilder::<[usize; 3]>::new()
@@ -33,6 +35,10 @@ impl SimpleAnalysis {
                 .add_equal_width_axis(nzvtx, zmin, zmax)
                 .build()
                 .expect("Error building histogram"),
+            multiplicity: HistogramBuilder::<[usize; 1]>::new()
+                .add_equal_width_axis(nmult, 0.0, nmult as f64)
+                .build()
+                .expect("Error building histogram"),            
         }
     }
 }
@@ -49,6 +55,10 @@ impl SimpleAnalysis {
                         .filter(|tr| default_track_filter(&tr, &prime_vtx))
                         .map(|tr| [tr.eta() as f64, tr.phi() as f64, prime_vtx.z as f64]));
             self.z_vertex.fill(&[prime_vtx.z as f64]);
+            self.multiplicity.fill(&[event
+                                     .tracks()
+                                     .filter(|tr| default_track_filter(&tr, &prime_vtx))
+                                     .count() as f64]);
         };
         self
     }
@@ -104,6 +114,29 @@ impl SimpleAnalysis {
             .boxes(&self.z_vertex.centers(0),
                    &self.z_vertex.counts,
                    &[]);
+
+        fg.axes2d()
+            .set_pos_grid(2, 2, 3)
+            .set_title("N_{ch} distribution", &[])
+            .set_x_label("N_{ch}", &[])
+            .set_y_label("# events", &[])
+            // .set_x_log(Some(10.0))
+            .set_y_log(Some(10.0))
+            .boxes(&self.multiplicity.centers(0),
+                   &self.multiplicity.counts,
+                   &[]);
         fg.show();
+        let tot = self.multiplicity.counts.scalar_sum();
+        let cum: Vec<_> = self.multiplicity.counts
+            .iter()
+            .scan(0.0, |state, el| {
+                *state += el;
+                Some((1.0 - *state / tot) * 100.0)
+            })
+            .enumerate()
+            .collect();
+        for el in &cum {
+            println!("{:?}", el);
+        }
     }
 }

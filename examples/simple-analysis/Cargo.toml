@@ -2,11 +2,12 @@
 name = "simple-analysis"
 version = "0.1.0"
 authors = ["cbourjau <christian.bourjau@cern.ch>"]
+workspace = "../../"
 
 [dependencies]
-malice = {path = "../malice" }
-root-io = { path = "../root-io" }
-alice-open-data = {path = "../alice-open-data"}
+malice = "0.1.0"
+root-io = "0.1.1"
+alice-open-data = "0.1.0"
 gnuplot = "^0.0.22"
-histogram = {path = "../histogram" }
+histogram = {path = "../../histogram" }
 failure = "0.1.1"

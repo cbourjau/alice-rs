@@ -3,8 +3,9 @@ members = [
  "alice-download",
  "alice-open-data",
  "histogram",
- "simple-analysis",
  "root-io",
  "root-ls",
  "malice",
+ "examples/simple-analysis",
+ "examples/convert_to_json",
 ]
