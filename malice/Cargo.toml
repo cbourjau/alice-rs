@@ -2,6 +2,13 @@
 name = "malice"
 version = "0.1.0"
 authors = ["cbourjau <christian.bourjau@cern.ch>"]
+exclude = ["benches/*"]
+description = "A small framwork providing sensible defaults to analyse ALICE's open data"
+repository = "https://github.com/cbourjau/alice-rs/malice"
+readme = "README.md"
+keywords = ["root", "cern", "alice", "lhc", "physics"]
+categories = ["science", "data-structures"]
+license = "MPL-2.0"
 
 [features]
 default = []
