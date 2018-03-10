@@ -6,7 +6,7 @@ This repository demonstrates how the [public data](http://opendata.cern.ch/colle
 
 Here are some (not pretty) example figures produced with this project. The first two show the distribution of produced particles in the longitudinal and azimuthal dimensions. The third figure shows where the collisions took place along the direction of the particle beams in the collider:
 
-![result-plot](./simple-analysis/result.png)
+![result-plot](./examples/simple-analysis/result.png)
 
 This collection of crates provides and demonstrates:
 * A [parser](https://github.com/cbourjau/alice-rs/tree/master/root-io) for reading the [ROOT](https://root.cern.ch/) binary file format. This is the standard format used in particle physics.
@@ -14,7 +14,7 @@ This collection of crates provides and demonstrates:
 * A library/binary for downloading a desired amount of the publicly released data. See the [alice-download](https://github.com/cbourjau/alice-rs/tree/master/alice-download) crate. The [alice-open-data](https://github.com/cbourjau/alice-rs/tree/master/alice-open-data) crate provides some conveniences for later locating and reading the downloaded files
 * High performance n-dimensional histograms for streaming data.
   Maintains a binned count of the data which can be successively filled. See [histogram](https://github.com/cbourjau/alice-rs/tree/master/histogram)
-* **A  simple analysis demonstrating how it all plays together. See [simple-analysis](https://github.com/cbourjau/alice-rs/tree/master/simple-analysis)**
+* **A  simple analysis demonstrating how it all plays together. See [simple-analysis](https://github.com/cbourjau/alice-rs/tree/master/examples/simple-analysis)**
 
 ## Dependencies
 
