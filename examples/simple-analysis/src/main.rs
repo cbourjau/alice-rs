@@ -19,7 +19,7 @@ fn main() {
     let files: Vec<_> = alice_open_data::all_files_10h()
         .expect("No data files found. Did you download with alice-open-data?")
         .into_iter()
-        .take(50)
+        // .take(50)
         .collect();
     if files.is_empty() {
         panic!("Somehow no files were found! Something is fishy!");
@@ -44,5 +44,6 @@ fn main() {
         .filter(default_event_filter)
         .fold(SimpleAnalysis::new(), |analysis, ev| { analysis.process_event(&ev) });
     analysis.write_to_disc().unwrap();
+    analysis.compute_centrality_edges();
     analysis.visualize();
 }
