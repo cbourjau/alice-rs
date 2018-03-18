@@ -1,4 +1,6 @@
 # ALICE-rs #
+[![Build Status](https://travis-ci.org/cbourjau/alice-rs.svg)](https://travis-ci.org/cbourjau/alice-rs)
+
 **This is not an official ALICE or CERN project**
 
 
