@@ -8,4 +8,5 @@ members = [
  "malice",
  "examples/simple-analysis",
  "examples/convert_to_json",
+ "examples/efficiency_map",
 ]

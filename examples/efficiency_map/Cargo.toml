@@ -1,0 +1,11 @@
+[package]
+name = "efficiency_map"
+version = "0.1.0"
+authors = ["cbourjau <christian.bourjau@cern.ch>"]
+
+[dependencies]
+alice-open-data = "0.1.0"
+failure = "0.1.1"
+malice = "0.1.0"
+root-io = "0.1.1"
+histogram = {path = "../../histogram" }
