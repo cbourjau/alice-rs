@@ -54,7 +54,7 @@ fn main() {
     let max_files = pbar.wrap_iter(max_files.iter());
 
     for f in max_files {
-        f.download().unwrap();
+        f.download().unwrap_or_else(|e| println!("Error downloading {:?}: {:?}", f, e));
     }
 }
 
