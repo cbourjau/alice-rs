@@ -7,7 +7,6 @@ fn root_file_methods() {
     let paths =
         [
             "./src/test_data/simple.root",
-            "./src/test_data/AliESDs.root",
             "./src/test_data/HZZ.root",
             "./src/test_data/HZZ-lz4.root",
             "./src/test_data/HZZ-lzma.root",
@@ -51,6 +50,27 @@ fn root_file_methods() {
             "./src/test_data/mc10events.root",
             // Contains TStreamerSTLstring
             "./src/test_data/nesteddirs.root",
+        ].into_iter()
+        .map(|p| PathBuf::from(p));
+    for p in paths {
+        println!("{:?}", p);
+        let f = RootFile::new_from_file(&p).expect("Failed to open file");
+        let mut s = String::new();
+        f.streamer_info_as_yaml(&mut s).unwrap();
+        f.streamer_info_as_rust(&mut s).unwrap();
+        for item in f.items() {
+            item.name();
+            item.verbose_info();
+        }
+    }
+}
+
+#[test]
+#[ignore]
+fn root_file_methods_esd() {
+    let paths =
+        [
+            "./src/test_data/AliESDs.root",
         ].into_iter()
         .map(|p| PathBuf::from(p));
     for p in paths {

@@ -104,6 +104,7 @@ mod tests {
 
     /// Test the first basket of the "Tracks.fP[5]" branch
     #[test]
+    #[ignore]
     fn basket_esd() {
         let path = "./src/test_data/AliESDs.root";
         let f = File::open(&path).unwrap();

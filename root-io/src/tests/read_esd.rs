@@ -126,6 +126,7 @@ fn parse_its_chi2(input: &[u8]) -> IResult<&[u8], f32> {
     
 
 #[test]
+#[ignore]
 fn read_esd() {
     let path = PathBuf::from("./src/test_data/AliESDs.root");
     let f = RootFile::new_from_file(&path).expect("Failed to open file");

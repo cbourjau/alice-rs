@@ -96,6 +96,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn open_esd() {
         let path = PathBuf::from("./src/test_data/AliESDs.root");
         let f = RootFile::new_from_file(&path).expect("Failed to open file");
