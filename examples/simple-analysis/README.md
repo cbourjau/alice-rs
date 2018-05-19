@@ -1,5 +1,17 @@
 # simple-analysis
 This crate demonstrates how all the other parts of this repository work together.
+
+## How to run it
+First, download a few files using [`alice-download`](https://github.com/cbourjau/alice-rs/tree/master/alice-download).
+Then compile and run the analysis in **release** mode from the `simple-analysis` folder
+```shell
+alice-download 5  # Downloads 5GB to ~/lhc_open_data
+cargo run --release
+```
+Note that this analysis attempts to produce some figures using Gnuplot at the end. So make sure you have gnuplot installed as well.
+
+# What is happening?
+
 The `main.rs` shows how the IO part is spawned in its own thread. That thread sends `malice::Event`as messages. The reciever is converted into an iterator over `Event`s.
 The analysis itself is implemented as a `fold` over this iterator.
 Note that this set up can easily be adapted to have `M` IO threads and `N` consuming analysis threads.
