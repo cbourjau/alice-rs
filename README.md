@@ -16,7 +16,7 @@ This collection of crates provides and demonstrates:
 * A library/binary for downloading a desired amount of the publicly released data. See the [alice-download](https://github.com/cbourjau/alice-rs/tree/master/alice-download) crate. The [alice-open-data](https://github.com/cbourjau/alice-rs/tree/master/alice-open-data) crate provides some conveniences for later locating and reading the downloaded files
 * High performance n-dimensional histograms for streaming data.
   Maintains a binned count of the data which can be successively filled. See [histogram](https://github.com/cbourjau/alice-rs/tree/master/histogram)
-* **A  simple analysis demonstrating how it all plays together. See [simple-analysis](https://github.com/cbourjau/alice-rs/tree/master/examples/simple-analysis)**
+* **A  simple analysis demonstrating how it all plays together. See [examples/simple-analysis](https://github.com/cbourjau/alice-rs/tree/master/examples/simple-analysis)**
 
 ## Dependencies
 
