@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["cbourjau <christian.bourjau@cern.ch>"]
 
 [dependencies]
-malice = "0.1.0"
+malice = "0.1.1"
 alice-open-data = "0.2.0"
 root-io = "0.1.1"
 serde = "1.0"

@@ -5,7 +5,7 @@ authors = ["cbourjau <christian.bourjau@cern.ch>"]
 workspace = "../../"
 
 [dependencies]
-malice = "0.1.0"
+malice = "0.1.1"
 root-io = "0.1.1"
 alice-open-data = "0.2.0"
 gnuplot = "^0.0.22"
