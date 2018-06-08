@@ -2,10 +2,6 @@
 extern crate failure;
 extern crate glob;
 extern crate reqwest;
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
 
 use std::env;
 use std::io::{Read};
@@ -14,67 +10,29 @@ use std::fs::{DirBuilder, File};
 use std::io::copy;
 use failure::Error;
 use reqwest::Certificate;
+use reqwest::Url;
 
 
-/// The json data of the datasets is wrapped in an object with key "Dataset"
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-struct SillyWrapper {
-    dataset: Dataset,
-}
-
-/// Summary information of the given dataset/run
-#[derive(Serialize, Deserialize, Debug)]
-struct Dataset {
-    name: String,
-    description: String,
-    path: String,
-    files: i32,
-    file_details: Vec<FileDetails>,
-}
-
-/// Details about one specific file in a given run
-#[derive(Serialize, Deserialize, Debug)]
-pub struct FileDetails {
-    file_path: String,
-    pub file_size: i64,
-    file_checksum: String,
-    file_timestamp: String,
-    original_filename: String,
-}
-
-impl FileDetails {
-    /// The url pointing to the current file
-    pub fn url(&self) -> String {
-        let url = "https://eospublichttp.cern.ch".to_string();
-        url + &self.file_path
+/// Download the given file to the local collection
+pub fn download(base_dir: PathBuf, url: Url) -> Result<u64, Error> {
+    let mut dest = base_dir;
+    let mut sub_dir = url.path().to_owned();
+    // Remove the leading "\" from the original path
+    sub_dir.remove(0);
+    dest.push(sub_dir);
+    // Do not re-download if the file already exists
+    if dest.exists() {
+        return Ok(0);
     }
-
-    /// Download the current file to the local collection
-    pub fn download(&self) -> Result<(), Error> {
-        let mut dest = data_dir()?;
-        let mut sub_dir = self.original_filename.to_owned();
-        // Remove the leading "\" from the original path
-        sub_dir.remove(0);
-        dest.push(sub_dir);
-        // Do not re-download if the file already exists
-        if dest.exists() {
-            return Ok(());
-        }
-        // Make sure the dir exists
-        if let Some(dir) = dest.parent() {
-            DirBuilder::new().recursive(true).create(dir)?;
-        }
-        let client = reqwest::Client::builder()
-            .add_root_certificate(Certificate::from_pem(ROOT).unwrap())
-            .add_root_certificate(Certificate::from_pem(GRID).unwrap())
-            .build().unwrap();
-        let mut resp = client.get(&self.url()).send()?;
-        let mut f = File::create(dest)?;        
-        copy(&mut resp, &mut f)?;        
-        Ok(())
+    // Make sure the dir exists
+    if let Some(dir) = dest.parent() {
+        DirBuilder::new().recursive(true).create(dir)?;
     }
+    let mut resp = download_with_https(url)?;
+    let mut f = File::create(dest)?;
+    Ok(copy(&mut resp, &mut f)?)
 }
+
 
 /// Base path to the local ALICE open data directory
 pub fn data_dir() -> Result<PathBuf, Error> {
@@ -87,14 +45,14 @@ pub fn data_dir() -> Result<PathBuf, Error> {
 /// That file should be the the first to be downloaded automatically.
 pub fn test_file() -> Result<PathBuf, Error> {
     let mut dir = data_dir()?;
-    dir.push("alice/data/2010/LHC10h/000139038/ESDs/pass2/10000139038001.10/AliESDs.root");
+    dir.push("eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root");
     Ok(dir)
 }
 
 /// Path to all files of `LHC10h`
 pub fn all_files_10h() -> Result<Vec<PathBuf>, Error> {
     let mut search_dir = data_dir()?;
-    search_dir.push("alice/data/2010/LHC10h/**/AliESDs.root");
+    search_dir.push("**/AliESDs.root");
     let files: Vec<_> = glob::glob(search_dir.to_str().unwrap())
         .expect("Can't resolve glob")
         .map(|path| path.unwrap())
@@ -102,65 +60,79 @@ pub fn all_files_10h() -> Result<Vec<PathBuf>, Error> {
     Ok(files)
 }
 
-/// Get the details for a specific dataset
-pub fn file_details_of_run(run: u32) -> Result<Vec<FileDetails>, Error> {
-    // Runs are blocks of data taking
-    // One URL per run
-    let urls = [
-        "http://opendata.cern.ch/record/1102/files/LHC10h_PbPb_ESD_139038.json",
-        "http://opendata.cern.ch/record/1103/files/LHC10h_PbPb_ESD_139173.json",
-        "http://opendata.cern.ch/record/1104/files/LHC10h_PbPb_ESD_139437.json",
-        "http://opendata.cern.ch/record/1105/files/LHC10h_PbPb_ESD_139438.json",
-        "http://opendata.cern.ch/record/1106/files/LHC10h_PbPb_ESD_139465.json",
-    ];
-    let url = urls.iter()
-        .find(|url| url.contains(&run.to_string()))
-        .expect("No data for given run number");
-    let mut content = String::new();
-    reqwest::get(*url)?
-        .read_to_string(&mut content)
-        .expect("Could not read to string");
-    let wrapper: SillyWrapper = serde_json::from_str(&content)?;
-    Ok(wrapper.dataset.file_details)
+pub fn get_file_list(run: u32) -> Result<Vec<Url>, Error> {
+    let uri =
+        "http://opendata.cern.ch/record/".to_owned() +
+        match run {
+            139038 => "1102/files/ALICE_LHC10h_PbPb_ESD_139038_file_index.txt",
+            139173 => "1103/files/ALICE_LHC10h_PbPb_ESD_139173_file_index.txt",
+            139437 => "1104/files/ALICE_LHC10h_PbPb_ESD_139437_file_index.txt",
+            139438 => "1105/files/ALICE_LHC10h_PbPb_ESD_139438_file_index.txt",
+            139465 => "1106/files/ALICE_LHC10h_PbPb_ESD_139465_file_index.txt",
+            _ => return Err(format_err!("Invalid run number"))
+        };
+    let mut resp = reqwest::get(uri.as_str())?;
+    if resp.status().is_success() {
+        let mut content = String::new();
+        resp.read_to_string(&mut content)?;
+        return Ok(content.lines()
+                  .map(|l| format!("http://eospublichttp.cern.ch/{}", &l[26..]))
+                  .map(|l| l.parse::<Url>().expect("Invalid file URI"))
+                  .collect());
+    } else {
+        Err(format_err!("Could not download list of files"))
+    }
+}
+
+fn download_with_https(uri: Url) -> Result<reqwest::Response, Error> {
+    let client = reqwest::Client::builder()
+        .add_root_certificate(Certificate::from_pem(ROOT).unwrap())
+        .add_root_certificate(Certificate::from_pem(GRID).unwrap())
+        .build().unwrap();
+    Ok(client.get(uri).send()?)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{FileDetails, SillyWrapper};
-    use serde_json;
-
+    use std::fs;
     #[test]
-    fn test_all() {
-        let data = r#"{
-    "Dataset": {
-    "name": "LHC10h_PbPb_ESD_139173",
-    "description": "PbPb ESD data sample at 3500 GeV",
-    "path": "/eos/opendata/alice/2010/LHC10h/000139173/ESD",
-    "files": 2639,
-    "file_details": [
-    {
-      "file_path": "/eos/opendata/alice/2010/LHC10h/000139173/ESD/0012/AliESDs.root",
-      "file_size": 391427669,
-      "file_checksum": "afb038c2279baa31fcca8b7c04e96109",
-      "file_timestamp": "2013-01-17 15:01:44",
-      "original_filename": "/alice/data/2010/LHC10h/000139173/ESDs/pass2/10000139173001.10/AliESDs.root"
-     }]
-     }}"#;
-        serde_json::from_str::<SillyWrapper>(data).unwrap();
+    fn test_get_file_lists() {
+        let runs = [
+            139_038,
+            139_173,
+            139_437,
+            139_438,
+            139_465,
+        ];
+        for run in runs.iter() {
+            println!("Testing run {}", run);
+            super::get_file_list(*run).unwrap();
+        }
     }
-
     #[test]
-    fn test_details() {
-        let data = r#"{
-      "file_path": "/eos/opendata/alice/2010/LHC10h/000139173/ESD/0012/AliESDs.root",
-      "file_size": 391427669,
-      "file_checksum": "afb038c2279baa31fcca8b7c04e96109",
-      "file_timestamp": "2013-01-17 15:01:44",
-      "original_filename": "/alice/data/2010/LHC10h/000139173/ESDs/pass2/10000139173001.10/AliESDs.root"
-      }"#;
-        let _ds: FileDetails = serde_json::from_str(data).unwrap();
+    fn test_download_file() {
+        let uris = &super::get_file_list(139038).unwrap();
+        let resp = super::download_with_https(uris[0].clone()).unwrap();
+        println!("{:?}", resp);
+        println!("{:?}", uris[0].path());
     }
-
+    #[test]
+    fn test_download_file_high_level() {
+        let uri = super::get_file_list(139038).unwrap()[0].clone();
+        {
+            // Remobe old stuff:
+            let mut dir = super::env::temp_dir();
+            dir.push("eos");
+            if dir.exists() {
+                fs::remove_dir_all(dir).unwrap();
+            }
+        }
+        let base_dir = super::env::temp_dir();
+        // Download if file does not exist
+        assert_eq!(super::download(base_dir.clone(), uri.clone()).unwrap(), 14283265);
+        // Don't download twice
+        assert_eq!(super::download(base_dir.clone(), uri.clone()).unwrap(), 0);
+    }
 }
 
 const ROOT: &[u8] = b"\

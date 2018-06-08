@@ -1,6 +1,6 @@
 [package]
 name = "alice-open-data"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["cbourjau <christian.bourjau@cern.ch>"]
 description = "Tools to download and manage the publicly released ALICE open data"
 repository = "https://github.com/cbourjau/alice-rs"
@@ -11,9 +11,6 @@ license = "MPL-2.0"
 
 
 [dependencies]
-serde = "^1.0"
-serde_derive = "^1.0"
-serde_json = "^1.0"
 glob = "^0.2.11"
 failure = "0.1.1"
 reqwest = "0.8.5"

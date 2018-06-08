@@ -2,13 +2,24 @@ extern crate indicatif;
 #[macro_use]
 extern crate clap;
 extern crate alice_open_data;
+extern crate failure;
 
-use indicatif::ProgressBar;
+use indicatif::{ProgressBar, ProgressStyle};
 use clap::{Arg, App};
 use alice_open_data::*;
 
-
 fn main() {
+    ::std::process::exit(match do_thing() {
+        Ok(()) => 0,
+        Err(err) => {
+            eprintln!("error: {:?}", err);
+            1
+        }
+    });
+}
+
+fn do_thing() -> Result<(), failure::Error>
+{
     let matches = App::new("alice-download")
         .version("0.1")
         .about("Download specified amount of ALICE open Pb--Pb data to ~/lhc_open_data \
@@ -22,7 +33,7 @@ fn main() {
              .required(true)
              .index(1))
         .get_matches();
-    let max_vol = value_t!(matches.value_of("amount"), i64).unwrap_or_else(|e| e.exit());
+    let max_vol = value_t!(matches.value_of("amount"), u64)?;
     // convert from GB to B
     let max_vol = max_vol * (1_000_000_000);
     let runs = [
@@ -32,29 +43,35 @@ fn main() {
         139_438,
         139_465,
     ];
-    let files: Vec<FileDetails> = runs.iter()
-        .flat_map(|r| file_details_of_run(*r).unwrap())
-        .collect();
-    let total_size = files.iter().fold(0, |acc, v| acc + v.file_size) as f64 / 1e9;
-    println!("Total available data: {} files with total of {} GB", files.len(), total_size);
 
-    let max_files: Vec<FileDetails> =
-        files
-        .into_iter()
-        .scan(0, |acc, v| {
-            if max_vol > *acc {
-                *acc += v.file_size;
-                Some(v)
-            } else {
-                None
-            }})
-        .collect();
-
-    let pbar = ProgressBar::new(max_files.len() as u64);
-    let max_files = pbar.wrap_iter(max_files.iter());
-
-    for f in max_files {
-        f.download().unwrap_or_else(|e| println!("Error downloading {:?}: {:?}", f, e));
+    // size of existing files
+    let base_dir = data_dir()?;
+    let mut total: u64 = 0;
+    for entry in all_files_10h()?.iter() {
+        let data = entry.metadata()?;
+        if data.is_file() {
+            total += data.len();
+        }
     }
+    if total >= max_vol {
+        return Ok(());
+    }
+    let urls = runs.iter()
+        .map(|r| get_file_list(*r))
+        .collect::<Result<Vec<_>, _>>()?;
+    let pbar = ProgressBar::new(max_vol as u64);
+    pbar.set_style(ProgressStyle::default_bar()
+                   .template("[{elapsed_precise}] {bar:40.cyan/blue} ETA: {eta}"));
+    pbar.inc(total);
+    for url in urls.iter().flat_map(|r| r.iter()) {
+        if total < max_vol  {
+            let size = download(base_dir.clone(), url.clone())?;
+            pbar.inc(size);
+            total += size;
+        } else {
+            break;
+        }
+    }
+    Ok(())
 }
 
