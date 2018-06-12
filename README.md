@@ -1,12 +1,13 @@
 # ALICE-rs #
 [![Build Status](https://travis-ci.org/cbourjau/alice-rs.svg)](https://travis-ci.org/cbourjau/alice-rs)
+[![Build status](https://ci.appveyor.com/api/projects/status/u7xxhg4x7h9mgpam?svg=true)](https://ci.appveyor.com/project/cbourjau/alice-rs)
 
 **This is not an official ALICE or CERN project**
 
 
 This repository demonstrates how the [public data](http://opendata.cern.ch/collection/ALICE-Reconstructed-Data) released by the CERN based ALICE collaboration can be analyzed with the Rust programming language.
 
-Here are some (not pretty) example figures produced with this project. The first two show the distribution of produced particles in the longitudinal and azimuthal dimensions. The third figure shows where the collisions took place along the direction of the particle beams in the collider:
+Here are some example figures produced with this project. The first two show the distribution of produced particles in the longitudinal and azimuthal dimensions. The third figure shows where the collisions (aka events) took place along the direction of the particle beams in the collider. The last figure shows how many charged particles were produced per collision:
 
 ![result-plot](./examples/simple-analysis/result.png)
 
@@ -20,7 +21,7 @@ This collection of crates provides and demonstrates:
 
 ## Dependencies
 
-There are no dependencies on any ALICE specific software, nor ROOT itself. 
+There are no dependencies on any ALICE specific software, nor ROOT itself. The software from this repository can be run on Linux, MacOS, and Windows.
 
 ## CERN, LHC, and ALICE
 
