@@ -25,24 +25,36 @@ fn main() {
     // Create an iterator over `malice::event::Event`s
     let events = files
         .iter()
-        .map(|path| RootFile::new_from_file(&path).expect("Failed to open file"))
-        .map(|rf| rf.items()[0].as_tree().unwrap())
-        .flat_map(|tree| match DsIntoIter::new(&tree) {
-            Ok(s) => s,
-            Err(err) => panic!("An error occured! Message: {}", err),
-        });
+        .filter_map(|path| {
+            // Open the file
+            RootFile::new_from_file(&path)
+                // Get the relevant tree (there are two per file)
+                .and_then(|rf| rf.items()[0].as_tree())
+                // Convert into an Iterator over the data set
+                .and_then(|tree| DsIntoIter::new(&tree))
+                // Print an error if something went wrong
+                .map_err(|err| {println!("Error for file {:?}; skipping it", path ); err})
+                .ok()
+        })
+        // Create an owned iterator over events
+        .flat_map(|dataset| dataset.into_iter());
 
+    // Create the json file
     let mut f = File::create("events.json").expect("Could not create file!");
+    // Poor man's way: Write the opening bracket
     f.write_all(b"[\n").unwrap();
     let mut event_counter = 0;
     let _analysis_result = events
         // Apply a sensible default event filter
         .filter(default_event_filter)
+        .take(10_000)  // Stop after 10k valid events
         .flat_map(|ev| to_json(&ev))
-        .take(10_000)
         .for_each(|json| {
+            // Put comma and linebreak in fron of previous entry
+            if event_counter > 0 {
+                f.write_all(b",\n").unwrap();
+            }
             serde_json::to_writer(&mut f, &json).unwrap();
-            f.write_all(b",\n").unwrap();
             event_counter += 1;
         });
     f.write_all(b"]").unwrap();
