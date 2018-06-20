@@ -6,7 +6,7 @@ The file `./analyze.py` shows how to access the data in the json files in python
 
 To create the json data file you need:
 
-1. [Install Rust](www.rustup.rs)
+1. [Install Rust](https://rustup.rs/)
 2. Download some files using `alice-download` from this repository
 3. Run this example with `cargo run --release`
 	
