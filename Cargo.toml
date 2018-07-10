@@ -7,5 +7,5 @@ members = [
  "root-ls",
  "malice",
  "examples/simple-analysis",
- "examples/convert_to_json",
+ "examples/convert_to_msgpack",
 ]
