@@ -1,8 +1,10 @@
 //! Simple (and dirty) way to dump a subset of the data from the .root files to json files
 
+extern crate rmp_serde as rmps;
 extern crate serde;
 #[macro_use]
-extern crate serde_json;
+extern crate serde_derive;
+
 extern crate alice_open_data;
 extern crate malice;
 extern crate root_io;
@@ -10,10 +12,45 @@ extern crate root_io;
 use std::fs::File;
 use std::io::Write;
 
-use root_io::RootFile;
+use serde::Serialize;
+use rmps::Serializer;
 
-use malice::{Event, DatasetIntoIter as DsIntoIter};
-use malice::{default_track_filter, default_event_filter};
+use root_io::RootFile;
+use malice::{DatasetIntoIter as DsIntoIter, Event};
+use malice::{default_event_filter, default_track_filter};
+
+#[derive(Debug, PartialEq, Serialize)]
+struct MiniEvent {
+    multiplicity: u32,
+    zvtx: f32,
+    etas: Vec<f32>,
+    phis: Vec<f32>,
+}
+
+impl<'a> From<&'a Event> for MiniEvent {
+    fn from(event: &Event) -> Self {
+        // Fill only if we have a valid primary vertex This fails if
+        // there are events without a primary vertex, but such events
+        // are not valid anyways!
+        let prime_vtx = event
+            .primary_vertex()
+            .expect("Event has not primary vertex!");
+
+        let tracks: Vec<_> = event.tracks()
+	// Apply a sensible default "cut" on the valid tracks
+	    .filter(|tr| default_track_filter(&tr, &prime_vtx))
+            .collect();
+        let etas: Vec<_> = tracks.iter().map(|tr| tr.eta()).collect();
+        let phis: Vec<_> = tracks.iter().map(|tr| tr.phi()).collect();
+
+        Self {
+            multiplicity: tracks.len() as u32,
+            zvtx: prime_vtx.z,
+            etas: etas,
+            phis: phis,
+        }
+    }
+}
 
 fn main() {
     // Iterator over files of the Open Data set
@@ -32,41 +69,19 @@ fn main() {
             Err(err) => panic!("An error occured! Message: {}", err),
         });
 
-    let mut f = File::create("events.json").expect("Could not create file!");
-    f.write_all(b"[\n").unwrap();
+    let mut f = File::create("events.bin").expect("Could not create file!");
     let mut event_counter = 0;
     let _analysis_result = events
         // Apply a sensible default event filter
         .filter(default_event_filter)
-        .flat_map(|ev| to_json(&ev))
         .take(10_000)
-        .for_each(|json| {
-            serde_json::to_writer(&mut f, &json).unwrap();
-            f.write_all(b",\n").unwrap();
+        .for_each(|event| {
+            let event = MiniEvent::from(&event);
+            let mut buf = Vec::new();
+            // serde_json::to_writer(&mut f, &json).unwrap();
+            event.serialize(&mut Serializer::new_named(&mut buf)).unwrap();
+            f.write(&buf).unwrap();
             event_counter += 1;
         });
-    f.write_all(b"]").unwrap();
     println!("Wrote {} events to events.json", event_counter);
-}
-
-/// Update the histogram with the given event
-fn to_json(event: &Event) -> Option<serde_json::Value>
-{
-    // Fill only if we have a valid primary vertex
-    event.primary_vertex().map(|prime_vtx| {
-        let tracks: Vec<_> = event.tracks()
-	// Apply a sensible default "cut" on the valid tracks
-	    .filter(|tr| default_track_filter(&tr, &prime_vtx))
-            .collect();
-        let etas: Vec<_> = tracks.iter().map(|tr| tr.eta()).collect();
-        let phis: Vec<_> = tracks.iter().map(|tr| tr.phi()).collect();
-        json!(
-            {
-                "multiplicity": tracks.len(),
-                "zvtx": prime_vtx.z,
-                "etas": etas,
-                "phis": phis
-            }
-        )
-    })
 }
