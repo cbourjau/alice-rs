@@ -89,3 +89,13 @@ I realized that this project might be of interest to a wider group of people who
 
 Perhaps not surprisingly, removing so much code and indirection from the analysis improved the performance significantly. 
 
+## How to cite this project in a publication
+
+```
+@Misc{,
+  author =    {Christian Bourjau},
+  title =     {{mALICE}: An open source framework for analyzing ALICE's Open Data},
+  year =      {2018--},
+  url = "https://github.com/cbourjau/alice-rs/"
+}
+```
