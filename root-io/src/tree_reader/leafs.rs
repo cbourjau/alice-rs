@@ -2,7 +2,7 @@ use std::fmt;
 use nom::*;
 use quote::{Ident, Tokens};
 
-use core::*;
+use crate::core::{*, Context};
 use code_gen::rust::ToRustType;
 
 #[derive(Debug, Clone)]
@@ -60,7 +60,7 @@ impl fmt::Debug for TLeaf {
                 writeln!(f, "String: {:#?}", leaf),
             TLeaf::Element(ref leaf) =>
                 writeln!(f, "Element: {:#?}", leaf),
-            TLeaf::Object(ref leaf_name, ref leaf) => 
+            TLeaf::Object(ref leaf_name, ref leaf) =>
                 writeln!(f, "`{}`: {:#?}", leaf_name, leaf),
         }
     }

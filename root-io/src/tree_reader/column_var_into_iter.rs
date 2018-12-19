@@ -31,7 +31,7 @@ impl<T> ColumnVarIntoIter<T> {
         // `el_counter[N]` times. TODO: This is not what currently
         // happens! Currently, I'm parsing all _elements_ of a basket,
         // ignoring the size of each event. I then chunk the numer of
-        // elements into the size of the entry in the `next` function        
+        // elements into the size of the entry in the `next` function
         let br: &TBranch = tr.branches().iter()
             .find(|b| b.name == name)
             .ok_or_else(|| format_err!("Branch {} not found in tree: \n {:#?}",
@@ -57,7 +57,7 @@ impl<T> ColumnVarIntoIter<T> {
                 .flat_map(move |((n_entries_in_buf, raw_slice), n_elems)| {
                     let s: &[u8] = raw_slice.as_slice();
                     match count!(s, p, n_elems as usize) {
-                        IResult::Done(_, o) => o,
+                        Ok((_, o)) => o,
                         _ => panic!("Parser failed unexpectedly! {}, {}", n_entries_in_buf, s.len()),
                     }})
         );

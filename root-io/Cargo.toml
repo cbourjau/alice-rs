@@ -10,14 +10,13 @@ keywords = ["root", "cern", "alice", "lhc", "physics"]
 categories = ["parser-implementations", "science", "data-structures"]
 license = "MPL-2.0"
 
-
 [dependencies]
 flate2 = "0.2"
-xz2 = "^0.1.4"
+xz2 = "0.1"
 bitflags = "1.0.0"
-quote = "0.3.15"
+quote = "0.3"
 failure = "0.1.0"
 
 [dependencies.nom]
-version = "^3"
+version = "4"
 #features = ["nightly", "verbose-errors"] # For better error messages

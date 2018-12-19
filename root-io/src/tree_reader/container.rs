@@ -20,7 +20,7 @@ impl Container {
         match self {
             Container::InMemory(buf) => {
                 match tbasket2vec(buf.as_slice()) {
-                    IResult::Done(_, v) => Ok(v),
+                    Ok((_, v)) => Ok(v),
                     _ => Err(format_err!("tbasket2vec parser failed"))
                 }
             },
@@ -32,7 +32,7 @@ impl Container {
                 reader.read_exact(&mut buf)?;
                 // println!("{:#?}", tbasket(buf.as_slice(), be_u32).unwrap().1);
                 match tbasket2vec(buf.as_slice()) {
-                    IResult::Done(_, v) => Ok(v),
+                    Ok((_, v)) => Ok(v),
                     _ => Err(format_err!("tbasket2vec parser failed"))
                 }
             }

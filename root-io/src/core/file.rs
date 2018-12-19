@@ -5,7 +5,8 @@ use std::io::{BufReader, Seek, SeekFrom, Read};
 
 
 use failure::Error;
-use nom::*;
+use nom::{IResult, *};
+use crate::core::types::Context;
 
 use MAP_OFFSET;
 use ::core::*;
@@ -120,7 +121,7 @@ impl RootFile {
             parse_buffer(&mut reader, 1024, tkey)?
         };
         let keys = match tkey_headers(&tkey_of_keys.obj) {
-            IResult::Done(_, hdrs) => Ok(hdrs),
+            Ok((_, hdrs)) => Ok(hdrs),
             _ => Err(format_err!("Expected TKeyHeaders"))
         }?;
         let items = keys.iter()
@@ -135,14 +136,14 @@ impl RootFile {
     pub fn streamers(&self) -> Result<Vec<TStreamerInfo>, Error> {
         let f = File::open(&self.path)?;
         let mut reader = BufReader::new(f);
-        
+
         // Read streamer info
         reader.seek(self.hdr.seek_info)?;
         // Dunno why we are 4 bytes off with the size of the streamer info...
         let info_key = parse_buffer(&mut reader, (self.hdr.nbytes_info + 4) as usize, tkey)?;
 
         let key_len = info_key.hdr.key_len;
-        let context = Context{
+        let context = Context {
             path: self.path.to_owned(),
             offset: key_len as u64 + MAP_OFFSET,
             s: info_key.obj.as_slice()
@@ -151,7 +152,7 @@ impl RootFile {
         let wrapped_tlist = |i| apply!(i, tlist, &context);
         let tlist_objs =
             match length_value!(info_key.obj.as_slice(), checked_byte_count, wrapped_tlist) {
-                IResult::Done(_, l) => Ok(l.objs),
+                Ok((_, l)) => Ok(l.objs),
                 _ => Err(format_err!("Expected TStreamerInfo's TList"))
             }?;
         // Mainly this is a TList of `TStreamerInfo`s, but there might
@@ -223,7 +224,7 @@ impl RootFile {
             // macro names are generated as my_macro ! (...) by `quote`
             let parsers = parsers.replace(" ! (", "!(");
             writeln!(s, "{}", parsers)?;
-        }        
+        }
         Ok(())
     }
 }
@@ -244,8 +245,8 @@ fn parse_buffer<R, F, O>(reader: &mut BufReader<R>, buf_size: usize, f: F)
         }
     };
     match f(buf) {
-        IResult::Done(_, parsed) => Ok(parsed),
-        IResult::Incomplete(needed) => {
+        Ok((_, parsed)) => Ok(parsed),
+        Err(Err::Incomplete(needed)) => {
             // Reset seek position and try again with updated buf size
             reader.seek(SeekFrom::Current(-(read_bytes as i64)))?;
             match needed {
@@ -253,7 +254,7 @@ fn parse_buffer<R, F, O>(reader: &mut BufReader<R>, buf_size: usize, f: F)
                 _ => parse_buffer(reader, buf_size + 1000, f),
             }
         },
-        IResult::Error(e) => {
+        Err(Err::Error(e)) | Err(Err::Failure(e)) => {
             println!("{}", buf.to_hex(8));
             Err(format_err!("{:?}", e))
         }
@@ -327,9 +328,9 @@ mod test {
             offset: (key_len + k_map_offset) as u64,
             s: key.obj.as_slice()
         };
-        
+
         match length_value!(key.obj.as_slice(), checked_byte_count, apply!(tlist, &context)) {
-            IResult::Done(_,  l) => {
+            Ok((_,  l)) => {
                 assert_eq!(l.ver, 5);
                 assert_eq!(l.name, "");
                 assert_eq!(l.len, 19);
@@ -337,5 +338,5 @@ mod test {
             _ => panic!("Not parsed as TList!"),
         };
     }
-    
+
 }

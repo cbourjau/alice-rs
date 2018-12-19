@@ -52,7 +52,7 @@ struct Model {
     primaryvertex_alivertex_fncontributors: i32,
     aliesdrun_frunnumber: i32,
     aliesdrun_ftriggerclasses: Vec<String>,
-    aliesdheader_ftriggermask: u64, 
+    aliesdheader_ftriggermask: u64,
     tracks_fx: Vec<f32>,
     tracks_fp: Vec<[f32; 5]>,
     tracks_falpha: Vec<f32>,
@@ -98,7 +98,7 @@ fn parse_trigger_classes(input: &[u8]) -> IResult<&[u8], Vec<String>> {
                     ClassInfo::References(0) => "".to_string(),
                     _ => {
                         match tnamed(el.as_slice()).map(|tn| tn.name) {
-                            IResult::Done(_, n) => n,
+                            Ok((_, n)) => n,
                             _ => panic!()
                         }
                     }
@@ -123,7 +123,7 @@ fn parse_its_chi2(input: &[u8]) -> IResult<&[u8], f32> {
         f32::from_bits(s)
     })
 }
-    
+
 
 #[test]
 #[ignore]

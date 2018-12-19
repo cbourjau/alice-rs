@@ -1,7 +1,10 @@
 use quote::*;
-use nom::*;
+// use nom::*;
+use nom::HexDisplay;
+use nom::{IResult, be_u16, be_u32};
 
-use ::core::*;
+
+use crate::core::{*, Context};
 use ::code_gen::rust::{ToRustType, ToRustParser, ToNamedRustParser, ToRustStruct};
 use ::code_gen::utils::{type_is_core};
 
@@ -33,7 +36,7 @@ pub(crate) fn tstreamerinfo<'s, 'c>(input: &'s[u8], context: &'c Context) -> IRe
                   let data_members = data_members.iter()
                       .filter_map(|el| {
                           match tstreamer(el) {
-                              IResult::Done(_, v) => Some(v),
+                              Ok((_, v)) => Some(v),
                               _ => {println!("Failed to parse TStreamer for {}:\n{}",
                                              el.classinfo, el.obj.to_hex(16));
                                     None
@@ -83,7 +86,7 @@ impl ToNamedRustParser for TStreamerInfo {
     fn parser_name(&self) -> Tokens {
         let ret = Ident::new(self.named.name.to_lowercase());
         quote!(#ret)
-    }    
+    }
 
     fn to_named_parser(&self) -> Tokens {
         if type_is_core(self.named.name.as_str()) {

@@ -4,6 +4,7 @@ use nom::*;
 
 use core::parsers::*;
 use core::types::*;
+use crate::core::types::Context;
 
 use tree_reader::branch::TBranch;
 use tree_reader::branch::tbranch_hdr;
@@ -111,7 +112,7 @@ pub fn ttree<'s>(input: &'s[u8], context: &Context) -> IResult<&'s[u8], Tree> {
                                                 map!(call!(_curried_raw), |r| r.obj.to_vec()),
                                                 Some));
     let grab_checked_byte_count = |i| length_data!(i, checked_byte_count);
-    let wrapped_tobjarray = |i: &'s[u8]| length_value!(i, checked_byte_count, apply!(tobjarray, context));    
+    let wrapped_tobjarray = |i: &'s[u8]| length_value!(i, checked_byte_count, apply!(tobjarray, context));
     do_parse!(input,
               ver: be_u16 >>
               tnamed: length_value!(checked_byte_count, tnamed) >>

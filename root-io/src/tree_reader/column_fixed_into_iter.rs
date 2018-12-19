@@ -96,9 +96,9 @@ impl<T> ColumnFixedIntoIter<T> {
                 // Read and decompress data into a vec
                 .flat_map(|c| c.raw_data())
                 .flat_map(move |(n_entries, raw_slice)| {
-                    let s: &[u8] = raw_slice.as_slice(); 
+                    let s: &[u8] = raw_slice.as_slice();
                     match count!(s, p, n_entries as usize) {
-                        IResult::Done(_, o) => o,
+                        Ok((_, o)) => o,
                         _ => panic!("Parser failed unexpectedly!"),
                     }
                 }));

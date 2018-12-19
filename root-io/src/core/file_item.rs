@@ -35,7 +35,7 @@ impl FileItem {
     pub fn name(&self) -> String {
         format!("`{}` of type `{}`", self.tkey_hdr.obj_name, self.tkey_hdr.class_name)
     }
-    
+
 
     /// Read (and posibly decompress) data from disk and parse it as
     /// the appropriate type using the TStreamerInfo types.
@@ -73,7 +73,7 @@ impl FileItem {
         // wrap parser in a byte count
         let res = length_value!(s, checked_byte_count, apply!(&parser, &context));
         match res {
-            IResult::Done(_, obj) => Ok(obj),
+            Ok((_, obj)) => Ok(obj),
             _ => Err(format_err!("Supplied parser failed!"))
         }
     }
@@ -84,7 +84,7 @@ impl FileItem {
 mod tests {
     use std::path::{PathBuf};
     use core::RootFile;
-    
+
     #[test]
     fn open_simple() {
         let path = PathBuf::from("./src/test_data/simple.root");

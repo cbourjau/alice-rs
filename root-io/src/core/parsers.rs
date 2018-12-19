@@ -25,7 +25,7 @@ fn is_byte_count(v: u32) -> bool {
 }
 
 /// Check that the given byte count is not zero after applying bit mask
-/// 
+///
 named!(
     #[doc="Return the size in bytes of the following object in the
     input. The count is the remainder of this object minus the size
@@ -185,7 +185,7 @@ named!(
     do_parse!(magic: take_str!(2) >>
               _header: take!(7) >>
               comp_buf: call!(nom::rest) >>
-              ret: expr_res!(decode_reader(comp_buf, magic)) >> 
+              ret: expr_res!(decode_reader(comp_buf, magic)) >>
               (ret)
     )
 );
@@ -278,15 +278,17 @@ pub fn raw<'s, 'c>(input: &'s[u8], context: &'c Context) -> nom::IResult<&'s[u8]
 /// Same as `raw` but doesn't require a `Context` as input. Panics if
 /// a `Context` is required to parse the underlying buffer (i.e., the
 /// given buffer contains a reference to some other part of the file.
-pub fn raw_no_context(input: &[u8]) -> nom::IResult<&[u8], (ClassInfo, &[u8])>
+pub fn raw_no_context(input: &[u8]) ->
+    nom::IResult<&[u8], (ClassInfo, &[u8])>
 {
     use self::ClassInfo::*;
     let first = do_parse!(input,
               ci: classinfo >>
-              rest: call!(nom::rest) >> 
+              rest: call!(nom::rest) >>
               (ci, rest)
     );
-    if first.is_done() {
+
+    if first.is_ok() {
         let (_, (ci, rest)) = first.unwrap();
         let obj = match ci {
             References(0) => value!(rest, &input[..0]),
@@ -294,7 +296,7 @@ pub fn raw_no_context(input: &[u8]) -> nom::IResult<&[u8], (ClassInfo, &[u8])>
             // If its a reference to any other thing but 0 it needs a context
             _ => panic!("Object needs context!"),
         };
-        obj.map(|o| (ci, o))
+        obj.map(|(i, o)| (i, (ci, o)))
     } else {
         first
     }
@@ -317,4 +319,3 @@ mod classinfo_test {
         assert_eq!(i.len(), 352);
     }
 }
-
