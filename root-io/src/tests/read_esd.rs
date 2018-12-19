@@ -91,20 +91,20 @@ impl Iterator for SchemaIntoIter {
 /// it down to a simple vector
 fn parse_trigger_classes(input: &[u8]) -> IResult<&[u8], Vec<String>> {
     let vals = length_value!(input, checked_byte_count, tobjarray_no_context);
-    vals.map(|arr| {
-        arr.iter()
+    vals.map(|(input, arr)| {
+        let items = arr.iter()
             .map(|&(ref ci, ref el)| {
                 match *ci {
                     ClassInfo::References(0) => "".to_string(),
                     _ => {
-                        match tnamed(el.as_slice()).map(|tn| tn.name) {
+                        match tnamed(el.as_slice()).map(|(i, tn)| (i, tn.name)) {
                             Ok((_, n)) => n,
                             _ => panic!()
                         }
                     }
                 }
-            })
-            .collect::<Vec<String>>()
+            });
+        (input, items.collect::<Vec<String>>())
     })
 }
 
@@ -114,13 +114,13 @@ fn parse_trigger_classes(input: &[u8]) -> IResult<&[u8], Vec<String>> {
 /// This function reconstructs a float from the exponent and mantissa
 /// TODO: Use ByteOrder crate to be cross-platform!
 fn parse_its_chi2(input: &[u8]) -> IResult<&[u8], f32> {
-    pair!(input, be_u8, be_u16).map(|(exp, man)| {
+    pair!(input, be_u8, be_u16).map(|(i, (exp, man))| {
         let nbits = 8;
         let mut s = exp as u32;
         // Move the exponent into the last 23 bits
         s <<= 23;
         s |= (man as u32 & ((1<<(nbits+1))-1)) <<(23-nbits);
-        f32::from_bits(s)
+        (i, f32::from_bits(s))
     })
 }
 
