@@ -1,6 +1,6 @@
 [package]
 name = "root-io"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["cbourjau <christian.bourjau@cern.ch>"]
 exclude = ["*test_data/", "*.root"]
 description = "Reading of `.root` binary files which are commonly used in particle physics"
