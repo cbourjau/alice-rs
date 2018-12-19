@@ -32,7 +32,7 @@ pub struct DatasetIntoIter {
 impl DatasetIntoIter {
     /// Create a new `DatasetIntoIter` from the given `root_io::Tree`. The `Tree` must be a so-called "ESD" tree.
     pub fn new(t: &Tree) -> Result<DatasetIntoIter, Error> {
-        use nom::*;
+        use nom::{be_u8, be_u16, be_u32, be_u64, be_i8, be_i32, be_f32};
         let track_counter: Vec<_> = ColumnFixedIntoIter::new(&t, "Tracks", be_u32)?.collect();
         Ok(DatasetIntoIter {
             aliesdrun_frunnumber: ColumnFixedIntoIter::new(&t, "AliESDRun.fRunNumber", be_i32)?,
@@ -49,10 +49,11 @@ impl DatasetIntoIter {
 
             tracks_fitschi2: ColumnVarIntoIter::new(&t, "Tracks.fITSchi2", |i| parse_custom_mantissa(i, 8), &track_counter)?,
             tracks_fitsncls: ColumnVarIntoIter::new(&t, "Tracks.fITSncls", be_i8, &track_counter)?,
-            tracks_fitsclustermap: ColumnVarIntoIter::new(&t, "Tracks.fITSClusterMap", be_u8, &track_counter)?,            
+            tracks_fitsclustermap: ColumnVarIntoIter::new(&t, "Tracks.fITSClusterMap", be_u8, &track_counter)?,
 
             tracks_ftpcncls: ColumnVarIntoIter::new(&t, "Tracks.fTPCncls", be_u16, &track_counter)?,
-            tracks_ftpcchi2: ColumnVarIntoIter::new(&t, "Tracks.fTPCchi2", |i| parse_custom_mantissa(i, 8), &track_counter)?,
+            tracks_ftpcchi2: ColumnVarIntoIter::new(&t, "Tracks.fTPCchi2",
+                                |i| parse_custom_mantissa(i, 8), &track_counter)?,
         })
     }
 }
@@ -95,20 +96,18 @@ impl Iterator for DatasetIntoIter {
 /// it down to a simple vector
 fn parse_trigger_classes(input: &[u8]) -> nom::IResult<&[u8], Vec<String>> {
     let vals = length_value!(input, checked_byte_count, tobjarray_no_context);
-    vals.map(|arr| {
-        arr.iter()
-            .map(|&(ref ci, ref el)| {
-                match *ci {
-                    ClassInfo::References(0) => "".to_string(),
-                    _ => {
-                        match tnamed(el.as_slice()).map(|tn| tn.name) {
-                            nom::IResult::Done(_, n) => n,
-                            _ => panic!()
-                        }
-                    }
+
+    vals.map(|(input, arr)| {
+        let names = arr.iter().map(|&(ref ci, ref el)| { match *ci {
+            ClassInfo::References(0) => "".to_string(),
+            _ => {
+                match tnamed(el.as_slice()).map(|(i, tnamed)| (i, tnamed.name)) {
+                    Ok((_, n)) => n,
+                    _ => panic!()
                 }
-            })
-            .collect::<Vec<String>>()
+            }}});
+
+        (input, names.collect::<Vec<String>>())
     })
 }
 
@@ -118,17 +117,17 @@ fn parse_trigger_classes(input: &[u8]) -> nom::IResult<&[u8], Vec<String>> {
 /// This function reconstructs a float from the exponent and mantissa
 /// TODO: Use ByteOrder crate to be cross-platform!
 fn parse_custom_mantissa(input: &[u8], nbits: usize) -> nom::IResult<&[u8], f32> {
-    use nom::*; // cannot use module path in macro
-    pair!(input, be_u8, be_u16).map(|(exp, man)| {
+    use nom::{be_u8, be_u16};
+    pair!(input, be_u8, be_u16).map(|(i, (exp, man))| {
         // let nbits = 8;
         let mut s = exp as u32;
         // Move the exponent into the last 23 bits
         s <<= 23;
         s |= (man as u32 & ((1<<(nbits+1))-1)) <<(23-nbits);
-        f32::from_bits(s)
+        (i, f32::from_bits(s))
     })
 }
-    
+
 
 #[cfg(test)]
 mod tests {

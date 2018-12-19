@@ -15,8 +15,8 @@ default = []
 cpp = ["alice-sys"]
 
 [dependencies]
-nom = "3.2.1"
-root-io = "0.1.1"
+nom = "4"
+root-io = { path = "../root-io" }
 failure = "0.1.1"
 bitflags = "1.0.1"
 
