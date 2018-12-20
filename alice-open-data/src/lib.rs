@@ -1,9 +1,9 @@
 #[macro_use]
 extern crate failure;
+extern crate dirs;
 extern crate glob;
 extern crate reqwest;
 
-use std::env;
 use std::io::{Read};
 use std::path::PathBuf;
 use std::fs::{DirBuilder, File};
@@ -36,7 +36,7 @@ pub fn download(base_dir: PathBuf, url: Url) -> Result<u64, Error> {
 
 /// Base path to the local ALICE open data directory
 pub fn data_dir() -> Result<PathBuf, Error> {
-    let mut dir = env::home_dir().ok_or(format_err!("No home directory"))?;
+    let mut dir = dirs::home_dir().ok_or(format_err!("No home directory"))?;
     dir.push("lhc_open_data");
     Ok(dir)
 }
@@ -94,7 +94,7 @@ fn download_with_https(uri: Url) -> Result<reqwest::Response, Error> {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
+    use std::{fs, env};
     #[test]
     fn test_get_file_lists() {
         let runs = [
@@ -121,13 +121,13 @@ mod tests {
         let uri = super::get_file_list(139038).unwrap()[0].clone();
         {
             // Remobe old stuff:
-            let mut dir = super::env::temp_dir();
+            let mut dir = env::temp_dir();
             dir.push("eos");
             if dir.exists() {
                 fs::remove_dir_all(dir).unwrap();
             }
         }
-        let base_dir = super::env::temp_dir();
+        let base_dir = env::temp_dir();
         // Download if file does not exist
         assert_eq!(super::download(base_dir.clone(), uri.clone()).unwrap(), 14283265);
         // Don't download twice
