@@ -250,7 +250,7 @@ fn parse_buffer<R, F, O>(reader: &mut BufReader<R>, buf_size: usize, f: F)
             // Reset seek position and try again with updated buf size
             reader.seek(SeekFrom::Current(-(read_bytes as i64)))?;
             match needed {
-                Needed::Size(s) => parse_buffer(reader, s, f),
+                Needed::Size(s) => parse_buffer(reader, read_bytes + s, f),
                 _ => parse_buffer(reader, buf_size + 1000, f),
             }
         },
