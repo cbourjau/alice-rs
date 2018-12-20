@@ -1,10 +1,9 @@
 use quote::*;
-// use nom::*;
 use nom::HexDisplay;
 use nom::{IResult, be_u16, be_u32};
 
-
-use crate::core::{*, Context};
+use ::core::{TStreamer, tstreamer, TNamed, Context};
+use ::core::parsers::*;
 use ::code_gen::rust::{ToRustType, ToRustParser, ToNamedRustParser, ToRustStruct};
 use ::code_gen::utils::{type_is_core};
 

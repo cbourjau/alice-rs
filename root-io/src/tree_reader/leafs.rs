@@ -2,7 +2,7 @@ use std::fmt;
 use nom::*;
 use quote::{Ident, Tokens};
 
-use crate::core::{*, Context};
+use ::core::{*, Context};
 use code_gen::rust::ToRustType;
 
 #[derive(Debug, Clone)]

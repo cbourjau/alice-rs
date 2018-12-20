@@ -2,9 +2,8 @@ use std::fmt;
 use std::ops::Deref;
 use nom::*;
 
-use core::parsers::*;
-use core::types::*;
-use crate::core::types::Context;
+use ::core::parsers::*;
+use ::core::types::{TNamed, Context};
 
 use tree_reader::branch::TBranch;
 use tree_reader::branch::tbranch_hdr;

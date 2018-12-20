@@ -2,9 +2,8 @@ use std::io::SeekFrom;
 use std::path::PathBuf;
 use nom::*;
 
-use core::parsers::*;
-// use crate::core::types::*;
-use crate::core::types::{Raw, Context};
+use ::core::parsers::*;
+use ::core::types::{Raw, Context};
 
 use code_gen::rust::ToRustType;
 

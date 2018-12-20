@@ -6,10 +6,9 @@ use std::io::{BufReader, Seek, SeekFrom, Read};
 
 use failure::Error;
 use nom::{IResult, *};
-use crate::core::types::Context;
 
 use MAP_OFFSET;
-use ::core::*;
+use ::core::{*, Context};
 use ::code_gen::rust::{ToNamedRustParser, ToRustStruct};
 
 /// `RootFile` wraps the most basic information of a ROOT file.
