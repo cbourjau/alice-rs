@@ -1,7 +1,7 @@
 //! Structs and iterators concerned with iterating over events stored in `root_io::Tree`s.
 
 use failure::Error;
-use nom;
+use nom::{self, be_u8, be_u16, be_u32, be_u64, be_i8, be_i32, be_f32};
 
 use root_io::tree_reader::{ColumnFixedIntoIter, ColumnVarIntoIter, Tree};
 use root_io::core::types::ClassInfo;
@@ -32,7 +32,6 @@ pub struct DatasetIntoIter {
 impl DatasetIntoIter {
     /// Create a new `DatasetIntoIter` from the given `root_io::Tree`. The `Tree` must be a so-called "ESD" tree.
     pub fn new(t: &Tree) -> Result<DatasetIntoIter, Error> {
-        use nom::{be_u8, be_u16, be_u32, be_u64, be_i8, be_i32, be_f32};
         let track_counter: Vec<_> = ColumnFixedIntoIter::new(&t, "Tracks", be_u32)?.collect();
         Ok(DatasetIntoIter {
             aliesdrun_frunnumber: ColumnFixedIntoIter::new(&t, "AliESDRun.fRunNumber", be_i32)?,
@@ -117,7 +116,6 @@ fn parse_trigger_classes(input: &[u8]) -> nom::IResult<&[u8], Vec<String>> {
 /// This function reconstructs a float from the exponent and mantissa
 /// TODO: Use ByteOrder crate to be cross-platform!
 fn parse_custom_mantissa(input: &[u8], nbits: usize) -> nom::IResult<&[u8], f32> {
-    use nom::{be_u8, be_u16};
     pair!(input, be_u8, be_u16).map(|(i, (exp, man))| {
         // let nbits = 8;
         let mut s = exp as u32;
