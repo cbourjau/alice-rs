@@ -49,8 +49,8 @@ pub struct Directory {
 }
 
 
-/// Opening part of a root file
 named!(
+    #[doc="Opening part of a root file"],
     file_header<&[u8], FileHeader>,
     do_parse!(
         tag!("root") >>
@@ -77,8 +77,9 @@ named!(
     )
 );
 
-/// Directory within a root file; exists on ever file
+
 named!(
+    #[doc="Directory within a root file; exists on ever file"],
     directory<&[u8], Directory>,
     do_parse!(
         version: be_i16 >>

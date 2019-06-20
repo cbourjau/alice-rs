@@ -193,7 +193,7 @@ macro_rules! impl_histogram_builder {
                                         -> &mut HistogramBuilder<[usize; $N]> {
                 let width = (max - min) / nbins as f64;
                 self.edges.push(
-                    (0..nbins + 1)
+                    (0..=nbins)
                         .map(|i| min + width * i as f64)
                         .collect::<Vec<f64>>());
                 self

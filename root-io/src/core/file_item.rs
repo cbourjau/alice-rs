@@ -66,10 +66,12 @@ impl FileItem {
         };
         let s = buf.as_slice();
         let k_map_offset = 2;
-        let context = Context{
-            path: self.file_path.to_owned(),
-            offset: (self.tkey_hdr.key_len + k_map_offset) as u64,
-            s: s};
+        let context =
+            Context{
+                path: self.file_path.to_owned(),
+                offset: (self.tkey_hdr.key_len + k_map_offset) as u64,
+                s
+            };
         // wrap parser in a byte count
         let res = length_value!(s, checked_byte_count, apply!(&parser, &context));
         match res {

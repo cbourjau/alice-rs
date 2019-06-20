@@ -86,16 +86,16 @@ impl ToRustType for TypeID {
     fn type_name(&self) -> Tokens {
         use self::TypeID::*;
         let t = match self {
-                &Primitive(ref id) | &Offset(ref id) => id.type_name().to_string(),
-                &Array(ref id) => format!("Vec<{}>", id.type_name().to_string()),
+                Primitive(ref id) | Offset(ref id) => id.type_name().to_string(),
+                Array(ref id) => format!("Vec<{}>", id.type_name()),
                 // "kObjectP"; might be null!
-                &ObjectP => "Option<Raw<'s>>".to_string(),
-                &String => "String".to_string(),
+                ObjectP => "Option<Raw<'s>>".to_string(),
+                String => "String".to_string(),
                 // Some funky things which we just treat as byte strings for now
-                &Object | &STL | &STLString | &Streamer | &Unknown(82) => "Vec<u8>".to_string(),
-                &Any => "Vec<u8>".to_string(),
-                &AnyP => "Vec<u8>".to_string(),
-                &InvalidOrCounter(-1) => "u32".to_string(),
+                Object | STL | STLString | Streamer | Unknown(82) => "Vec<u8>".to_string(),
+                Any => "Vec<u8>".to_string(),
+                AnyP => "Vec<u8>".to_string(),
+                InvalidOrCounter(-1) => "u32".to_string(),
                 _ => panic!("{:?}: type not implemented, yet", self),
         };
         let t = Ident::new(t);

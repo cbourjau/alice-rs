@@ -13,7 +13,7 @@
 //! The API surface is deliberately small to make the processing of said
 //! files as easy as possible. If you are looking for a particular
 //! parser chances have it that it exists but it is not marked as `pub`.
-
+#![allow(clippy::cognitive_complexity)]
 #![recursion_limit="256"]
 #[macro_use]
 extern crate bitflags;

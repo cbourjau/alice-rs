@@ -4,7 +4,7 @@ bitflags! {
     /// Clusters in the ITS associated with the curren track
     /// See AliESDTrack::HasPointOnITSLayer
     pub struct ItsClusters: u8 {
-        const SPD_INNER = 1 << 0;
+        const SPD_INNER = 1;
         const SPD_OUTER = 1 << 1;
         const SDD_INNER = 1 << 2;
         const SDD_OUTER = 1 << 3;
@@ -137,12 +137,12 @@ impl Track {
     /// Chi<sup>2</sup> normalized to the number of clusters. This is a measure
     /// of how well the reconstruction fit the observed clusters
     pub fn tpc_chi2_per_cluster(&self) -> f32 {
-        self.tpc_chi2 / self.tpc_ncls as f32
+        self.tpc_chi2 / f32::from(self.tpc_ncls)
     }
 
     /// Chi<sup>2</sup> normalized to the number of clusters. This is a measure
     /// of how well the reconstruction fit the observed clusters
     pub fn its_chi2_per_cluster(&self) -> f32 {
-        self.its_chi2 / self.its_ncls as f32
-    }    
+        self.its_chi2 / f32::from(self.its_ncls)
+    }
 }

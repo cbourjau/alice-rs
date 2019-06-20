@@ -85,7 +85,7 @@ impl TBranch {
         // basketentry is index of first element in each basket, e.g. [0, 2, 4]
         self.fbasketentry.iter()
             // the last event index is not in fbasketentry
-            .chain([self.fentries].into_iter())
+            .chain([self.fentries].iter())
             .collect::<Vec<_>>()
             .windows(2)
             .map(|window| (window[1] - window[0]) as usize)

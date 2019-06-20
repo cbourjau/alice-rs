@@ -64,7 +64,7 @@ impl<T> ColumnVarIntoIter<T> {
 
         Ok(ColumnVarIntoIter {
             elems_per_entry: el_counter.to_vec().into_iter(),
-            containers: containers,
+            containers,
         })
     }
 }

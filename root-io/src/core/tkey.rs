@@ -25,11 +25,10 @@ pub struct TKey {
     pub(crate) obj: Vec<u8>,
 }
 
-/// Header of a TKey
-/// Usually, TKeys are followed up by their content, but there is one
-/// "index" in ever root file where only the TKey headers are stored
-/// for faster later `Seek`ing
 named!(
+    #[doc=r#"Header of a TKey Usually, TKeys are followed up by their
+content, but there is one "index" in ever root file where only the
+TKey headers are stored for faster later `Seek`ing"#],
     pub tkey_header<&[u8], TKeyHeader>,
     do_parse!(total_size: be_u32 >>
               version: be_u16 >>
@@ -69,8 +68,8 @@ named_args!(
 );
 
 
-/// Parse a full TKey including its payload
 named!(
+    #[doc="Parse a full TKey including its payload"],
     pub tkey<&[u8], TKey>,
     do_parse!(hdr: tkey_header >>
               obj: take!(hdr.total_size - hdr.key_len as u32) >>

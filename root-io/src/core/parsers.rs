@@ -24,8 +24,7 @@ fn is_byte_count(v: u32) -> bool {
         .intersects(Flags::BYTE_COUNT_MASK)
 }
 
-/// Check that the given byte count is not zero after applying bit mask
-/// 
+// Check that the given byte count is not zero after applying bit mask
 named!(
     #[doc="Return the size in bytes of the following object in the
     input. The count is the remainder of this object minus the size
@@ -210,7 +209,7 @@ pub fn classinfo(input: &[u8]) -> nom::IResult<&[u8], ClassInfo>
     do_parse!(input,
               bcnt: be_u32 >>
               tag: switch!(
-                  value!(!is_byte_count(bcnt) || bcnt as u64 == Flags::NEW_CLASSTAG.bits()),
+                  value!(!is_byte_count(bcnt) || u64::from(bcnt) == Flags::NEW_CLASSTAG.bits()),
                   true => value!(bcnt) |
                   false => call!(be_u32)) >>
               cl: switch!(

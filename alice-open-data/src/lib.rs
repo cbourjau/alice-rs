@@ -36,7 +36,7 @@ pub fn download(base_dir: PathBuf, url: Url) -> Result<u64, Error> {
 
 /// Base path to the local ALICE open data directory
 pub fn data_dir() -> Result<PathBuf, Error> {
-    let mut dir = dirs::home_dir().ok_or(format_err!("No home directory"))?;
+    let mut dir = dirs::home_dir().ok_or_else(|| format_err!("No home directory"))?;
     dir.push("lhc_open_data");
     Ok(dir)
 }
@@ -64,21 +64,21 @@ pub fn get_file_list(run: u32) -> Result<Vec<Url>, Error> {
     let uri =
         "http://opendata.cern.ch/record/".to_owned() +
         match run {
-            139038 => "1102/files/ALICE_LHC10h_PbPb_ESD_139038_file_index.txt",
-            139173 => "1103/files/ALICE_LHC10h_PbPb_ESD_139173_file_index.txt",
-            139437 => "1104/files/ALICE_LHC10h_PbPb_ESD_139437_file_index.txt",
-            139438 => "1105/files/ALICE_LHC10h_PbPb_ESD_139438_file_index.txt",
-            139465 => "1106/files/ALICE_LHC10h_PbPb_ESD_139465_file_index.txt",
+            139_038 => "1102/files/ALICE_LHC10h_PbPb_ESD_139038_file_index.txt",
+            139_173 => "1103/files/ALICE_LHC10h_PbPb_ESD_139173_file_index.txt",
+            139_437 => "1104/files/ALICE_LHC10h_PbPb_ESD_139437_file_index.txt",
+            139_438 => "1105/files/ALICE_LHC10h_PbPb_ESD_139438_file_index.txt",
+            139_465 => "1106/files/ALICE_LHC10h_PbPb_ESD_139465_file_index.txt",
             _ => return Err(format_err!("Invalid run number"))
         };
     let mut resp = reqwest::get(uri.as_str())?;
     if resp.status().is_success() {
         let mut content = String::new();
         resp.read_to_string(&mut content)?;
-        return Ok(content.lines()
-                  .map(|l| format!("http://eospublichttp.cern.ch/{}", &l[26..]))
-                  .map(|l| l.parse::<Url>().expect("Invalid file URI"))
-                  .collect());
+        Ok(content.lines()
+           .map(|l| format!("http://eospublichttp.cern.ch/{}", &l[26..]))
+           .map(|l| l.parse::<Url>().expect("Invalid file URI"))
+           .collect())
     } else {
         Err(format_err!("Could not download list of files"))
     }

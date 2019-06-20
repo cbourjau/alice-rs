@@ -153,8 +153,9 @@ pub(crate) fn tstreamer<'c>(raw: &Raw<'c>) -> IResult<&'c[u8], TStreamer>
 }
 
 
-/// The element which is wrapped in a TStreamer
+
 named!(
+    #[doc="The element which is wrapped in a TStreamer."],
     tstreamerelement<&[u8], TStreamerElement>,
     do_parse!(ver: be_u16 >>
               name: length_value!(checked_byte_count, tnamed) >>
@@ -183,10 +184,11 @@ named!(
 impl TStreamer {
     pub(crate) fn elem(&self) -> &TStreamerElement {
         use self::TStreamer::*;
+        // TODO: Move element out of the enum
         match self {
-            &Base{ref el, ..} | &BasicType{ref el} | &BasicPointer{ref el, ..} | &Loop{ref el, ..}
-            | &Object{ref el} | &ObjectPointer{ref el} | &ObjectAny{ref el} | &ObjectAnyPointer{ref el}
-            | &String{ref el} | &Stl{ref el, ..} | &StlString{ref el, ..} => el,
+            Base{ref el, ..} | BasicType{ref el} | BasicPointer{ref el, ..} | Loop{ref el, ..}
+            | Object{ref el} | ObjectPointer{ref el} | ObjectAny{ref el} | ObjectAnyPointer{ref el}
+            | String{ref el} | Stl{ref el, ..} | StlString{ref el, ..} => el,
         }
     }
 
@@ -220,7 +222,7 @@ impl ToRustType for TStreamer {
         use self::TypeID::*;
         let name = Ident::new(alias_or_lifetime(&self.elem().name.name.to_owned()));
         match self {
-            &TStreamer::Base {ref el, ..} => {
+            TStreamer::Base {ref el, ..} => {
                 match el.el_type {
                     Object | Base | Named | TObject => quote!{#name},
                     // Not sure about the following branch...
@@ -228,7 +230,7 @@ impl ToRustType for TStreamer {
                     _ => panic!("{:#?}", self),
                 }
             },
-            &TStreamer::BasicType {ref el} => {
+            TStreamer::BasicType {ref el} => {
                 match el.el_type {
                     Primitive(ref id) => id.type_name(),
                     Offset(ref id) => {
@@ -238,7 +240,7 @@ impl ToRustType for TStreamer {
                     _ => panic!("{:#?}", self),
                 }
             },
-            &TStreamer::BasicPointer {ref el, ..} => {
+            TStreamer::BasicPointer {ref el, ..} => {
                 match el.el_type {
                     Array(ref id) => {
                         // Arrays are preceeded by a byte and then have a length given by a
@@ -249,20 +251,20 @@ impl ToRustType for TStreamer {
                     _ => panic!("{:#?}", self),
                 }
             },
-            &TStreamer::Object {ref el} => {
+            TStreamer::Object {ref el} => {
                 match el.el_type {
                     Object => quote!{#name},
                     _ => panic!("{:#?}", self),
                 }
             },
-            &TStreamer::ObjectPointer {ref el} => {
+            TStreamer::ObjectPointer {ref el} => {
                 match el.el_type {
                     // Pointers may be null!
                     ObjectP => quote!{Option<#name>},
                     _ => panic!("{:#?}", self),
                 }
             },
-            &TStreamer::ObjectAny {ref el} | &TStreamer::ObjectAnyPointer {ref el} => {
+            TStreamer::ObjectAny {ref el} | &TStreamer::ObjectAnyPointer {ref el} => {
                 match el.el_type {
                     Any => quote!{#name},
                     AnyP => quote!{#name},
@@ -271,18 +273,18 @@ impl ToRustType for TStreamer {
                     _ => panic!("{:#?}", self),
                 }
             },
-            &TStreamer::String {ref el} => {
+            TStreamer::String {ref el} => {
                 match el.el_type {
                     String => quote!{String},
                     _ => panic!("{:#?}", self),
                 }
             },
-            &TStreamer::Stl {ref vtype, ..} => {
+            TStreamer::Stl {ref vtype, ..} => {
                 match vtype {
-                    &StlTypeID::Vector => {
+                    StlTypeID::Vector => {
                         quote!{Stl_vec}
                     },
-                    &StlTypeID::Bitset => {
+                    StlTypeID::Bitset => {
                         quote!{Stl_bitset}
                     }
                 }
@@ -298,7 +300,7 @@ impl ToRustParser for TStreamer {
         let name = match self {
             //  `Base` types, i.e. types from which the current object inherited;
             // In that case the name is actually the type
-            &TStreamer::Base{..} => &self.elem().name.name,
+            TStreamer::Base{..} => &self.elem().name.name,
             _ => &self.elem().type_name,
         };
         // Most core-types do not need the context, but some do
@@ -312,7 +314,7 @@ impl ToRustParser for TStreamer {
         let name = Ident::new(name);
 
         match self {
-            &TStreamer::Base {ref el, ..} => {
+            TStreamer::Base {ref el, ..} => {
                 match el.el_type {
                     Object | Base | Named => quote!{length_value!(checked_byte_count, #name)},
                     TObject => quote!{#name},
@@ -323,7 +325,7 @@ impl ToRustParser for TStreamer {
                     _ => panic!("{:#?}", self),
                 }
             },
-            &TStreamer::BasicType {ref el} => {
+            TStreamer::BasicType {ref el} => {
                 match el.el_type {
                     Primitive(ref id) => id.to_inline_parser(),
                     // Offsets are floating points with a custom mantissa
@@ -335,7 +337,7 @@ impl ToRustParser for TStreamer {
                     _ => panic!("{:#?}", self),
                 }
             },
-            &TStreamer::BasicPointer {ref el, ref cname, ..} => {
+            TStreamer::BasicPointer {ref el, ref cname, ..} => {
                 let n_entries_array = Ident::new(cname.to_lowercase());
                 match el.el_type {
                     Array(ref id) => {
@@ -347,13 +349,13 @@ impl ToRustParser for TStreamer {
                     _ => panic!("{:#?}", self),
                 }
             },
-            &TStreamer::Object {ref el} => {
+            TStreamer::Object {ref el} => {
                 match el.el_type {
                     Object => quote!{length_value!(checked_byte_count, #name)},
                     _ => panic!("{:#?}", self),
                 }
             },
-            &TStreamer::ObjectPointer {ref el} => {
+            TStreamer::ObjectPointer {ref el} => {
                 match el.el_type {
                     // Pointers may be null!
                     ObjectP => quote!{switch!(peek!(be_u32),
@@ -362,7 +364,7 @@ impl ToRustParser for TStreamer {
                     _ => panic!("{:#?}", self),
                 }
             },
-            &TStreamer::ObjectAny {ref el} | &TStreamer::ObjectAnyPointer {ref el} => {
+            TStreamer::ObjectAny {ref el} | &TStreamer::ObjectAnyPointer {ref el} => {
                 match el.el_type {
                     Any => quote!{#name},
                     AnyP => quote!{#name},
@@ -371,18 +373,18 @@ impl ToRustParser for TStreamer {
                     _ => panic!("{:#?}", self),
                 }
             },
-            &TStreamer::String {ref el} => {
+            TStreamer::String {ref el} => {
                 match el.el_type {
                     String => quote!{string},
                     _ => panic!("{:#?}", self),
                 }
             },
-            &TStreamer::Stl {ref vtype, ..} => {
+            TStreamer::Stl {ref vtype, ..} => {
                 match vtype {
-                    &StlTypeID::Vector => {
+                    StlTypeID::Vector => {
                         quote!{stl_vec}
                     },
-                    &StlTypeID::Bitset => {
+                    StlTypeID::Bitset => {
                         quote!{stl_bitset}
                     }
                 }

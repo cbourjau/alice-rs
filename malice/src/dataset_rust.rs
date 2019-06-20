@@ -121,10 +121,10 @@ fn parse_custom_mantissa(input: &[u8], nbits: usize) -> nom::IResult<&[u8], f32>
     use nom::*; // cannot use module path in macro
     pair!(input, be_u8, be_u16).map(|(exp, man)| {
         // let nbits = 8;
-        let mut s = exp as u32;
+        let mut s = u32::from(exp);
         // Move the exponent into the last 23 bits
         s <<= 23;
-        s |= (man as u32 & ((1<<(nbits+1))-1)) <<(23-nbits);
+        s |= (u32::from(man) & ((1<<(nbits+1))-1)) <<(23-nbits);
         f32::from_bits(s)
     })
 }

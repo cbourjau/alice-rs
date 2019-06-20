@@ -103,7 +103,7 @@ impl<T> ColumnFixedIntoIter<T> {
                     }
                 }));
         Ok(ColumnFixedIntoIter {
-            containers: containers,
+            containers,
         })
     }
 }
