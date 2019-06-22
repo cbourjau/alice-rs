@@ -44,7 +44,7 @@ impl SimpleAnalysis {
 }
 
 impl SimpleAnalysis {
-    pub fn process_event(mut self, event: &Event) -> Self {
+    pub fn process_event(&mut self, event: &Event) {
         // Fill only if we have a valid primary vertex
         if let Some(prime_vtx) = event.primary_vertex() {
             self.single_particles.extend(
@@ -59,8 +59,9 @@ impl SimpleAnalysis {
                 .filter(|tr| default_track_filter(&tr, &prime_vtx))
                 .count() as f64]);
         };
-        self
     }
+
+    /// Example of how one may write the results to disc
     pub fn write_to_disc(&self) -> Result<(), Error> {
         self.single_particles.dump_to_file("hybrid")?;
         self.z_vertex.dump_to_file("z_pos")?;
@@ -148,6 +149,7 @@ impl SimpleAnalysis {
             );
         fg.show();
     }
+
     /// Compute the centrality edges based on the N_ch/Event distribution
     pub fn compute_centrality_edges(&self) {
         let tot = self.multiplicity.counts.scalar_sum();

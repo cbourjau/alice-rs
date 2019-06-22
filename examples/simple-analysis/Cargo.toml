@@ -1,8 +1,9 @@
 [package]
 name = "simple-analysis"
 version = "0.1.0"
-authors = ["cbourjau <christian.bourjau@cern.ch>"]
+authors = ["cbourjau <c.bourjau@posteo.de>"]
 workspace = "../../"
+edition = "2018"
 
 [dependencies]
 malice = "0.1.1"
