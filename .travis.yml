@@ -8,5 +8,6 @@ rust:
   - beta
 
 script:
+  - cargo clean
   - cargo build --verbose --all --release
   - cargo test --verbose --all --release
