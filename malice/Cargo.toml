@@ -1,7 +1,7 @@
 [package]
 name = "malice"
-version = "0.1.1"
-authors = ["cbourjau <christian.bourjau@cern.ch>"]
+version = "0.1.2"
+authors = ["cbourjau <c.bourjau@posteo.de>"]
 exclude = ["benches/*"]
 description = "A small framwork providing sensible defaults to analyse ALICE's open data"
 repository = "https://github.com/cbourjau/alice-rs/malice"
@@ -16,15 +16,15 @@ cpp = ["alice-sys"]
 
 [dependencies]
 nom = "3.2.1"
-root-io = "0.1.1"
-failure = "0.1.1"
+root-io = "0.1.2"
+failure = "0.1.5"
 bitflags = "1.0.1"
 
 # Optional dependencies
 alice-sys = { version="0.1.1", optional = true }
 
 [dev-dependencies]
-alice-open-data = "0.2.0"
+alice-open-data = "0.2.1"
 
 [[bench]]
 name = "rust_vs_root"
