@@ -5,4 +5,4 @@
 This crate provides some conveniences for other crates that have to access ALICE's data. It takes care of the remote as well as local data
 
 ## Documentation
-https://docs.rs/alice-open-data/0.1.0/
+https://docs.rs/alice-open-data/0.2.1
