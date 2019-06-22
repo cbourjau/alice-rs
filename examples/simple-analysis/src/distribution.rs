@@ -51,7 +51,13 @@ impl SimpleAnalysis {
                 event
                     .tracks()
                     .filter(|tr| default_track_filter(&tr, &prime_vtx))
-                    .map(|tr| [f64::from(tr.eta()), f64::from(tr.phi()), f64::from(prime_vtx.z)]),
+                    .map(|tr| {
+                        [
+                            f64::from(tr.eta()),
+                            f64::from(tr.phi()),
+                            f64::from(prime_vtx.z),
+                        ]
+                    }),
             );
             self.z_vertex.fill(&[f64::from(prime_vtx.z)]);
             self.multiplicity.fill(&[event
