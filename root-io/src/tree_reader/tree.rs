@@ -1,14 +1,14 @@
+use nom::*;
 use std::fmt;
 use std::ops::Deref;
-use nom::*;
 
 use core::parsers::*;
 use core::types::*;
 
-use tree_reader::branch::TBranch;
 use tree_reader::branch::tbranch_hdr;
-use tree_reader::leafs::TLeaf;
+use tree_reader::branch::TBranch;
 use tree_reader::leafs::tleaf;
+use tree_reader::leafs::TLeaf;
 
 /// `TTree` potentially has members with very large `Vec<u8>` buffers
 /// The `Pointer` type is used to overwrite the default `Debug` trait
@@ -27,7 +27,6 @@ impl fmt::Debug for Pointer {
         writeln!(f, "Buffer of {} bytes ", self.len())
     }
 }
-
 
 /// A `Tree` is the default "container" for datasets in Root files The
 /// data is oranized in so-called branches. This type is exposed only
@@ -86,30 +85,33 @@ pub struct Tree {
 impl<'s> Tree {
     /// Get all branches of a tree (including nested ones)
     pub(crate) fn branches(&self) -> Vec<(&TBranch)> {
-        self.fbranches.iter()
+        self.fbranches
+            .iter()
             .flat_map(|b| vec![b].into_iter().chain(b.branches().into_iter()))
             .collect()
     }
     /// Get all the branch names and types (including nested ones) of this tree
     /// The first element is the name, the second one is the type
     pub fn branch_names_and_types(&self) -> Vec<(String, Vec<String>)> {
-        self.fbranches.iter()
+        self.fbranches
+            .iter()
             .flat_map(|b| vec![b].into_iter().chain(b.branches().into_iter()))
             .map(|b| (b.name(), b.element_types()))
             .collect()
     }
 }
 
-
 /// Parse a `Tree` from the given buffer. Usually used through `FileItem::parse_with`.
 #[allow(unused_variables)]
-pub fn ttree<'s>(input: &'s[u8], context: &Context) -> IResult<&'s[u8], Tree> {
+pub fn ttree<'s>(input: &'s [u8], context: &Context) -> IResult<&'s [u8], Tree> {
     let _curried_raw = |i| raw(i, context);
-    let none_or_u8_buf = |i: &'s [u8]| switch!(i, peek!(be_u32),
+    let none_or_u8_buf = |i: &'s [u8]| {
+        switch!(i, peek!(be_u32),
                                             0 => map!(call!(be_u32), | _ | None) |
                                             _ => map!(
                                                 map!(call!(_curried_raw), |r| r.obj.to_vec()),
-                                                Some));
+                                                Some))
+    };
     let grab_checked_byte_count = |i| length_data!(i, checked_byte_count);
     let wrapped_tobjarray = |i: &'s[u8]| length_value!(i, checked_byte_count, apply!(tobjarray, context));    
     do_parse!(input,

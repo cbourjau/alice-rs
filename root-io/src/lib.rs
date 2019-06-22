@@ -14,7 +14,7 @@
 //! files as easy as possible. If you are looking for a particular
 //! parser chances have it that it exists but it is not marked as `pub`.
 #![allow(clippy::cognitive_complexity)]
-#![recursion_limit="256"]
+#![recursion_limit = "256"]
 #[macro_use]
 extern crate bitflags;
 #[macro_use]
@@ -27,13 +27,12 @@ extern crate flate2;
 extern crate xz2;
 
 // pub mod core_types;
-pub mod core;
 mod code_gen;
-pub mod tree_reader;
+pub mod core;
 mod tests;
+pub mod tree_reader;
 
-pub use core::{RootFile, FileItem};
+pub use core::{FileItem, RootFile};
 
 /// Offset when using Context; should be in `Context`, maybe?
 const MAP_OFFSET: u64 = 2;
-

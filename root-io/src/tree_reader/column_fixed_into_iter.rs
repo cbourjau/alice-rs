@@ -1,8 +1,8 @@
 use failure::Error;
 use nom::*;
 
-use tree_reader::tree::Tree;
 use tree_reader::branch::TBranch;
+use tree_reader::tree::Tree;
 
 /// Iterator over the data of a column (`TBranch`) with a single element per entry
 /// # Example
@@ -76,35 +76,44 @@ use tree_reader::branch::TBranch;
 /// ```
 pub struct ColumnFixedIntoIter<T> {
     /// Containers holding the data
-    containers: Box<Iterator<Item=T>>,
+    containers: Box<Iterator<Item = T>>,
 }
 
 impl<T> ColumnFixedIntoIter<T> {
     pub fn new<P>(tr: &Tree, name: &str, p: P) -> Result<ColumnFixedIntoIter<T>, Error>
-    where P: 'static + Fn(&[u8]) -> IResult<&[u8], T>,
-          T: 'static
+    where
+        P: 'static + Fn(&[u8]) -> IResult<&[u8], T>,
+        T: 'static,
     {
-        let br: &TBranch = tr.branches().iter()
+        let br: &TBranch = tr
+            .branches()
+            .iter()
             .find(|b| b.name == name)
-            .ok_or_else(|| format_err!("Branch {} not found in tree: \n {:#?}",
-                                       name,
-                                       tr.branches().iter()
-                                       .map(|b| b.name.to_owned()).collect::<Vec<_>>())
-            )?;
+            .ok_or_else(|| {
+                format_err!(
+                    "Branch {} not found in tree: \n {:#?}",
+                    name,
+                    tr.branches()
+                        .iter()
+                        .map(|b| b.name.to_owned())
+                        .collect::<Vec<_>>()
+                )
+            })?;
         let containers = Box::new(
-            br.containers().to_owned().into_iter()
+            br.containers()
+                .to_owned()
+                .into_iter()
                 // Read and decompress data into a vec
                 .flat_map(|c| c.raw_data())
                 .flat_map(move |(n_entries, raw_slice)| {
-                    let s: &[u8] = raw_slice.as_slice(); 
+                    let s: &[u8] = raw_slice.as_slice();
                     match count!(s, p, n_entries as usize) {
                         IResult::Done(_, o) => o,
                         _ => panic!("Parser failed unexpectedly!"),
                     }
-                }));
-        Ok(ColumnFixedIntoIter {
-            containers,
-        })
+                }),
+        );
+        Ok(ColumnFixedIntoIter { containers })
     }
 }
 

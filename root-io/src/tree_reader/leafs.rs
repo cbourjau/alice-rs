@@ -1,9 +1,9 @@
-use std::fmt;
 use nom::*;
 use quote::{Ident, Tokens};
+use std::fmt;
 
-use core::*;
 use code_gen::rust::ToRustType;
+use core::*;
 
 #[derive(Debug, Clone)]
 pub struct TLeafBase {
@@ -75,48 +75,75 @@ impl ToRustType for  TLeaf {
                 }
                 let t = match leaf_name.as_str() {
                     "TLeafO" => {
-                        if leaf.flentype != 1 { panic!("Unexpected type length") }
+                        if leaf.flentype != 1 {
+                            panic!("Unexpected type length")
+                        }
                         "bool"
-                    },
+                    }
                     "TLeafB" => {
-                        if leaf.flentype != 1 { panic!("Unexpected type length") };
-                        if leaf.fisunsigned == 1 {"u8"} else {"i8"}
-                    },
+                        if leaf.flentype != 1 {
+                            panic!("Unexpected type length")
+                        };
+                        if leaf.fisunsigned == 1 {
+                            "u8"
+                        } else {
+                            "i8"
+                        }
+                    }
                     "TLeafS" => {
-                        if leaf.flentype != 2 { panic!("Unexpected type length") };
-                        if leaf.fisunsigned == 1 {"u16"} else {"i16"}
-                    },
+                        if leaf.flentype != 2 {
+                            panic!("Unexpected type length")
+                        };
+                        if leaf.fisunsigned == 1 {
+                            "u16"
+                        } else {
+                            "i16"
+                        }
+                    }
                     "TLeafI" => {
-                        if leaf.flentype != 4 { panic!("Unexpected type length") };
-                        if leaf.fisunsigned == 1 {"u32"} else {"i32"}
-                    },
+                        if leaf.flentype != 4 {
+                            panic!("Unexpected type length")
+                        };
+                        if leaf.fisunsigned == 1 {
+                            "u32"
+                        } else {
+                            "i32"
+                        }
+                    }
                     "TLeafL" => {
-                        if leaf.flentype != 8 { panic!("Unexpected type length") };
-                        if leaf.fisunsigned == 1 {"u64"} else {"i64"}
-                    },
+                        if leaf.flentype != 8 {
+                            panic!("Unexpected type length")
+                        };
+                        if leaf.fisunsigned == 1 {
+                            "u64"
+                        } else {
+                            "i64"
+                        }
+                    }
                     "TLeafF" => {
                         if leaf.flentype != 4 || leaf.fisunsigned != 0 {
                             panic!("Unexpected type length or sign: {:#?}", leaf);
                         };
                         "f32"
-                    },
+                    }
                     "TLeafD" => {
                         if leaf.flentype != 8 || leaf.fisunsigned != 0 {
                             panic!("Unexpected type length or sign: {:#?}", leaf);
                         };
                         "f64"
-                    },
+                    }
                     name => panic!("Unexpected TLeaf type name {}", name),
                 };
                 // not an array
                 let t = Ident::new(t);
                 if leaf.flen == 1 {
-                    quote!{#t}
-                } else { // array
+                    quote! {#t}
+                } else {
+                    // array
                     let s = format!("[{}; {}]", t, leaf.flen);
-                    quote!{#s}
+                    quote! {#s}
                 }
-            },
+            }
             TLeaf::String(_) => quote!(String),
             TLeaf::Element(ref tleaf_el) => {
                 match &tleaf_el.type_id {
@@ -124,44 +151,50 @@ impl ToRustType for  TLeaf {
                         let t = id.type_name().to_string();
                         if tleaf_el.base.flen > 1 {
                             let t = Ident::new(format!("[{}; {}]", t, tleaf_el.base.flen));
-                            quote!{#t}
+                            quote! {#t}
                         } else {
                             let t = Ident::new(t);
-                            quote!{#t}
+                            quote! {#t}
                         }
-                    },
+                    }
                     id @ &TypeID::InvalidOrCounter(_) => {
                         // If this is used as a counter, its type id is
                         // -1 but its "serial id" is 0 (else -2)...
                         if tleaf_el.id == 0 {
-                            quote!{u32}
+                            quote! {u32}
                         } else {
                             id.type_name()
                         }
-                    },
-                    id => id.type_name()
+                    }
+                    id => id.type_name(),
                 }
-            },
+            }
             // Treating streamed objects as blobs of &[u8] for now
-            TLeaf::Object(_, _) => quote!{Vec<u8>},
+            TLeaf::Object(_, _) => quote! {Vec<u8>},
         }
     }
 }
 
-
 /// Helper function to parse the header of a `TLeaf`; Note that each
 /// `TLeaf` also has a type specific part which is ingnored here!
-pub(crate) fn tleaf<'s>(i: &'s[u8], context: &'s Context, c_name: &str)
-             -> IResult<&'s[u8], TLeaf> {
+pub(crate) fn tleaf<'s>(
+    i: &'s [u8],
+    context: &'s Context,
+    c_name: &str,
+) -> IResult<&'s [u8], TLeaf> {
     // let c_name = c_name.as_bytes();
     match c_name {
         // Variable length string; has same layout as `Primitive`
         "TLeafC" => map!(i, apply!(tleafprimitive, context), TLeaf::String),
         "TLeafElement" => map!(i, apply!(tleafelement, context), TLeaf::Element),
-        "TLeafObject" => map!(i, apply!(tleafobject, context),
-                              |v| TLeaf::Object(c_name.to_string(), v)),
-        _ => map!(i, apply!(tleafprimitive, context),
-                  |v| TLeaf::Primitive(c_name.to_string(), v)),
+        "TLeafObject" => map!(i, apply!(tleafobject, context), |v| TLeaf::Object(
+            c_name.to_string(),
+            v
+        )),
+        _ => map!(i, apply!(tleafprimitive, context), |v| TLeaf::Primitive(
+            c_name.to_string(),
+            v
+        )),
     }
 }
 

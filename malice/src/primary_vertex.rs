@@ -10,5 +10,5 @@ pub struct PrimaryVertex {
     /// `z` coordinates in the detector's reference frame; z is along the beam axis
     pub z: f32,
     /// Number of tracks contributed to this vertex
-    pub n_contrib: i32
+    pub n_contrib: i32,
 }

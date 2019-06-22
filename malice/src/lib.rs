@@ -12,20 +12,20 @@
 //! extern crate histogram;
 //! extern crate malice;
 //! extern crate root_io;
-//! 
+//!
 //! use histogram::*;
 //! use root_io::RootFile;
-//! 
+//!
 //! use malice::{Event, DatasetIntoIter as DsIntoIter};
 //! use malice::{default_track_filter, default_event_filter};
-//! 
+//!
 //! fn main() {
 //!     // Iterator over files of the Open Data set
 //!     let files: Vec<_> = alice_open_data::all_files_10h()
 //!         .expect("No data files found. Did you download with alice-open-data?")
 //!         .into_iter()
 //!         .collect();
-//! 
+//!
 //!     // Create an iterator over `malice::event::Event`s
 //!     let events = files
 //!         .iter()
@@ -35,20 +35,20 @@
 //!             Ok(s) => s,
 //!             Err(err) => panic!("An error occured! Message: {}", err),
 //!         });
-//! 
-//!     // Fold the `malice::event::Events` with the analysis	
+//!
+//!     // Fold the `malice::event::Events` with the analysis
 //!     let _analysis_result: SimpleAnalysis = events
 //!         // Apply a sensible default event filter
 //!         .filter(default_event_filter)
 //!         .fold(SimpleAnalysis::new(), |analysis, ev| { analysis.process_event(&ev) });
 //!     // Do something with the result...
 //! }
-//! 
+//!
 //! pub struct SimpleAnalysis {
 //!     // Histogram of the pseudorapidity (eta) distribution of valid tracks
 //!     pub eta_distribution: Histogram<i32, [usize; 1]>,
 //! }
-//! 
+//!
 //! impl SimpleAnalysis {
 //!     fn new() -> SimpleAnalysis {
 //! 	// 50 bins from -0.9 to 0.9
@@ -60,7 +60,7 @@
 //!                 .expect("Error building histogram"),
 //!         }
 //!     }
-//! 
+//!
 //!     // Update the histogram with the given event
 //!     fn process_event(mut self, event: &Event) -> Self
 //!     {
@@ -80,28 +80,28 @@
 
 #[macro_use]
 extern crate nom;
-extern crate failure;
-extern crate root_io;
 #[cfg(feature = "cpp")]
 extern crate alice_sys;
+extern crate failure;
+extern crate root_io;
 #[macro_use]
 extern crate bitflags;
 
-mod event;
+#[cfg(feature = "cpp")]
+pub mod dataset_cpp;
 mod dataset_rust;
 #[cfg(feature = "cpp")]
 mod esd;
-#[cfg(feature = "cpp")]
-pub mod dataset_cpp;
-mod track;
+mod event;
 mod primary_vertex;
+mod track;
 mod utils;
 
 // re-exports
-pub use primary_vertex::PrimaryVertex;
-pub use event::{Event, TracksIter, TriggerMask};
-pub use track::{Flags, Track, ItsClusters};
 pub use dataset_rust::DatasetIntoIter;
+pub use event::{Event, TracksIter, TriggerMask};
+pub use primary_vertex::PrimaryVertex;
+pub use track::{Flags, ItsClusters, Track};
 pub use utils::{default_event_filter, default_track_filter, is_hybrid_track};
 
 #[cfg(test)]
@@ -112,28 +112,28 @@ mod tests {
     #[test]
     #[cfg(feature = "cpp")]
     fn rust_cpp_identical_many_files() {
-        use super::dataset_rust::DatasetIntoIter as DsIntoIter_rust;
         use super::dataset_cpp::DatasetIntoIter as DsIntoIter_cpp;
+        use super::dataset_rust::DatasetIntoIter as DsIntoIter_rust;
 
         let n_files = 500;
-        let rust_iter = alice_open_data::all_files_10h().unwrap()
+        let rust_iter = alice_open_data::all_files_10h()
+            .unwrap()
             .into_iter()
             .take(n_files)
             .map(|path| RootFile::new_from_file(&path).expect("Failed to open file"))
             .map(|rf| rf.items()[0].as_tree().unwrap())
-            .flat_map(|tree| {
-            match DsIntoIter_rust::new(&tree) {
+            .flat_map(|tree| match DsIntoIter_rust::new(&tree) {
                 Ok(s) => s,
-                Err(err) => panic!("An error occured! Message: {}", err)
-            }});
-        let cpp_iter = alice_open_data::all_files_10h().unwrap()
+                Err(err) => panic!("An error occured! Message: {}", err),
+            });
+        let cpp_iter = alice_open_data::all_files_10h()
+            .unwrap()
             .into_iter()
             .take(n_files)
-            .flat_map(|path| {
-                match DsIntoIter_cpp::new(&path) {
-                    Ok(s) => [path.to_owned()].to_vec().into_iter().cycle().zip(s),
-                    Err(err) => panic!("An error occured! Message: {}", err)
-                }});
+            .flat_map(|path| match DsIntoIter_cpp::new(&path) {
+                Ok(s) => [path.to_owned()].to_vec().into_iter().cycle().zip(s),
+                Err(err) => panic!("An error occured! Message: {}", err),
+            });
         for (i, (rust_ev, (path, cpp_ev))) in rust_iter.zip(cpp_iter).enumerate() {
             // println!("{:?}", path);
             assert_eq!(rust_ev, cpp_ev, "Event {} differs in file {:?}", i, path);
@@ -143,24 +143,33 @@ mod tests {
     #[test]
     #[cfg(feature = "cpp")]
     fn rust_cpp_identical_funky_file_1() {
-        use super::dataset_rust::DatasetIntoIter as DsIntoIter_rust;
         use super::dataset_cpp::DatasetIntoIter as DsIntoIter_cpp;
-        
-        let file = alice_open_data::all_files_10h().unwrap()
+        use super::dataset_rust::DatasetIntoIter as DsIntoIter_rust;
+
+        let file = alice_open_data::all_files_10h()
+            .unwrap()
             .into_iter()
-            .find(|p| p.to_str().unwrap()
-                  // This file contains a bunch of "empty" baskets; i.e. baskets which claim to have events but are just zeros...
-                  .contains("10000139038001.770/AliESDs.root"))
+            .find(|p| {
+                p.to_str()
+                    .unwrap()
+                    // This file contains a bunch of "empty" baskets; i.e. baskets which claim to have events but are just zeros...
+                    .contains("10000139038001.770/AliESDs.root")
+            })
             .expect("Funky file not found");
         let rust_iter = {
-            let tree = RootFile::new_from_file(&file).expect("Failed to open file").items()[0].as_tree().unwrap();
+            let tree = RootFile::new_from_file(&file)
+                .expect("Failed to open file")
+                .items()[0]
+                .as_tree()
+                .unwrap();
             match DsIntoIter_rust::new(&tree) {
                 Ok(s) => s,
-                Err(err) => panic!("An error occured! Message: {}", err)
-            }};
+                Err(err) => panic!("An error occured! Message: {}", err),
+            }
+        };
         let cpp_iter = match DsIntoIter_cpp::new(&file) {
-                    Ok(s) => s,
-                    Err(err) => panic!("An error occured! Message: {}", err)
+            Ok(s) => s,
+            Err(err) => panic!("An error occured! Message: {}", err),
         };
         for (rust_ev, cpp_ev) in rust_iter.zip(cpp_iter) {
             assert_eq!(rust_ev, cpp_ev);
@@ -169,8 +178,8 @@ mod tests {
     #[test]
     #[cfg(feature = "cpp")]
     fn rust_cpp_identical_funky_file_2() {
-        use super::dataset_rust::DatasetIntoIter as DsIntoIter_rust;
         use super::dataset_cpp::DatasetIntoIter as DsIntoIter_cpp;
+        use super::dataset_rust::DatasetIntoIter as DsIntoIter_rust;
         let funkies = [
             // This files has baskets which, after parsing, have 0 bytes :P
             "10000139038002.40/AliESDs.root",
@@ -178,36 +187,48 @@ mod tests {
             "10000139038001.310/AliESDs.root",
         ];
         for funky in &funkies {
-            let file = alice_open_data::all_files_10h().unwrap()
+            let file = alice_open_data::all_files_10h()
+                .unwrap()
                 .into_iter()
                 .find(|p| p.to_str().unwrap().contains(funky))
                 .expect("Funky file not found");
             let mut rust_iter = {
-                let tree = RootFile::new_from_file(&file).expect("Failed to open file").items()[0].as_tree().unwrap();
+                let tree = RootFile::new_from_file(&file)
+                    .expect("Failed to open file")
+                    .items()[0]
+                    .as_tree()
+                    .unwrap();
                 match DsIntoIter_rust::new(&tree) {
                     Ok(s) => s,
-                    Err(err) => panic!("An error occured! Message: {}", err)
-                }};
+                    Err(err) => panic!("An error occured! Message: {}", err),
+                }
+            };
             let mut cpp_iter = match DsIntoIter_cpp::new(&file) {
                 Ok(s) => s,
-                Err(err) => panic!("An error occured! Message: {}", err)
+                Err(err) => panic!("An error occured! Message: {}", err),
             };
             assert_eq!(rust_iter.count(), cpp_iter.count());
         }
         for funky in &funkies {
-            let file = alice_open_data::all_files_10h().unwrap()
+            let file = alice_open_data::all_files_10h()
+                .unwrap()
                 .into_iter()
                 .find(|p| p.to_str().unwrap().contains(funky))
                 .expect("Funky file not found");
             let mut rust_iter = {
-                let tree = RootFile::new_from_file(&file).expect("Failed to open file").items()[0].as_tree().unwrap();
+                let tree = RootFile::new_from_file(&file)
+                    .expect("Failed to open file")
+                    .items()[0]
+                    .as_tree()
+                    .unwrap();
                 match DsIntoIter_rust::new(&tree) {
                     Ok(s) => s,
-                    Err(err) => panic!("An error occured! Message: {}", err)
-                }};
+                    Err(err) => panic!("An error occured! Message: {}", err),
+                }
+            };
             let mut cpp_iter = match DsIntoIter_cpp::new(&file) {
                 Ok(s) => s,
-                Err(err) => panic!("An error occured! Message: {}", err)
+                Err(err) => panic!("An error occured! Message: {}", err),
             };
             for (_i, (rust_ev, cpp_ev)) in rust_iter.zip(cpp_iter).enumerate() {
                 assert_eq!(rust_ev, cpp_ev);
@@ -228,18 +249,18 @@ mod tests {
     fn bench_rust() {
         let n_files = 50;
         use super::dataset_rust::DatasetIntoIter;
-        let _max_chi2 = alice_open_data::all_files_10h().unwrap()
+        let _max_chi2 = alice_open_data::all_files_10h()
+            .unwrap()
             .into_iter()
             .take(n_files)
             .map(|path| RootFile::new_from_file(&path).expect("Failed to open file"))
             .map(|rf| rf.items()[0].as_tree().unwrap())
-            .flat_map(|tree| {
-                match DatasetIntoIter::new(&tree) {
-                    Ok(s) => s,
-                    Err(err) => panic!("An error occured! Message: {}", err)
-                }})
+            .flat_map(|tree| match DatasetIntoIter::new(&tree) {
+                Ok(s) => s,
+                Err(err) => panic!("An error occured! Message: {}", err),
+            })
             .flat_map(|event| event.tracks().map(|tr| tr.its_chi2).collect::<Vec<_>>())
-            .fold(0.0, |max, chi2| if chi2 > max {chi2} else {max});
+            .fold(0.0, |max, chi2| if chi2 > max { chi2 } else { max });
     }
 
     #[test]
@@ -247,17 +268,16 @@ mod tests {
     fn bench_cpp() {
         let n_files = 50;
         use super::dataset_cpp::DatasetIntoIter;
-        let _max_chi2 = alice_open_data::all_files_10h().unwrap()
+        let _max_chi2 = alice_open_data::all_files_10h()
+            .unwrap()
             .into_iter()
             .take(n_files)
-            .flat_map(|path| {
-                match DatasetIntoIter::new(&path) {
-                    Ok(s) => s,
-                    Err(err) => panic!("An error occured! Message: {}", err)
-                }})
-            .flat_map(|event|event.tracks().map(|tr| tr.its_chi2).collect::<Vec<_>>())
-            .fold(0.0, |max, chi2| if chi2 > max {chi2} else {max});
+            .flat_map(|path| match DatasetIntoIter::new(&path) {
+                Ok(s) => s,
+                Err(err) => panic!("An error occured! Message: {}", err),
+            })
+            .flat_map(|event| event.tracks().map(|tr| tr.its_chi2).collect::<Vec<_>>())
+            .fold(0.0, |max, chi2| if chi2 > max { chi2 } else { max });
     }
-    
-}
 
+}

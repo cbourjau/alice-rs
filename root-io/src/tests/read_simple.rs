@@ -1,9 +1,9 @@
-use std::path::PathBuf;
 use failure::Error;
-use nom::{be_i32, be_f32};
+use nom::{be_f32, be_i32};
+use std::path::PathBuf;
 
+use core::parsers::string;
 use tree_reader::{ColumnFixedIntoIter, Tree};
-use core::parsers::{string};
 use RootFile;
 
 /// A model for the (or a subset) of the data.
@@ -14,7 +14,6 @@ struct Model {
     two: f32,
     three: String,
 }
-
 
 /// Struct holding all the iterators in one place needed for an
 /// analysis in one place. This makes it much harder to get them out
@@ -47,7 +46,7 @@ impl Iterator for SchemaIter {
         Some(Model {
             one: self.one.next()?,
             two: self.two.next()?,
-            three: self.three.next()?
+            three: self.three.next()?,
         })
     }
 }

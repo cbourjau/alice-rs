@@ -1,10 +1,9 @@
-use quote::*;
 use nom::*;
+use quote::*;
 
-use ::core::*;
-use ::code_gen::rust::{ToRustType, ToRustParser, ToNamedRustParser, ToRustStruct};
-use ::code_gen::utils::{type_is_core};
-
+use code_gen::rust::{ToNamedRustParser, ToRustParser, ToRustStruct, ToRustType};
+use code_gen::utils::type_is_core;
+use core::*;
 
 #[derive(Debug)]
 pub struct TStreamerInfo {
@@ -16,8 +15,12 @@ pub struct TStreamerInfo {
 }
 
 /// Parse one `TStreamerInfo` object (as found in the `TList`)
-pub(crate) fn tstreamerinfo<'s, 'c>(input: &'s[u8], context: &'c Context) -> IResult<&'s[u8], TStreamerInfo>
-    where 's: 'c
+pub(crate) fn tstreamerinfo<'s, 'c>(
+    input: &'s [u8],
+    context: &'c Context,
+) -> IResult<&'s [u8], TStreamerInfo>
+where
+    's: 'c,
 {
     let wrapped_tobjarray = |i| tobjarray(i, &context);
     do_parse!(input,
@@ -51,7 +54,6 @@ pub(crate) fn tstreamerinfo<'s, 'c>(input: &'s[u8], context: &'c Context) -> IRe
     )
 }
 
-
 impl ToRustParser for TStreamerInfo {
     /// Generate a parser that can parse an an object described by this TStreamer
     fn to_inline_parser(&self) -> Tokens {
@@ -60,10 +62,11 @@ impl ToRustParser for TStreamerInfo {
             return quote!(#(self.named.name.to_lowercase()));
         }
         let struct_name = Ident::new(self.named.name.as_str());
-        let member_names: &Vec<Ident> = &self.data_members.iter()
-            .map(|m| m.member_name())
-            .collect();
-        let member_parsers: &Vec<Tokens> = &self.data_members.iter()
+        let member_names: &Vec<Ident> =
+            &self.data_members.iter().map(|m| m.member_name()).collect();
+        let member_parsers: &Vec<Tokens> = &self
+            .data_members
+            .iter()
             .map(|m| m.to_inline_parser())
             .collect();
         quote!{
@@ -83,17 +86,17 @@ impl ToNamedRustParser for TStreamerInfo {
     fn parser_name(&self) -> Tokens {
         let ret = Ident::new(self.named.name.to_lowercase());
         quote!(#ret)
-    }    
+    }
 
     fn to_named_parser(&self) -> Tokens {
         if type_is_core(self.named.name.as_str()) {
             // Don't generate a parser if its a core type
-            return quote!{};
+            return quote! {};
         }
         let parser_name = self.parser_name();
         let parser = self.to_inline_parser();
         let struct_name = self.type_name();
-        quote!{
+        quote! {
             pub fn #parser_name<'s>(input: &'s[u8], context: &'s Context<'s>)
                                     -> IResult<&'s[u8], #struct_name<'s>> {
                 value!(input, #parser)
@@ -106,7 +109,7 @@ impl ToRustStruct for TStreamerInfo {
     /// Generate a struct corresponding to this TStreamerInfo
     fn to_struct(&self) -> Tokens {
         if type_is_core(self.named.name.as_str()) {
-            return quote!{};
+            return quote! {};
         }
         let name = self.type_name();
         let fields = &self.data_members;
@@ -146,9 +149,12 @@ impl TStreamerInfo {
         s += "  members:\n";
         for obj in &self.data_members {
             s += format!("      # {}\n", obj.member_comment()).as_str();
-            s += format!("      {}: {}\n",
-                         obj.member_name().to_string(),
-                         obj.type_name().to_string()).as_str();
+            s += format!(
+                "      {}: {}\n",
+                obj.member_name().to_string(),
+                obj.type_name().to_string()
+            )
+            .as_str();
         }
         s += "\n";
         s

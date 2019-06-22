@@ -1,12 +1,12 @@
-use nom::*;
-use std::path::{Path, PathBuf};
-use std::fs::File;
-use std::io::{BufReader, Seek, SeekFrom, Read};
 use failure::Error;
+use nom::*;
+use std::fs::File;
+use std::io::{BufReader, Read, Seek, SeekFrom};
+use std::path::{Path, PathBuf};
 
-use ::core::{TKeyHeader, Context};
-use ::tree_reader::{ttree, Tree};
-use core::{decompress, checked_byte_count};
+use core::{checked_byte_count, decompress};
+use core::{Context, TKeyHeader};
+use tree_reader::{ttree, Tree};
 
 /// Describes a single item within this file (e.g. a `Tree`)
 #[derive(Debug)]
@@ -18,8 +18,10 @@ pub struct FileItem {
 impl FileItem {
     /// New file item from the information in a TKeyHeader and the associated file
     pub(crate) fn new<P: AsRef<Path>>(tkey_hdr: &TKeyHeader, file_path: P) -> FileItem {
-        FileItem{file_path: file_path.as_ref().to_path_buf(),
-                 tkey_hdr: tkey_hdr.to_owned()}
+        FileItem {
+            file_path: file_path.as_ref().to_path_buf(),
+            tkey_hdr: tkey_hdr.to_owned(),
+        }
     }
 
     /// Parse this item as a `Tree`. Instead one could also call
@@ -33,20 +35,24 @@ impl FileItem {
         format!("{:#?}", self.tkey_hdr)
     }
     pub fn name(&self) -> String {
-        format!("`{}` of type `{}`", self.tkey_hdr.obj_name, self.tkey_hdr.class_name)
+        format!(
+            "`{}` of type `{}`",
+            self.tkey_hdr.obj_name, self.tkey_hdr.class_name
+        )
     }
-    
 
     /// Read (and posibly decompress) data from disk and parse it as
     /// the appropriate type using the TStreamerInfo types.
     /// The return type of the parser function must not contain a
     /// reference to the parsed buffer
     pub(crate) fn parse_with<O, F>(&self, parser: F) -> Result<O, Error>
-        where F: for<'s> Fn(&'s[u8], &'s Context<'s>) -> IResult<&'s[u8], O>,
+    where
+        F: for<'s> Fn(&'s [u8], &'s Context<'s>) -> IResult<&'s [u8], O>,
     {
         let f = File::open(&self.file_path)?;
         let mut reader = BufReader::new(f);
-        let mut comp_buf = vec![0; (self.tkey_hdr.total_size - self.tkey_hdr.key_len as u32) as usize];
+        let mut comp_buf =
+            vec![0; (self.tkey_hdr.total_size - self.tkey_hdr.key_len as u32) as usize];
         let key_start = self.tkey_hdr.seek_key;
         let payload_offset = SeekFrom::Current(i64::from(self.tkey_hdr.key_len));
 
@@ -66,27 +72,25 @@ impl FileItem {
         };
         let s = buf.as_slice();
         let k_map_offset = 2;
-        let context =
-            Context{
-                path: self.file_path.to_owned(),
-                offset: (self.tkey_hdr.key_len + k_map_offset) as u64,
-                s
-            };
+        let context = Context {
+            path: self.file_path.to_owned(),
+            offset: (self.tkey_hdr.key_len + k_map_offset) as u64,
+            s,
+        };
         // wrap parser in a byte count
         let res = length_value!(s, checked_byte_count, apply!(&parser, &context));
         match res {
             IResult::Done(_, obj) => Ok(obj),
-            _ => Err(format_err!("Supplied parser failed!"))
+            _ => Err(format_err!("Supplied parser failed!")),
         }
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use std::path::{PathBuf};
     use core::RootFile;
-    
+    use std::path::PathBuf;
+
     #[test]
     fn open_simple() {
         let path = PathBuf::from("./src/test_data/simple.root");

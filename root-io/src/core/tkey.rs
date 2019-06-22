@@ -1,6 +1,6 @@
-use std::io::{SeekFrom};
+use core::*;
 use nom::*;
-use ::core::*;
+use std::io::SeekFrom;
 
 #[derive(Debug, Clone)]
 pub struct TKeyHeader {
@@ -66,7 +66,6 @@ named_args!(
         SeekFrom::Start
     )
 );
-
 
 named!(
     #[doc="Parse a full TKey including its payload"],

@@ -8,8 +8,8 @@ extern crate root_io;
 use std::sync::mpsc;
 use std::thread::spawn;
 
-use malice::DatasetIntoIter as DsIntoIter;
 use malice::default_event_filter;
+use malice::DatasetIntoIter as DsIntoIter;
 use root_io::RootFile;
 
 mod distribution;
@@ -36,13 +36,17 @@ fn main() {
                 Ok(s) => s,
                 Err(err) => panic!("An error occured! Message: {}", err),
             })
-            .for_each(|ev| { tx.send(ev).unwrap(); })
+            .for_each(|ev| {
+                tx.send(ev).unwrap();
+            })
     });
-    
+
     let analysis: SimpleAnalysis = rx
         .into_iter()
         .filter(default_event_filter)
-        .fold(SimpleAnalysis::new(), |analysis, ev| { analysis.process_event(&ev) });
+        .fold(SimpleAnalysis::new(), |analysis, ev| {
+            analysis.process_event(&ev)
+        });
     analysis.write_to_disc().unwrap();
     analysis.compute_centrality_edges();
     analysis.visualize();

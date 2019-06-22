@@ -1,10 +1,9 @@
-use quote::*;
 use nom::*;
+use quote::*;
 
-use ::core::*;
-use ::code_gen::utils::{sanitize, alias_or_lifetime, type_is_core};
-use ::code_gen::rust::{ToRustType, ToRustParser};
-
+use code_gen::rust::{ToRustParser, ToRustType};
+use code_gen::utils::{alias_or_lifetime, sanitize, type_is_core};
+use core::*;
 
 /// Union of all posible `TStreamers`. See figure at
 /// <https://root.cern.ch/doc/master/classTStreamerElement.html>
@@ -14,26 +13,28 @@ pub(crate) enum TStreamer {
     Base {
         el: TStreamerElement,
         /// version number of the base class
-        version_base: i32
+        version_base: i32,
     },
-    BasicType {el: TStreamerElement},
+    BasicType {
+        el: TStreamerElement,
+    },
     BasicPointer {
         el: TStreamerElement,
         /// version number of the class with the counter
-	cvers: i32,
+        cvers: i32,
         /// name of data member holding the array count
-	cname: String,
+        cname: String,
         /// name of the class with the counter
-	ccls:  String,
+        ccls: String,
     },
     Loop {
         el: TStreamerElement,
         /// version number of the class with the counter
-	cvers: i32,
+        cvers: i32,
         /// name of data member holding the array count
-	cname: String,
+        cname: String,
         /// name of the class with the counter
-	ccls:  String,
+        ccls: String,
     },
     Object {
         el: TStreamerElement,
@@ -53,19 +54,18 @@ pub(crate) enum TStreamer {
     Stl {
         el: TStreamerElement,
         /// type of STL vector
-	vtype: StlTypeID,
+        vtype: StlTypeID,
         /// STL contained type
-	ctype: TypeID,
+        ctype: TypeID,
     },
     StlString {
         el: TStreamerElement,
         /// type of STL vector
-	vtype: StlTypeID,
+        vtype: StlTypeID,
         /// STL contained type
-	ctype: TypeID,
-    }
+        ctype: TypeID,
+    },
 }
-
 
 /// Every `TStreamer` inherits from `TStreamerElement`
 #[derive(Debug)]
@@ -84,11 +84,9 @@ pub(crate) struct TStreamerElement {
     // pub(crate) factor: f32,
 }
 
-
 /// Parse a `TStreamer` from a `Raw` buffer. This is usually the case
 /// after reading the `TList` of `TStreamerInfo`s from a ROOT file
-pub(crate) fn tstreamer<'c>(raw: &Raw<'c>) -> IResult<&'c[u8], TStreamer>
-{
+pub(crate) fn tstreamer<'c>(raw: &Raw<'c>) -> IResult<&'c [u8], TStreamer> {
     let wrapped_tstreamerelem = |i| length_value!(i, checked_byte_count, tstreamerelement);
     match raw.classinfo.as_str() {
         "TStreamerBase" => do_parse!(raw.obj,
@@ -152,8 +150,6 @@ pub(crate) fn tstreamer<'c>(raw: &Raw<'c>) -> IResult<&'c[u8], TStreamer>
     }
 }
 
-
-
 named!(
     #[doc="The element which is wrapped in a TStreamer."],
     tstreamerelement<&[u8], TStreamerElement>,
@@ -180,15 +176,22 @@ named!(
     )
 );
 
-
 impl TStreamer {
     pub(crate) fn elem(&self) -> &TStreamerElement {
         use self::TStreamer::*;
         // TODO: Move element out of the enum
         match self {
-            Base{ref el, ..} | BasicType{ref el} | BasicPointer{ref el, ..} | Loop{ref el, ..}
-            | Object{ref el} | ObjectPointer{ref el} | ObjectAny{ref el} | ObjectAnyPointer{ref el}
-            | String{ref el} | Stl{ref el, ..} | StlString{ref el, ..} => el,
+            Base { ref el, .. }
+            | BasicType { ref el }
+            | BasicPointer { ref el, .. }
+            | Loop { ref el, .. }
+            | Object { ref el }
+            | ObjectPointer { ref el }
+            | ObjectAny { ref el }
+            | ObjectAnyPointer { ref el }
+            | String { ref el }
+            | Stl { ref el, .. }
+            | StlString { ref el, .. } => el,
         }
     }
 
@@ -222,71 +225,67 @@ impl ToRustType for TStreamer {
         use self::TypeID::*;
         let name = Ident::new(alias_or_lifetime(&self.elem().name.name.to_owned()));
         match self {
-            TStreamer::Base {ref el, ..} => {
+            TStreamer::Base { ref el, .. } => {
                 match el.el_type {
-                    Object | Base | Named | TObject => quote!{#name},
+                    Object | Base | Named | TObject => quote! {#name},
                     // Not sure about the following branch...
-                    InvalidOrCounter(-1) => quote!{#name},
+                    InvalidOrCounter(-1) => quote! {#name},
                     _ => panic!("{:#?}", self),
                 }
-            },
-            TStreamer::BasicType {ref el} => {
-                match el.el_type {
-                    Primitive(ref id) => id.type_name(),
-                    Offset(ref id) => {
-                        let s = Ident::new(format!("[{}; {}]", id.type_name().to_string(), el.array_len));
-                        quote!{#s}
-                    },
-                    _ => panic!("{:#?}", self),
+            }
+            TStreamer::BasicType { ref el } => match el.el_type {
+                Primitive(ref id) => id.type_name(),
+                Offset(ref id) => {
+                    let s = Ident::new(format!(
+                        "[{}; {}]",
+                        id.type_name().to_string(),
+                        el.array_len
+                    ));
+                    quote! {#s}
                 }
+                _ => panic!("{:#?}", self),
             },
-            TStreamer::BasicPointer {ref el, ..} => {
+            TStreamer::BasicPointer { ref el, .. } => {
                 match el.el_type {
                     Array(ref id) => {
                         // Arrays are preceeded by a byte and then have a length given by a
                         // previous member
                         let s = Ident::new(format!("Vec<{}>", id.type_name().to_string()));
-                        quote!{#s}
-                    },
+                        quote! {#s}
+                    }
                     _ => panic!("{:#?}", self),
                 }
+            }
+            TStreamer::Object { ref el } => match el.el_type {
+                Object => quote! {#name},
+                _ => panic!("{:#?}", self),
             },
-            TStreamer::Object {ref el} => {
-                match el.el_type {
-                    Object => quote!{#name},
-                    _ => panic!("{:#?}", self),
-                }
-            },
-            TStreamer::ObjectPointer {ref el} => {
+            TStreamer::ObjectPointer { ref el } => {
                 match el.el_type {
                     // Pointers may be null!
-                    ObjectP => quote!{Option<#name>},
+                    ObjectP => quote! {Option<#name>},
                     _ => panic!("{:#?}", self),
                 }
-            },
-            TStreamer::ObjectAny {ref el} | &TStreamer::ObjectAnyPointer {ref el} => {
+            }
+            TStreamer::ObjectAny { ref el } | &TStreamer::ObjectAnyPointer { ref el } => {
                 match el.el_type {
-                    Any => quote!{#name},
-                    AnyP => quote!{#name},
+                    Any => quote! {#name},
+                    AnyP => quote! {#name},
                     // No idea what this is; probably an array of custom type? Found in AliESDs
-                    Unknown(82) => quote!{Vec<u8>},
+                    Unknown(82) => quote! {Vec<u8>},
                     _ => panic!("{:#?}", self),
                 }
+            }
+            TStreamer::String { ref el } => match el.el_type {
+                String => quote! {String},
+                _ => panic!("{:#?}", self),
             },
-            TStreamer::String {ref el} => {
-                match el.el_type {
-                    String => quote!{String},
-                    _ => panic!("{:#?}", self),
+            TStreamer::Stl { ref vtype, .. } => match vtype {
+                StlTypeID::Vector => {
+                    quote! {Stl_vec}
                 }
-            },
-            TStreamer::Stl {ref vtype, ..} => {
-                match vtype {
-                    StlTypeID::Vector => {
-                        quote!{Stl_vec}
-                    },
-                    StlTypeID::Bitset => {
-                        quote!{Stl_bitset}
-                    }
+                StlTypeID::Bitset => {
+                    quote! {Stl_bitset}
                 }
             },
             _ => panic!("{:#?}", self),
@@ -300,93 +299,86 @@ impl ToRustParser for TStreamer {
         let name = match self {
             //  `Base` types, i.e. types from which the current object inherited;
             // In that case the name is actually the type
-            TStreamer::Base{..} => &self.elem().name.name,
+            TStreamer::Base { .. } => &self.elem().name.name,
             _ => &self.elem().type_name,
         };
         // Most core-types do not need the context, but some do
-        let name =
-            if type_is_core(name.as_str()) && name != "TObjArray" {
-                name.to_lowercase()
-            } else {
-                format!("apply!({}, &context)", name.to_lowercase())
-            };
-        
+        let name = if type_is_core(name.as_str()) && name != "TObjArray" {
+            name.to_lowercase()
+        } else {
+            format!("apply!({}, &context)", name.to_lowercase())
+        };
+
         let name = Ident::new(name);
 
         match self {
-            TStreamer::Base {ref el, ..} => {
-                match el.el_type {
-                    Object | Base | Named => quote!{length_value!(checked_byte_count, #name)},
-                    TObject => quote!{#name},
-                    InvalidOrCounter(-1) => {
-                        let size = el.size;
-                        quote!{map!(take!(#size), |v| v.to_vec())}
-                    },
-                    _ => panic!("{:#?}", self),
+            TStreamer::Base { ref el, .. } => match el.el_type {
+                Object | Base | Named => quote! {length_value!(checked_byte_count, #name)},
+                TObject => quote! {#name},
+                InvalidOrCounter(-1) => {
+                    let size = el.size;
+                    quote! {map!(take!(#size), |v| v.to_vec())}
                 }
+                _ => panic!("{:#?}", self),
             },
-            TStreamer::BasicType {ref el} => {
+            TStreamer::BasicType { ref el } => {
                 match el.el_type {
                     Primitive(ref id) => id.to_inline_parser(),
                     // Offsets are floating points with a custom mantissa
                     // By default, parse as Vec<u8>
                     Offset(_) => {
                         let size = el.size;
-                        quote!{map!(take!(#size), |v| v.to_vec())}
-                    },
+                        quote! {map!(take!(#size), |v| v.to_vec())}
+                    }
                     _ => panic!("{:#?}", self),
                 }
-            },
-            TStreamer::BasicPointer {ref el, ref cname, ..} => {
+            }
+            TStreamer::BasicPointer {
+                ref el, ref cname, ..
+            } => {
                 let n_entries_array = Ident::new(cname.to_lowercase());
                 match el.el_type {
                     Array(ref id) => {
                         // Arrays are preceeded by a byte and then have a length given by a
                         // previous member
                         let b_par = id.to_inline_parser();
-                        quote!{preceded!(be_u8, count!(#b_par, #n_entries_array as usize))}
-                    },
+                        quote! {preceded!(be_u8, count!(#b_par, #n_entries_array as usize))}
+                    }
                     _ => panic!("{:#?}", self),
                 }
+            }
+            TStreamer::Object { ref el } => match el.el_type {
+                Object => quote! {length_value!(checked_byte_count, #name)},
+                _ => panic!("{:#?}", self),
             },
-            TStreamer::Object {ref el} => {
-                match el.el_type {
-                    Object => quote!{length_value!(checked_byte_count, #name)},
-                    _ => panic!("{:#?}", self),
-                }
-            },
-            TStreamer::ObjectPointer {ref el} => {
+            TStreamer::ObjectPointer { ref el } => {
                 match el.el_type {
                     // Pointers may be null!
-                    ObjectP => quote!{switch!(peek!(be_u32),
-                                      0 => map!(call!(be_u32), |_| None) |
-                                      _ => map!(call!(_curried_raw), Some))},
+                    ObjectP => quote! {switch!(peek!(be_u32),
+                    0 => map!(call!(be_u32), |_| None) |
+                    _ => map!(call!(_curried_raw), Some))},
                     _ => panic!("{:#?}", self),
                 }
-            },
-            TStreamer::ObjectAny {ref el} | &TStreamer::ObjectAnyPointer {ref el} => {
+            }
+            TStreamer::ObjectAny { ref el } | &TStreamer::ObjectAnyPointer { ref el } => {
                 match el.el_type {
-                    Any => quote!{#name},
-                    AnyP => quote!{#name},
+                    Any => quote! {#name},
+                    AnyP => quote! {#name},
                     // No idea what this is; probably an array of custom type? Found in AliESDs
-                    Unknown(82) => quote!{map!(eof!(), |o| o.to_vec())},
+                    Unknown(82) => quote! {map!(eof!(), |o| o.to_vec())},
                     _ => panic!("{:#?}", self),
                 }
+            }
+            TStreamer::String { ref el } => match el.el_type {
+                String => quote! {string},
+                _ => panic!("{:#?}", self),
             },
-            TStreamer::String {ref el} => {
-                match el.el_type {
-                    String => quote!{string},
-                    _ => panic!("{:#?}", self),
+            TStreamer::Stl { ref vtype, .. } => match vtype {
+                StlTypeID::Vector => {
+                    quote! {stl_vec}
                 }
-            },
-            TStreamer::Stl {ref vtype, ..} => {
-                match vtype {
-                    StlTypeID::Vector => {
-                        quote!{stl_vec}
-                    },
-                    StlTypeID::Bitset => {
-                        quote!{stl_bitset}
-                    }
+                StlTypeID::Bitset => {
+                    quote! {stl_bitset}
                 }
             },
             _ => panic!("{:#?}", self),

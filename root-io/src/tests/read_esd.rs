@@ -1,11 +1,11 @@
-use std::path::PathBuf;
 use failure::Error;
 use nom::*;
+use std::path::PathBuf;
 
-use tree_reader::{ColumnFixedIntoIter, ColumnVarIntoIter, Tree};
-use core::types::ClassInfo;
 use core::checked_byte_count;
-use core::parsers::{tobjarray_no_context, tnamed};
+use core::parsers::{tnamed, tobjarray_no_context};
+use core::types::ClassInfo;
+use tree_reader::{ColumnFixedIntoIter, ColumnVarIntoIter, Tree};
 use RootFile;
 
 struct SchemaIntoIter {
@@ -28,19 +28,48 @@ impl SchemaIntoIter {
         let track_counter: Vec<_> = ColumnFixedIntoIter::new(&t, "Tracks", be_u32)?.collect();
         Ok(SchemaIntoIter {
             aliesdrun_frunnumber: ColumnFixedIntoIter::new(&t, "AliESDRun.fRunNumber", be_i32)?,
-            aliesdrun_ftriggerclasses: ColumnFixedIntoIter::new(&t, "AliESDRun.fTriggerClasses", parse_trigger_classes)?,
-            aliesdheader_ftriggermask: ColumnFixedIntoIter::new(&t, "AliESDHeader.fTriggerMask", be_u64)?,
-            primaryvertex_alivertex_fposition:
-            ColumnFixedIntoIter::new(&t, "PrimaryVertex.AliVertex.fPosition[3]", |i| count_fixed!(i, f32, be_f32, 3))?,
-            primaryvertex_alivertex_fncontributors:
-            ColumnFixedIntoIter::new(&t, "PrimaryVertex.AliVertex.fNContributors", be_i32)?,
+            aliesdrun_ftriggerclasses: ColumnFixedIntoIter::new(
+                &t,
+                "AliESDRun.fTriggerClasses",
+                parse_trigger_classes,
+            )?,
+            aliesdheader_ftriggermask: ColumnFixedIntoIter::new(
+                &t,
+                "AliESDHeader.fTriggerMask",
+                be_u64,
+            )?,
+            primaryvertex_alivertex_fposition: ColumnFixedIntoIter::new(
+                &t,
+                "PrimaryVertex.AliVertex.fPosition[3]",
+                |i| count_fixed!(i, f32, be_f32, 3),
+            )?,
+            primaryvertex_alivertex_fncontributors: ColumnFixedIntoIter::new(
+                &t,
+                "PrimaryVertex.AliVertex.fNContributors",
+                be_i32,
+            )?,
             tracks_fx: ColumnVarIntoIter::new(&t, "Tracks.fX", be_f32, &track_counter)?,
-            tracks_fp: ColumnVarIntoIter::new(&t, "Tracks.fP[5]", |i| count_fixed!(i, f32, be_f32, 5), &track_counter)?,
+            tracks_fp: ColumnVarIntoIter::new(
+                &t,
+                "Tracks.fP[5]",
+                |i| count_fixed!(i, f32, be_f32, 5),
+                &track_counter,
+            )?,
             tracks_falpha: ColumnVarIntoIter::new(&t, "Tracks.fAlpha", be_f32, &track_counter)?,
             tracks_fflags: ColumnVarIntoIter::new(&t, "Tracks.fFlags", be_u64, &track_counter)?,
-            tracks_fitschi2: ColumnVarIntoIter::new(&t, "Tracks.fITSchi2", parse_its_chi2, &track_counter)?,
+            tracks_fitschi2: ColumnVarIntoIter::new(
+                &t,
+                "Tracks.fITSchi2",
+                parse_its_chi2,
+                &track_counter,
+            )?,
             tracks_fitsncls: ColumnVarIntoIter::new(&t, "Tracks.fITSncls", be_i8, &track_counter)?,
-            tracks_fitsclustermap: ColumnVarIntoIter::new(&t, "Tracks.fITSClusterMap", be_u8, &track_counter)?,
+            tracks_fitsclustermap: ColumnVarIntoIter::new(
+                &t,
+                "Tracks.fITSClusterMap",
+                be_u8,
+                &track_counter,
+            )?,
         })
     }
 }
@@ -52,7 +81,7 @@ struct Model {
     primaryvertex_alivertex_fncontributors: i32,
     aliesdrun_frunnumber: i32,
     aliesdrun_ftriggerclasses: Vec<String>,
-    aliesdheader_ftriggermask: u64, 
+    aliesdheader_ftriggermask: u64,
     tracks_fx: Vec<f32>,
     tracks_fp: Vec<[f32; 5]>,
     tracks_falpha: Vec<f32>,
@@ -69,7 +98,9 @@ impl Iterator for SchemaIntoIter {
     fn next(&mut self) -> Option<Self::Item> {
         Some(Model {
             primaryvertex_alivertex_fposition: self.primaryvertex_alivertex_fposition.next()?,
-            primaryvertex_alivertex_fncontributors: self.primaryvertex_alivertex_fncontributors.next()?,
+            primaryvertex_alivertex_fncontributors: self
+                .primaryvertex_alivertex_fncontributors
+                .next()?,
             aliesdrun_frunnumber: self.aliesdrun_frunnumber.next()?,
             aliesdrun_ftriggerclasses: self.aliesdrun_ftriggerclasses.next()?,
             aliesdheader_ftriggermask: self.aliesdheader_ftriggermask.next()?,
@@ -93,16 +124,12 @@ fn parse_trigger_classes(input: &[u8]) -> IResult<&[u8], Vec<String>> {
     let vals = length_value!(input, checked_byte_count, tobjarray_no_context);
     vals.map(|arr| {
         arr.iter()
-            .map(|&(ref ci, ref el)| {
-                match *ci {
-                    ClassInfo::References(0) => "".to_string(),
-                    _ => {
-                        match tnamed(el.as_slice()).map(|tn| tn.name) {
-                            IResult::Done(_, n) => n,
-                            _ => panic!()
-                        }
-                    }
-                }
+            .map(|&(ref ci, ref el)| match *ci {
+                ClassInfo::References(0) => "".to_string(),
+                _ => match tnamed(el.as_slice()).map(|tn| tn.name) {
+                    IResult::Done(_, n) => n,
+                    _ => panic!(),
+                },
             })
             .collect::<Vec<String>>()
     })
@@ -119,11 +146,10 @@ fn parse_its_chi2(input: &[u8]) -> IResult<&[u8], f32> {
         let mut s = exp as u32;
         // Move the exponent into the last 23 bits
         s <<= 23;
-        s |= (man as u32 & ((1<<(nbits+1))-1)) <<(23-nbits);
+        s |= (man as u32 & ((1 << (nbits + 1)) - 1)) << (23 - nbits);
         f32::from_bits(s)
     })
 }
-    
 
 #[test]
 #[ignore]
@@ -133,18 +159,24 @@ fn read_esd() {
     let t = f.items()[0].as_tree().unwrap();
     let schema_iter = match SchemaIntoIter::new(&t) {
         Ok(s) => s,
-        Err(err) => panic!("An error occured! Message: {}", err)
+        Err(err) => panic!("An error occured! Message: {}", err),
     };
 
-    println!("{:?}", schema_iter
-             .flat_map(|m| m.tracks_fitschi2.into_iter())
-             .fold(0.0, |max, chi2| if chi2 > max {chi2} else {max}));
+    println!(
+        "{:?}",
+        schema_iter
+            .flat_map(|m| m.tracks_fitschi2.into_iter())
+            .fold(0.0, |max, chi2| if chi2 > max { chi2 } else { max })
+    );
 
     let schema_iter = match SchemaIntoIter::new(&t) {
         Ok(s) => s,
-        Err(err) => panic!("An error occured! Message: {}", err)
+        Err(err) => panic!("An error occured! Message: {}", err),
     };
-    println!("{:?}", schema_iter
-             .flat_map(|m| m.tracks_fitschi2.into_iter())
-             .fold(0.0, |max, chi2| if chi2 > max {chi2} else {max}));
+    println!(
+        "{:?}",
+        schema_iter
+            .flat_map(|m| m.tracks_fitschi2.into_iter())
+            .fold(0.0, |max, chi2| if chi2 > max { chi2 } else { max })
+    );
 }

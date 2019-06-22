@@ -21,14 +21,14 @@ pub(crate) fn alias_or_lifetime(t: &str) -> String {
 }
 
 pub(crate) fn sanitize(n: &str) -> String {
-    let keywords = vec!["as", "break", "const", "continue", "crate",
-    "else", "enum", "extern", "false", "fn", "for", "if", "impl",
-    "in", "let", "loop", "match", "mod", "move", "mut", "pub", "ref",
-    "return", "Self", "self", "static", "struct", "super", "trait",
-    "true", "type", "unsafe", "use", "where", "while", "abstract",
-    "alignof", "become", "box", "do", "final", "macro", "offsetof",
-    "override", "priv", "proc", "pure", "sizeof", "typeof", "unsized",
-    "virtual", "yield"];
+    let keywords = vec![
+        "as", "break", "const", "continue", "crate", "else", "enum", "extern", "false", "fn",
+        "for", "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub", "ref",
+        "return", "Self", "self", "static", "struct", "super", "trait", "true", "type", "unsafe",
+        "use", "where", "while", "abstract", "alignof", "become", "box", "do", "final", "macro",
+        "offsetof", "override", "priv", "proc", "pure", "sizeof", "typeof", "unsized", "virtual",
+        "yield",
+    ];
     if keywords.into_iter().any(|w| w == n) {
         format!("{}_", n)
     } else {

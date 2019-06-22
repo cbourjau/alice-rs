@@ -55,13 +55,13 @@ pub struct TList<'a> {
     pub(crate) tobj: TObject,
     pub(crate) name: String,
     pub(crate) len: usize,
-    pub(crate) objs: Vec<Raw<'a>>
+    pub(crate) objs: Vec<Raw<'a>>,
 }
 
 /// A type holding nothing but the original data and a class info object
 pub struct Raw<'s> {
     pub(crate) classinfo: String,
-    pub(crate) obj: &'s[u8]
+    pub(crate) obj: &'s [u8],
 }
 
 /// The context from which we are currently parsing
@@ -73,8 +73,8 @@ pub struct Context<'s> {
     /// positions in the buffer point (e.g. for class defs)
     /// Usually something like TKey-length + 4
     pub offset: u64,
-    /// The full buffer we are working on 
-    pub s: &'s[u8],
+    /// The full buffer we are working on
+    pub s: &'s [u8],
 }
 
 impl<'s> fmt::Debug for Raw<'s> {

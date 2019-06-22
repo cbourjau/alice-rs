@@ -1,8 +1,8 @@
-use std::fs::File;
-use std::io::{BufReader, Seek, SeekFrom, Read};
-use std::path::PathBuf;
 use failure::Error;
 use nom::*;
+use std::fs::File;
+use std::io::{BufReader, Read, Seek, SeekFrom};
+use std::path::PathBuf;
 
 use core::*;
 
@@ -18,11 +18,9 @@ impl Container {
     /// Return the number of entries and the data; reading it from disk if necessary
     pub(crate) fn raw_data(self) -> Result<(u32, Vec<u8>), Error> {
         match self {
-            Container::InMemory(buf) => {
-                match tbasket2vec(buf.as_slice()) {
-                    IResult::Done(_, v) => Ok(v),
-                    _ => Err(format_err!("tbasket2vec parser failed"))
-                }
+            Container::InMemory(buf) => match tbasket2vec(buf.as_slice()) {
+                IResult::Done(_, v) => Ok(v),
+                _ => Err(format_err!("tbasket2vec parser failed")),
             },
             Container::OnDisk(p, seek, len) => {
                 let f = File::open(&p)?;
@@ -33,7 +31,7 @@ impl Container {
                 // println!("{:#?}", tbasket(buf.as_slice(), be_u32).unwrap().1);
                 match tbasket2vec(buf.as_slice()) {
                     IResult::Done(_, v) => Ok(v),
-                    _ => Err(format_err!("tbasket2vec parser failed"))
+                    _ => Err(format_err!("tbasket2vec parser failed")),
                 }
             }
         }

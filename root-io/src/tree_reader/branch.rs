@@ -1,14 +1,14 @@
+use nom::*;
 use std::io::SeekFrom;
 use std::path::PathBuf;
-use nom::*;
 
+use code_gen::rust::ToRustType;
 use core::parsers::*;
 use core::types::*;
-use code_gen::rust::ToRustType;
 
 use tree_reader::container::Container;
-use tree_reader::leafs::TLeaf;
 use tree_reader::leafs::tleaf;
+use tree_reader::leafs::TLeaf;
 
 /// A `TBranch` describes one "Column" of a `TTree`
 /// Even though this class is described in the `TStreamerInfo` of a ROOT
@@ -19,42 +19,40 @@ pub struct TBranch {
     /// The name of this object
     pub name: String,
     /// Compression level and algorithm
-     fcompress: i32,
+    fcompress: i32,
     /// Initial Size of  Basket Buffer
-     fbasketsize: i32,
+    fbasketsize: i32,
     /// Initial Length of fEntryOffset table in the basket buffers
-     fentryoffsetlen: i32,
+    fentryoffsetlen: i32,
     /// Last basket number written
-     fwritebasket: i32,
+    fwritebasket: i32,
     /// Current entry number (last one filled in this branch)
-     fentrynumber: i64,
+    fentrynumber: i64,
     /// Offset of this branch
-     foffset: i32,
+    foffset: i32,
     /// Branch split level
-     fsplitlevel: i32,
+    fsplitlevel: i32,
     /// Number of entries
-     fentries: i64,
+    fentries: i64,
     /// Number of the first entry in this branch
-     ffirstentry: i64,
+    ffirstentry: i64,
     /// Total number of bytes in all leaves before compression
-     ftotbytes: i64,
+    ftotbytes: i64,
     /// Total number of bytes in all leaves after compression
-     fzipbytes: i64,
+    fzipbytes: i64,
     /// -> List of Branches of this branch
-     fbranches: Vec<TBranch>,
+    fbranches: Vec<TBranch>,
     /// -> List of leaves of this branch (TODO: Parse to TLeafC/I/F..)
-     fleaves: Vec<TLeaf>,
+    fleaves: Vec<TLeaf>,
     /// Table of first entry in each basket
-     fbasketentry: Vec<i64>,
-     containers: Vec<Container>
+    fbasketentry: Vec<i64>,
+    containers: Vec<Container>,
 }
 
 impl TBranch {
     /// Return the endpoints of all sub-branches of this branch
     pub fn branches(&self) -> Vec<&TBranch> {
-        let out: Vec<_> = self.fbranches.iter()
-            .flat_map(|b| b.branches())
-            .collect();
+        let out: Vec<_> = self.fbranches.iter().flat_map(|b| b.branches()).collect();
         if out.is_empty() {
             vec![self]
         } else {
@@ -75,7 +73,8 @@ impl TBranch {
     /// The type(s) of the elements in this branch For some reason,
     /// there may be situations where a branch has several leaves and thus types.
     pub fn element_types(&self) -> Vec<String> {
-        self.fleaves.iter()
+        self.fleaves
+            .iter()
             .map(|l| l.type_name().to_string())
             .collect()
     }
@@ -83,7 +82,8 @@ impl TBranch {
     /// Number of events in each basket. This might be important to know when parsing basket for variale length objects
     pub(crate) fn n_events_per_basket(&self) -> Vec<usize> {
         // basketentry is index of first element in each basket, e.g. [0, 2, 4]
-        self.fbasketentry.iter()
+        self.fbasketentry
+            .iter()
             // the last event index is not in fbasketentry
             .chain([self.fentries].iter())
             .collect::<Vec<_>>()

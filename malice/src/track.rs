@@ -45,9 +45,9 @@ bitflags! {
         const MULT_IN_V0 = 0x2_000_000;
         const MULT_SEC = 0x4_000_000;
         const EMBEDDED = 0x8_000_000;
-        const ITS_PURE_SA = 0x10_000_000; 
-        const TRDS_TOP = 0x20_000_000; 
-        const ESD_PID = 0x40_000_000; 
+        const ITS_PURE_SA = 0x10_000_000;
+        const TRDS_TOP = 0x20_000_000;
+        const ESD_PID = 0x40_000_000;
         const TIME = 0x80_000_000;
     }
 }
@@ -63,7 +63,6 @@ pub struct Track {
     pub its_clustermap: ItsClusters,
     pub(crate) tpc_chi2: f32,
     pub tpc_ncls: u16,
-    
 }
 
 /// An obscure set of parameters which makes sense for the actual
@@ -100,7 +99,7 @@ impl Track {
     /// Direction of a track in pseudorapidity `eta`
     pub fn eta(&self) -> f32 {
         -((0.5 * self.theta()).tan()).ln()
-    }    
+    }
 
     /// Azimuthal direction of the `Track`
     pub fn phi(&self) -> f32 {
@@ -117,7 +116,7 @@ impl Track {
     pub fn pt(&self) -> f32 {
         1.0 / self.parameters.one_over_pt.abs()
     }
-    
+
     /// Estimate the distance of closest approach of this track to a given point
     /// neglecting the track curvature. This returns the closest approach in the xy plane
     pub fn dca_to_point_xy(&self, x: f32, y: f32) -> f32 {

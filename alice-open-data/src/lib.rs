@@ -4,14 +4,13 @@ extern crate dirs;
 extern crate glob;
 extern crate reqwest;
 
-use std::io::{Read};
-use std::path::PathBuf;
-use std::fs::{DirBuilder, File};
-use std::io::copy;
 use failure::Error;
 use reqwest::Certificate;
 use reqwest::Url;
-
+use std::fs::{DirBuilder, File};
+use std::io::copy;
+use std::io::Read;
+use std::path::PathBuf;
 
 /// Download the given file to the local collection
 pub fn download(base_dir: PathBuf, url: Url) -> Result<u64, Error> {
@@ -32,7 +31,6 @@ pub fn download(base_dir: PathBuf, url: Url) -> Result<u64, Error> {
     let mut f = File::create(dest)?;
     Ok(copy(&mut resp, &mut f)?)
 }
-
 
 /// Base path to the local ALICE open data directory
 pub fn data_dir() -> Result<PathBuf, Error> {
@@ -61,24 +59,24 @@ pub fn all_files_10h() -> Result<Vec<PathBuf>, Error> {
 }
 
 pub fn get_file_list(run: u32) -> Result<Vec<Url>, Error> {
-    let uri =
-        "http://opendata.cern.ch/record/".to_owned() +
-        match run {
+    let uri = "http://opendata.cern.ch/record/".to_owned()
+        + match run {
             139_038 => "1102/files/ALICE_LHC10h_PbPb_ESD_139038_file_index.txt",
             139_173 => "1103/files/ALICE_LHC10h_PbPb_ESD_139173_file_index.txt",
             139_437 => "1104/files/ALICE_LHC10h_PbPb_ESD_139437_file_index.txt",
             139_438 => "1105/files/ALICE_LHC10h_PbPb_ESD_139438_file_index.txt",
             139_465 => "1106/files/ALICE_LHC10h_PbPb_ESD_139465_file_index.txt",
-            _ => return Err(format_err!("Invalid run number"))
+            _ => return Err(format_err!("Invalid run number")),
         };
     let mut resp = reqwest::get(uri.as_str())?;
     if resp.status().is_success() {
         let mut content = String::new();
         resp.read_to_string(&mut content)?;
-        Ok(content.lines()
-           .map(|l| format!("http://eospublichttp.cern.ch/{}", &l[26..]))
-           .map(|l| l.parse::<Url>().expect("Invalid file URI"))
-           .collect())
+        Ok(content
+            .lines()
+            .map(|l| format!("http://eospublichttp.cern.ch/{}", &l[26..]))
+            .map(|l| l.parse::<Url>().expect("Invalid file URI"))
+            .collect())
     } else {
         Err(format_err!("Could not download list of files"))
     }
@@ -88,22 +86,17 @@ fn download_with_https(uri: Url) -> Result<reqwest::Response, Error> {
     let client = reqwest::Client::builder()
         .add_root_certificate(Certificate::from_pem(ROOT).unwrap())
         .add_root_certificate(Certificate::from_pem(GRID).unwrap())
-        .build().unwrap();
+        .build()
+        .unwrap();
     Ok(client.get(uri).send()?)
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{fs, env};
+    use std::{env, fs};
     #[test]
     fn test_get_file_lists() {
-        let runs = [
-            139_038,
-            139_173,
-            139_437,
-            139_438,
-            139_465,
-        ];
+        let runs = [139_038, 139_173, 139_437, 139_438, 139_465];
         for run in runs.iter() {
             println!("Testing run {}", run);
             super::get_file_list(*run).unwrap();
@@ -129,7 +122,10 @@ mod tests {
         }
         let base_dir = env::temp_dir();
         // Download if file does not exist
-        assert_eq!(super::download(base_dir.clone(), uri.clone()).unwrap(), 14283265);
+        assert_eq!(
+            super::download(base_dir.clone(), uri.clone()).unwrap(),
+            14283265
+        );
         // Don't download twice
         assert_eq!(super::download(base_dir.clone(), uri.clone()).unwrap(), 0);
     }

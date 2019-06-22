@@ -1,15 +1,15 @@
-/// Measure a bunch of simple distribtions.
-///  - Single particle distribution in eta and phi
-///  - Distribution of events' primary vertices along the nominal
-///    interaction point along beam axis
-
+//! Measure a bunch of simple distribtions.
+//!  - Single particle distribution in eta and phi
+//!  - Distribution of events' primary vertices along the nominal
+//!    interaction point along beam axis
 use std::f64::consts::PI;
-use gnuplot::{Figure, AxesCommon, PlotOption, Tick, AutoOption};
-use malice::Event;
-use malice::default_track_filter;
+
 use failure::Error;
+use gnuplot::{AutoOption, AxesCommon, Figure, PlotOption, Tick};
 
 use histogram::*;
+use malice::default_track_filter;
+use malice::Event;
 
 pub struct SimpleAnalysis {
     pub single_particles: Histogram<f32, [usize; 3]>,
@@ -38,27 +38,26 @@ impl SimpleAnalysis {
             multiplicity: HistogramBuilder::<[usize; 1]>::new()
                 .add_equal_width_axis(nmult, 0.0, nmult as f64)
                 .build()
-                .expect("Error building histogram"),            
+                .expect("Error building histogram"),
         }
     }
 }
 
-
 impl SimpleAnalysis {
-    pub fn process_event(mut self, event: &Event) -> Self
-    {
+    pub fn process_event(mut self, event: &Event) -> Self {
         // Fill only if we have a valid primary vertex
         if let Some(prime_vtx) = event.primary_vertex() {
-            self.single_particles
-                .extend(
-                    event.tracks()
-                        .filter(|tr| default_track_filter(&tr, &prime_vtx))
-                        .map(|tr| [tr.eta() as f64, tr.phi() as f64, prime_vtx.z as f64]));
+            self.single_particles.extend(
+                event
+                    .tracks()
+                    .filter(|tr| default_track_filter(&tr, &prime_vtx))
+                    .map(|tr| [tr.eta() as f64, tr.phi() as f64, prime_vtx.z as f64]),
+            );
             self.z_vertex.fill(&[prime_vtx.z as f64]);
             self.multiplicity.fill(&[event
-                                     .tracks()
-                                     .filter(|tr| default_track_filter(&tr, &prime_vtx))
-                                     .count() as f64]);
+                .tracks()
+                .filter(|tr| default_track_filter(&tr, &prime_vtx))
+                .count() as f64]);
         };
         self
     }
@@ -66,13 +65,12 @@ impl SimpleAnalysis {
         self.single_particles.dump_to_file("hybrid")?;
         self.z_vertex.dump_to_file("z_pos")?;
         Ok(())
-    }    
+    }
 }
 
 impl SimpleAnalysis {
     /// Visualized the data using gnuplot-rs
     pub fn visualize(&self) {
-        use std::f64::consts::PI;
         let mut fg = Figure::new();
         let eta_bin_width = self.single_particles.widths(0)[0] as f32;
         let plot_options = [PlotOption::Color("#d95f02"), PlotOption::FillAlpha(0.8)];
@@ -81,24 +79,29 @@ impl SimpleAnalysis {
             .set_title("η track distribution", &[])
             .set_x_label("η", &[])
             .set_y_label("⟨dN_{ch} / dη ⟩_{event}", &[])
-            .boxes(&self.single_particles.centers(0),
-                   // Sum over phi and z
-                   (&self.single_particles
+            .boxes(
+                &self.single_particles.centers(0),
+                // Sum over phi and z
+                (&self
+                    .single_particles
                     .counts
                     .sum_axis(Axis(1))
                     .sum_axis(Axis(1))
                     / self.z_vertex.counts.scalar_sum() as f32
-                    / eta_bin_width
-                   ).view(), 
-                   &plot_options);
+                    / eta_bin_width)
+                    .view(),
+                &plot_options,
+            );
 
         let phi_bin_width = self.single_particles.widths(1)[0] as f32;
-        let x_ticks = vec![Tick::Major(0.0, AutoOption::Fix("0".to_owned())),
-                           Tick::Major(0.5 * PI, AutoOption::Fix("0.5 π".to_owned())),
-                           Tick::Major(PI, AutoOption::Fix("π".to_owned())),
-                           Tick::Major(1.5 * PI, AutoOption::Fix("1.5π".to_owned())),
-                           Tick::Major(2.0 * PI, AutoOption::Fix("2π".to_owned()))];
-                           
+        let x_ticks = vec![
+            Tick::Major(0.0, AutoOption::Fix("0".to_owned())),
+            Tick::Major(0.5 * PI, AutoOption::Fix("0.5 π".to_owned())),
+            Tick::Major(PI, AutoOption::Fix("π".to_owned())),
+            Tick::Major(1.5 * PI, AutoOption::Fix("1.5π".to_owned())),
+            Tick::Major(2.0 * PI, AutoOption::Fix("2π".to_owned())),
+        ];
+
         fg.axes2d()
             .set_pos_grid(2, 2, 1)
             .set_title("φ track distribution", &[])
@@ -106,25 +109,30 @@ impl SimpleAnalysis {
             .set_y_label("⟨dN_{ch} / dφ ⟩_{event}", &[])
             .set_x_range(AutoOption::Fix(0.0), AutoOption::Fix(2.0 * PI))
             .set_x_ticks_custom(x_ticks, &[], &[])
-            .boxes(&self.single_particles.centers(1),
-                   // Sum over eta and z
-                   (&self.single_particles
+            .boxes(
+                &self.single_particles.centers(1),
+                // Sum over eta and z
+                (&self
+                    .single_particles
                     .counts
                     .sum_axis(Axis(2))
                     .sum_axis(Axis(0))
                     / self.z_vertex.counts.scalar_sum() as f32
-                    / phi_bin_width
-                   ).view(), 
-                   &plot_options);
+                    / phi_bin_width)
+                    .view(),
+                &plot_options,
+            );
 
         fg.axes2d()
             .set_pos_grid(2, 2, 2)
             .set_title("Primary vertex position", &[])
             .set_x_label("z [cm]", &[])
             .set_y_label("# events", &[])
-            .boxes(&self.z_vertex.centers(0),
-                   &self.z_vertex.counts,
-                   &plot_options);
+            .boxes(
+                &self.z_vertex.centers(0),
+                &self.z_vertex.counts,
+                &plot_options,
+            );
 
         fg.axes2d()
             .set_pos_grid(2, 2, 3)
@@ -133,16 +141,19 @@ impl SimpleAnalysis {
             .set_y_label("# events", &[])
             // .set_x_log(Some(10.0))
             .set_y_log(Some(10.0))
-            .boxes(&self.multiplicity.centers(0),
-                   &self.multiplicity.counts,
-                   &plot_options);
+            .boxes(
+                &self.multiplicity.centers(0),
+                &self.multiplicity.counts,
+                &plot_options,
+            );
         fg.show();
-
     }
     /// Compute the centrality edges based on the N_ch/Event distribution
     pub fn compute_centrality_edges(&self) {
         let tot = self.multiplicity.counts.scalar_sum();
-        let cum: Vec<_> = self.multiplicity.counts
+        let cum: Vec<_> = self
+            .multiplicity
+            .counts
             .iter()
             .scan(0.0, |state, el| {
                 *state += el;

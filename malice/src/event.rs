@@ -1,8 +1,8 @@
 //! Structs and `bitflags` related to a given event
 
-use std::slice::Iter;
-use track::{Track, TrackParameters, Flags, ItsClusters};
 use primary_vertex::PrimaryVertex;
+use std::slice::Iter;
+use track::{Flags, ItsClusters, Track, TrackParameters};
 
 bitflags! {
     /// Triggers are low level qualifier of an event. One event may "fire" several triggers.
@@ -21,7 +21,7 @@ pub struct Event {
     pub(crate) primaryvertex_alivertex_fncontributors: i32,
     pub(crate) aliesdrun_frunnumber: i32,
     pub(crate) aliesdrun_ftriggerclasses: Vec<String>,
-    pub(crate) aliesdheader_ftriggermask: u64, 
+    pub(crate) aliesdheader_ftriggermask: u64,
     pub(crate) tracks_fx: Vec<f32>,
     pub(crate) tracks_fp: Vec<TrackParameters>,
     pub(crate) tracks_falpha: Vec<f32>,
@@ -36,7 +36,7 @@ pub struct Event {
 /// Iterator over [`Track`](struct.Track.html)s
 pub struct TracksIter<'e> {
     pub(crate) x: Iter<'e, f32>,
-    pub(crate) p: Iter<'e, TrackParameters>,  // fn(&[f32; 5]) -> TrackParameters>,
+    pub(crate) p: Iter<'e, TrackParameters>, // fn(&[f32; 5]) -> TrackParameters>,
     pub(crate) alpha: Iter<'e, f32>,
     pub(crate) flags: Iter<'e, Flags>,
     pub(crate) its_chi2: Iter<'e, f32>,
@@ -64,13 +64,15 @@ impl Event {
         }
     }
     /// The primary vertex of this event, if it exists. Else `None`
-    pub fn primary_vertex(&self) -> Option<PrimaryVertex>{
+    pub fn primary_vertex(&self) -> Option<PrimaryVertex> {
         // 0 contributors means that there is no primar vertex
         if self.primaryvertex_alivertex_fncontributors > 0 {
-            Some(PrimaryVertex {x: self.primaryvertex_alivertex_fposition[0],
-                                y: self.primaryvertex_alivertex_fposition[1],
-                                z: self.primaryvertex_alivertex_fposition[2],
-                                n_contrib: self.primaryvertex_alivertex_fncontributors})
+            Some(PrimaryVertex {
+                x: self.primaryvertex_alivertex_fposition[0],
+                y: self.primaryvertex_alivertex_fposition[1],
+                z: self.primaryvertex_alivertex_fposition[2],
+                n_contrib: self.primaryvertex_alivertex_fncontributors,
+            })
         } else {
             None
         }
@@ -91,7 +93,7 @@ impl Event {
         (0..50) // Only 50 bits were used in the mask - YOLO!
             .map(|i| (self.aliesdheader_ftriggermask & (1 << i)) != 0)
             .zip(self.aliesdrun_ftriggerclasses.iter())
-            .filter_map(|(fired, trigger_name)| if fired { Some(trigger_name) } else {None})
+            .filter_map(|(fired, trigger_name)| if fired { Some(trigger_name) } else { None })
             .map(|name| string_to_mask(name, self.aliesdrun_frunnumber))
             .collect()
     }
@@ -100,7 +102,7 @@ impl Event {
 impl<'e> Iterator for TracksIter<'e> {
     type Item = Track;
 
-    fn next(&mut self) ->Option<Track> {
+    fn next(&mut self) -> Option<Track> {
         Some(Track {
             x: *self.x.next()?,
             parameters: *self.p.next()?,
@@ -122,13 +124,12 @@ fn string_to_mask(s: &str, run_number: i32) -> TriggerMask {
     // LHC10h
     if 136_851 <= run_number && run_number <= 139_517 {
         match s {
-            "CMBAC-B-NOPF-ALL"  |
-            "CMBS2A-B-NOPF-ALL" |
-            "CMBS2C-B-NOPF-ALL" |
-            "CMBACS2-B-NOPF-ALL"|
-            "CMBACS2-B-NOPF-ALLNOTRD" => TriggerMask::MINIMUM_BIAS,
-            "C0SMH-B-NOPF-ALL" |
-            "C0SMH-B-NOPF-ALLNOTRD" => TriggerMask::HIGH_MULT,
+            "CMBAC-B-NOPF-ALL"
+            | "CMBS2A-B-NOPF-ALL"
+            | "CMBS2C-B-NOPF-ALL"
+            | "CMBACS2-B-NOPF-ALL"
+            | "CMBACS2-B-NOPF-ALLNOTRD" => TriggerMask::MINIMUM_BIAS,
+            "C0SMH-B-NOPF-ALL" | "C0SMH-B-NOPF-ALLNOTRD" => TriggerMask::HIGH_MULT,
             _ => TriggerMask::empty(),
         }
     } else {

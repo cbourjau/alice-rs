@@ -5,20 +5,20 @@ extern crate ndarray;
 extern crate num_traits as libnum;
 extern crate serde;
 
-use ndarray as nd;
-use serde::Serialize;
 use bincode::serialize;
 use failure::Error;
+use ndarray as nd;
+use serde::Serialize;
 
 use std::cmp::Ordering;
-use std::marker::PhantomData;
-use std::ops::{Add, AddAssign};
 use std::fs::File;
 use std::io::prelude::*;
+use std::marker::PhantomData;
+use std::ops::{Add, AddAssign};
 
 // Re-export some ndarray things
-pub use nd::Dimension;
 pub use nd::Axis;
+pub use nd::Dimension;
 pub use nd::IxDyn;
 
 #[derive(Debug)]
@@ -53,15 +53,14 @@ impl<A, D> Widths for Histogram<A, D> {
 macro_rules! impl_histogram {
     ($N:expr, $($idx:expr)*) => {
         impl<A> Histogram<A, [usize; $N]>
-            where A: Copy + libnum::Zero + Add + AddAssign + libnum::One + PartialOrd
+        where
+            A: Copy + libnum::Zero + Add + AddAssign + libnum::One + PartialOrd,
         {
             /// Find the bin index containing `value` on `axis`
             /// Return None if the the value is not in range
-            pub fn find_bin_index_axis(&self, axis: usize, value: f64) -> Option<usize>{
+            pub fn find_bin_index_axis(&self, axis: usize, value: f64) -> Option<usize> {
                 let (edges1d, value) = (&self.edges[axis], value);
-                edges1d
-                    .binary_search_by(|bin| bin.cmp_with(value))
-                    .ok()
+                edges1d.binary_search_by(|bin| bin.cmp_with(value)).ok()
             }
 
             /// Find indices of bins along each axis
@@ -76,30 +75,28 @@ macro_rules! impl_histogram {
                 Some(idxs)
             }
 
-            pub fn fill(&mut self, values: &[f64; $N])
-            {
+            pub fn fill(&mut self, values: &[f64; $N]) {
                 if let Some(idxs) = self.find_bin_indices(values) {
                     self.counts[idxs.as_ref()] += A::one();
                 }
             }
-            pub fn fill_by_index<I>(&mut self, indices: [usize; $N])
-            {
+            pub fn fill_by_index<I>(&mut self, indices: [usize; $N]) {
                 self.counts[indices.as_ref()] += A::one();
             }
             pub fn fill_by_index_bulk<T>(&mut self, indices_slice: T)
-                where T: IntoIterator<Item=[usize; $N]>
+            where
+                T: IntoIterator<Item = [usize; $N]>,
             {
                 for idxs in indices_slice {
                     self.counts[idxs.as_ref()] += A::one();
                 }
             }
             pub fn fill_bulk<T>(&mut self, values: T, npairs: usize)
-                 where T: IntoIterator<Item=[f64; $N]>
+            where
+                T: IntoIterator<Item = [f64; $N]>,
             {
                 let mut indices = Vec::<[usize; $N]>::with_capacity(npairs);
-                indices.extend(values
-                               .into_iter()
-                               .filter_map(|v| self.find_bin_indices(&v)));
+                indices.extend(values.into_iter().filter_map(|v| self.find_bin_indices(&v)));
                 for idxs in indices {
                     self.counts[idxs.as_ref()] += A::one();
                 }
@@ -114,23 +111,26 @@ macro_rules! impl_histogram {
             /// The binary layout is:
             /// `(array_version: u8, ndim: u64, shape: [ndim; u64], a_size: u64, a: [a_size; A])`
             pub fn dump_to_file(&self, name: &str) -> Result<(), Error>
-            where A: Serialize,
+            where
+                A: Serialize,
             {
                 let buf = serialize(&self.counts)?;
                 let mut f = File::create(name)?;
                 f.write_all(buf.as_slice())?;
                 Ok(())
             }
-
         }
 
         impl<A> Extend<[f64; $N]> for Histogram<A, [usize; $N]>
-            where A: Copy + libnum::Num + AddAssign + PartialOrd
+        where
+            A: Copy + libnum::Num + AddAssign + PartialOrd,
         {
             fn extend<T>(&mut self, values: T)
-                where T: IntoIterator<Item=[f64; $N]>
+            where
+                T: IntoIterator<Item = [f64; $N]>,
             {
-                let indices: Vec<_> = values.into_iter()
+                let indices: Vec<_> = values
+                    .into_iter()
                     .filter_map(|v| self.find_bin_indices(&v))
                     .collect();
                 for idxs in indices {
@@ -138,7 +138,7 @@ macro_rules! impl_histogram {
                 }
             }
         }
-    }
+    };
 }
 
 impl_histogram!(1, 0);
@@ -158,8 +158,7 @@ pub struct HistogramBuilder<D> {
 
 macro_rules! impl_histogram_builder {
     ($N:expr, $($idx:expr)*) => {
-        impl HistogramBuilder<[usize; $N]>
-        {
+        impl HistogramBuilder<[usize; $N]> {
             pub fn new() -> HistogramBuilder<[usize; $N]> {
                 HistogramBuilder {
                     edges: Vec::new(),
@@ -168,9 +167,11 @@ macro_rules! impl_histogram_builder {
             }
             /// Create a new n-dimensional histogram
             pub fn build<A>(&self) -> Option<Histogram<A, [usize; $N]>>
-                where A: Clone + libnum::Num
+            where
+                A: Clone + libnum::Num,
             {
-                let edges: Vec<Vec<BinEdges>> = self.edges
+                let edges: Vec<Vec<BinEdges>> = self
+                    .edges
                     .iter()
                     .map(|edges1d| edges_to_bins(edges1d))
                     .collect();
@@ -189,22 +190,29 @@ macro_rules! impl_histogram_builder {
                     dim: PhantomData,
                 })
             }
-            pub fn add_equal_width_axis(&mut self, nbins: usize, min: f64, max: f64)
-                                        -> &mut HistogramBuilder<[usize; $N]> {
+            pub fn add_equal_width_axis(
+                &mut self,
+                nbins: usize,
+                min: f64,
+                max: f64,
+            ) -> &mut HistogramBuilder<[usize; $N]> {
                 let width = (max - min) / nbins as f64;
                 self.edges.push(
                     (0..=nbins)
                         .map(|i| min + width * i as f64)
-                        .collect::<Vec<f64>>());
+                        .collect::<Vec<f64>>(),
+                );
                 self
             }
-            pub fn add_variable_width_axis<'a>(&'a mut self, edges1d: &[f64])
-                                               -> &'a mut HistogramBuilder<[usize; $N]> {
+            pub fn add_variable_width_axis<'a>(
+                &'a mut self,
+                edges1d: &[f64],
+            ) -> &'a mut HistogramBuilder<[usize; $N]> {
                 self.edges.push(edges1d.to_vec());
                 self
             }
         }
-    }
+    };
 }
 
 impl_histogram_builder!(1, 0);
