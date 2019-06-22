@@ -9,5 +9,14 @@ rust:
 
 script:
   - cargo clean
+  - rustup component add rustfmt clippy
+  - cargo +$TRAVIS_RUST_VERSION clippy
+  - cargo +$TRAVIS_RUST_VERSION fmt --all -- alice-download/src/main.rs --check
+  - cargo +$TRAVIS_RUST_VERSION fmt --all -- alice-open-data/src/lib.rs --check
+  - cargo +$TRAVIS_RUST_VERSION fmt --all -- malice/src/lib.rs --check
+  - cargo +$TRAVIS_RUST_VERSION fmt --all -- root-ls/src/main.rs --check
+  - cargo +$TRAVIS_RUST_VERSION fmt --all -- histogram/src/lib.rs --check
+  - cargo +$TRAVIS_RUST_VERSION fmt --all -- examples/simple-analysis/src/main.rs --check
+  - cargo +$TRAVIS_RUST_VERSION fmt --all -- examples/convert_to_msgpack/src/main.rs --check
   - cargo build --verbose --all --release
   - cargo test --verbose --all --release
