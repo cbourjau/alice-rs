@@ -15,27 +15,33 @@ use root_io::RootFile;
 
 fn main() {
     let matches = App::new("Inspect root files")
-        .version("0.1.0")
-        .arg(Arg::with_name("INPUT")
-             .help("Input .root file")
-             .required(true)
-             .index(1))
+        .version(crate_version!())
+        .arg(
+            Arg::with_name("INPUT")
+                .help("Input .root file")
+                .required(true)
+                .index(1),
+        )
         .setting(AppSettings::VersionlessSubcommands)
-        .subcommand(SubCommand::with_name("inspect")
-                    .about("Dump infromartion about the objects in this file")
-                    .args_from_usage(
-                        "--item-pos=[POS] 'Limit output to item at `pos`'
-                         -v 'Verbose output'")
+        .subcommand(
+            SubCommand::with_name("inspect")
+                .about("Dump infromartion about the objects in this file")
+                .args_from_usage(
+                    "--item-pos=[POS] 'Limit output to item at `pos`'
+                         -v 'Verbose output'",
+                ),
         )
-        .subcommand(SubCommand::with_name("to-yaml")
-                    .about("Output the StreamerInfo of this file as YAML")
-                    // .arg_from_usage("<OUTPUT> 'Output is written to this file'")
+        .subcommand(
+            SubCommand::with_name("to-yaml").about("Output the StreamerInfo of this file as YAML"), // .arg_from_usage("<OUTPUT> 'Output is written to this file'")
         )
-        .subcommand(SubCommand::with_name("to-rust")
-                    .about("Generate Rust structs and parsers form the StreamerInfo")
-                    .args_from_usage(
-                        "--output=[OUTPUT] 'Output is written to this file'
-                         --rustfmt 'Format the output with `Rustfmt` (slow!)'"))
+        .subcommand(
+            SubCommand::with_name("to-rust")
+                .about("Generate Rust structs and parsers form the StreamerInfo")
+                .args_from_usage(
+                    "--output=[OUTPUT] 'Output is written to this file'
+                         --rustfmt 'Format the output with `Rustfmt` (slow!)'",
+                ),
+        )
         .get_matches();
     let in_path = PathBuf::from(matches.value_of("INPUT").unwrap());
     let f = root_io::RootFile::new_from_file(&in_path).expect("Failed to open file");
