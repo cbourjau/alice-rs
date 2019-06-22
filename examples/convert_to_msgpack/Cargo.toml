@@ -1,12 +1,13 @@
 [package]
 name = "convert_to_msgpack"
 version = "0.1.0"
-authors = ["cbourjau <christian.bourjau@cern.ch>"]
+authors = ["cbourjau <c.bourjau@posteo.de>"]
+edition = "2018"
 
 [dependencies]
-alice-open-data = "0.2.0"
-malice = "0.1.1"
+alice-open-data = "0.2.1"
+malice = "0.1.2"
 rmp-serde = "0.13.7"
-root-io = "0.1.1"
+root-io = "0.1.2"
 serde = "1.0"
 serde_derive = "1.0"
