@@ -1,16 +1,17 @@
 [package]
 name = "alice-download"
-version = "0.1.1"
-authors = ["cbourjau <christian.bourjau@cern.ch>"]
+version = "0.1.2"
+authors = ["cbourjau <c.bourjau@posteo.de>"]
 description = "CLI tool to download a given amount of the publicly released ALICE open data"
 repository = "https://github.com/cbourjau/alice-rs"
 readme = "README.md"
 keywords = ["cern", "alice", "lhc", "physics", "data"]
 categories = ["science"]
 license = "MPL-2.0"
+edition = "2018"
 
 [dependencies]
 indicatif = "^0.6.0"
 clap = "^2"
-alice-open-data = "0.2.0"
-failure = "0.1.1"
+alice-open-data = "0.2.1"
+failure = "0.1.5"

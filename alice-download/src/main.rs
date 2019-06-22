@@ -1,11 +1,6 @@
-extern crate indicatif;
-#[macro_use]
-extern crate clap;
-extern crate alice_open_data;
-extern crate failure;
-
 use alice_open_data::*;
-use clap::{App, Arg};
+use clap::{crate_version, value_t, App, Arg};
+use failure;
 use indicatif::{ProgressBar, ProgressStyle};
 
 fn main() {
@@ -20,7 +15,7 @@ fn main() {
 
 fn do_thing() -> Result<(), failure::Error> {
     let matches = App::new("alice-download")
-        .version("0.1")
+        .version(crate_version!())
         .about(
             "Download specified amount of ALICE open Pb--Pb data to ~/lhc_open_data \
              Visit `http://opendata.cern.ch/search?cc=ALICE-Reconstructed-Data` for \

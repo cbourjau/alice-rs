@@ -10,4 +10,3 @@ Do the following in order to download 5GB of ALICE's data
 	cargo install alice-download
 	alice-download 5
 ```
-
