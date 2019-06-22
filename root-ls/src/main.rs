@@ -1,16 +1,12 @@
-extern crate root_io;
-#[macro_use]
-extern crate clap;
-extern crate rustfmt;
-#[macro_use]
-extern crate failure;
+extern crate rustfmt as rustfmt_crate;
 
 use std::env;
-use std::path::PathBuf;
 use std::fs::File;
 use std::io::{Read, Write};
-use clap::{Arg, ArgMatches, App, AppSettings, SubCommand};
-use failure::Error;
+use std::path::PathBuf;
+
+use clap::{crate_version, value_t, App, AppSettings, Arg, ArgMatches, SubCommand};
+use failure::{format_err, Error};
 use root_io::RootFile;
 
 fn main() {
@@ -99,9 +95,9 @@ fn to_rust(f: &RootFile, sub_matches: &ArgMatches) -> Result<(), Error> {
         {
             let mut f = File::create(&path)?;
             f.write_all(s.as_bytes())?;
-            let config = rustfmt::config::Config::default();
-            rustfmt::config::Config::default();
-            let summary = rustfmt::run(rustfmt::Input::File(path.clone()), &config);
+            let config = rustfmt_crate::config::Config::default();
+            rustfmt_crate::config::Config::default();
+            let summary = rustfmt_crate::run(rustfmt::Input::File(path.clone()), &config);
             if !summary.has_no_errors() {
                 return Err(format_err!("Error formating source code: {:?}", summary));
             }

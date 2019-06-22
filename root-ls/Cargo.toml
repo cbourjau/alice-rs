@@ -1,6 +1,6 @@
 [package]
 name = "root-ls"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["cbourjau <christian.bourjau@cern.ch>"]
 description = "CLI tool to inspect the content and layout of `.root` files"
 repository = "https://github.com/cbourjau/alice-rs"
@@ -8,10 +8,11 @@ readme = "README.md"
 keywords = ["root", "cern", "alice", "lhc", "physics"]
 categories = ["science", "command-line-utilities"]
 license = "MPL-2.0"
+edition = "2018"
 
 
 [dependencies]
 clap = "^2"
-failure = "0.1.1"
-root-io = "0.1.1"
+failure = "0.1.5"
+root-io = "0.1.2"
 rustfmt = "0.9.0"
