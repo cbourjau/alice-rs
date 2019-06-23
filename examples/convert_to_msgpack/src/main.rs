@@ -52,7 +52,7 @@ fn main() {
 
     // Create an iterator over `malice::event::Event`s
     let events = files.iter().flat_map(|path| {
-        let events_in_file =RootFile::new_from_file(&path)
+        let events_in_file = RootFile::new_from_file(&path)
             .and_then(|rf| rf.items()[0].as_tree())
             .and_then(|tree| DsIntoIter::new(&tree));
         // Check if an error occurred. If so, we skip this file
