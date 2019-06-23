@@ -11,12 +11,12 @@ script:
   - cargo clean
   - rustup component add rustfmt clippy
   - cargo +$TRAVIS_RUST_VERSION clippy
-  - cargo +$TRAVIS_RUST_VERSION fmt --all -- alice-download/src/main.rs --check
-  - cargo +$TRAVIS_RUST_VERSION fmt --all -- alice-open-data/src/lib.rs --check
-  - cargo +$TRAVIS_RUST_VERSION fmt --all -- malice/src/lib.rs --check
-  - cargo +$TRAVIS_RUST_VERSION fmt --all -- root-ls/src/main.rs --check
-  - cargo +$TRAVIS_RUST_VERSION fmt --all -- histogram/src/lib.rs --check
-  - cargo +$TRAVIS_RUST_VERSION fmt --all -- examples/simple-analysis/src/main.rs --check
-  - cargo +$TRAVIS_RUST_VERSION fmt --all -- examples/convert_to_msgpack/src/main.rs --check
+  - cargo +$TRAVIS_RUST_VERSION fmt  -p alice-download -- --check
+  - cargo +$TRAVIS_RUST_VERSION fmt  -p alice-open-data -- --check
+  - cargo +$TRAVIS_RUST_VERSION fmt  -p malice -- --check
+  - cargo +$TRAVIS_RUST_VERSION fmt  -p root-ls -- --check
+  - cargo +$TRAVIS_RUST_VERSION fmt  -p histogram -- --check
+  - cargo +$TRAVIS_RUST_VERSION fmt  -p examples/simple-analysis -- --check
+  - cargo +$TRAVIS_RUST_VERSION fmt  -p examples/convert_to_msgpack -- --check
   - cargo build --verbose --all --release
   - cargo test --verbose --all --release
