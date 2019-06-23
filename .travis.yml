@@ -16,7 +16,7 @@ script:
   - cargo +$TRAVIS_RUST_VERSION fmt  -p malice -- --check
   - cargo +$TRAVIS_RUST_VERSION fmt  -p root-ls -- --check
   - cargo +$TRAVIS_RUST_VERSION fmt  -p histogram -- --check
-  - cargo +$TRAVIS_RUST_VERSION fmt  -p examples/simple-analysis -- --check
-  - cargo +$TRAVIS_RUST_VERSION fmt  -p examples/convert_to_msgpack -- --check
+  - cargo +$TRAVIS_RUST_VERSION fmt  -p simple-analysis -- --check
+  - cargo +$TRAVIS_RUST_VERSION fmt  -p convert_to_msgpack -- --check
   - cargo build --verbose --all --release
   - cargo test --verbose --all --release
