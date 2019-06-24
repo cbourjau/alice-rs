@@ -11,7 +11,7 @@ use root_io::tree_reader::{ColumnFixedIntoIter, ColumnVarIntoIter, Tree};
 use event::Event;
 use track::{Flags, ItsClusters, TrackParameters};
 
-/// Iterator over `Event`s stored in the underlying dataset.
+/// Struct of `Iterator`s over some of the columns (aka branches) of the `root_io::Tree`.
 pub struct DatasetIntoIter {
     aliesdrun_frunnumber: ColumnFixedIntoIter<i32>,
     aliesdrun_ftriggerclasses: ColumnFixedIntoIter<Vec<String>>,
@@ -30,9 +30,11 @@ pub struct DatasetIntoIter {
 }
 
 impl DatasetIntoIter {
-    /// Create a new `DatasetIntoIter` from the given `root_io::Tree`. The `Tree` must be a so-called "ESD" tree.
+    /// Create a new `DatasetIntoIter` from the given `root_io::Tree`. The `Tree` must be a so-called ALICE "ESD" tree.
     pub fn new(t: &Tree) -> Result<DatasetIntoIter, Error> {
         use nom::*;
+        // The following connects the ESD's TTree branches to the respective iterator fields of `DatasetIntoIter`
+        // You can use ROOT's TBrowser or this projects `root-ls` tool to explor the branches of an existing .root file.
         let track_counter: Vec<_> = ColumnFixedIntoIter::new(&t, "Tracks", be_u32)?.collect();
         Ok(DatasetIntoIter {
             aliesdrun_frunnumber: ColumnFixedIntoIter::new(&t, "AliESDRun.fRunNumber", be_i32)?,
@@ -96,6 +98,7 @@ impl Iterator for DatasetIntoIter {
     type Item = Event;
 
     fn next(&mut self) -> Option<Self::Item> {
+        // Essentially, we call `.next()` on each of the the member-iterators.
         Some(Event {
             primaryvertex_alivertex_fposition: self.primaryvertex_alivertex_fposition.next()?,
             primaryvertex_alivertex_fncontributors: self
