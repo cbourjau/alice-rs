@@ -101,3 +101,6 @@ Perhaps not surprisingly, removing so much code and indirection from the analysi
   url = "https://github.com/cbourjau/alice-rs/"
 }
 ```
+
+### Publications
+- https://journals.aps.org/prc/abstract/10.1103/PhysRevC.99.054910
