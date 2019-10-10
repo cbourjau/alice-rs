@@ -16,7 +16,7 @@ use tree_reader::tree::Tree;
 pub struct ColumnVarIntoIter<T> {
     /// Number of elements in each entry
     elems_per_entry: ::std::vec::IntoIter<u32>,
-    containers: Box<Iterator<Item = T>>,
+    containers: Box<dyn Iterator<Item = T>>,
 }
 
 impl<T> ColumnVarIntoIter<T> {

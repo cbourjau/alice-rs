@@ -102,7 +102,7 @@ impl<'s> Tree {
 }
 
 /// Parse a `Tree` from the given buffer. Usually used through `FileItem::parse_with`.
-#[allow(unused_variables)]
+#[allow(unused_variables, clippy::unnecessary_unwrap)]
 pub fn ttree<'s>(input: &'s [u8], context: &Context) -> IResult<&'s [u8], Tree> {
     let _curried_raw = |i| raw(i, context);
     let none_or_u8_buf = |i: &'s [u8]| {

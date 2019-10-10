@@ -186,7 +186,7 @@ impl RootFile {
     }
 
     /// Translate the streamer info of this file to a YAML file
-    pub fn streamer_info_as_yaml(&self, s: &mut fmt::Write) -> Result<(), Error> {
+    pub fn streamer_info_as_yaml<W: fmt::Write>(&self, s: &mut W) -> Result<(), Error> {
         for el in &self.streamers()? {
             writeln!(s, "{:#}", el.to_yaml())?;
         }
@@ -194,7 +194,7 @@ impl RootFile {
     }
 
     /// Generate Rust code from the streamer info of this file
-    pub fn streamer_info_as_rust(&self, s: &mut fmt::Write) -> Result<(), Error> {
+    pub fn streamer_info_as_rust<W: fmt::Write>(&self, s: &mut W) -> Result<(), Error> {
         // Add necessary imports at the top of the file
         writeln!(
             s,

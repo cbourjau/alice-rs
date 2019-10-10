@@ -173,7 +173,7 @@ fn decode_reader(bytes: &[u8], magic: &str) -> Result<Vec<u8>, Error> {
             let mut decoder = XzDecoder::new(&bytes[..]);
             decoder.read_to_end(&mut ret)?
         }
-        m => Err(format_err!("Unsupported compression format `{}`", m))?,
+        m => return Err(format_err!("Unsupported compression format `{}`", m)),
     };
     Ok(ret)
 }

@@ -38,7 +38,7 @@ pub(crate) enum StlTypeID {
 impl PrimitiveID {
     pub(crate) fn new(id: i32) -> Result<PrimitiveID, Error> {
         match id {
-            1...19 => Ok(PrimitiveID(id)),
+            1..=19 => Ok(PrimitiveID(id)),
             id => Err(format_err!("Invalid base type id {}", id)),
         }
     }
@@ -51,9 +51,9 @@ impl TypeID {
             // -1 may mean that this branch / leaf has no data, or that it has an elements-per-entry array...
             -1 => InvalidOrCounter(id),
             0 => Base,
-            id @ 1...19 => Primitive(PrimitiveID::new(id)?),
-            id @ 21...39 => Offset(PrimitiveID::new(id - 20)?),
-            id @ 41...59 => Array(PrimitiveID::new(id - 40)?),
+            id @ 1..=19 => Primitive(PrimitiveID::new(id)?),
+            id @ 21..=39 => Offset(PrimitiveID::new(id - 20)?),
+            id @ 41..=59 => Array(PrimitiveID::new(id - 40)?),
             61 => Object,
             62 => Any,
             64 => ObjectP,

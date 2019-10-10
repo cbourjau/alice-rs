@@ -75,8 +75,9 @@ use tree_reader::tree::Tree;
 /// }
 /// ```
 pub struct ColumnFixedIntoIter<T> {
+    // TODO: This might all be better solved using impl Iterator(?)
     /// Containers holding the data
-    containers: Box<Iterator<Item = T>>,
+    containers: Box<dyn Iterator<Item = T>>,
 }
 
 impl<T> ColumnFixedIntoIter<T> {
