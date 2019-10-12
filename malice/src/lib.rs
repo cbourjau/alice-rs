@@ -279,5 +279,4 @@ mod tests {
             .flat_map(|event| event.tracks().map(|tr| tr.its_chi2).collect::<Vec<_>>())
             .fold(0.0, |max, chi2| if chi2 > max { chi2 } else { max });
     }
-
 }
