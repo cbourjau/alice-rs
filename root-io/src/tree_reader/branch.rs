@@ -143,6 +143,48 @@ impl TBranch {
             });
         Ok(containers)
     }
+
+    /// Iterator over the data of a column (`TBranch`) with a variable
+    /// number of elements per entry.  See the file
+    /// [`read_esd.rs`](https://github.com/cbourjau/root-io/blob/master/src/tests/read_esd.rs)
+    /// in the repository for a comprehensive example
+    pub fn into_var_size_iterator<'a, T, P>(&'a self, p: P, el_counter: &[u32]) -> Result<impl Iterator<Item=Vec<T>> + 'static, Error> 
+    where
+        P: 'static + Fn(&[u8]) -> IResult<&[u8], T>,
+        T: 'static
+    {
+        let mut n_elems_per_event = el_counter.iter();
+        let n_elems_per_basket: Vec<u32> = self
+            .n_events_per_basket()
+            .into_iter()
+            .map(|nevts_this_bskt| {
+                (0..nevts_this_bskt)
+                    .map(|_i_evt_this_bskt| *n_elems_per_event.next().unwrap())
+                    .sum()
+            })
+            .collect();
+        let elements =
+            self.containers()
+            .to_owned()
+            .into_iter()
+            // Read and decompress data into a vec
+            .flat_map(|c| c.raw_data())
+            .zip(n_elems_per_basket.into_iter())
+            .flat_map(move |((n_entries_in_buf, raw_slice), n_elems)| {
+                let s: &[u8] = raw_slice.as_slice();
+                match count!(s, p, n_elems as usize) {
+                    IResult::Done(_, o) => o,
+                    _ => panic!(
+                        "Parser failed unexpectedly! {}, {}",
+                        n_entries_in_buf,
+                        s.len()
+                    ),
+                }
+            });
+
+        Ok(VarChunkIter::new(el_counter.to_owned().into_iter(), elements))
+    }
+    
 }
 
 
@@ -235,3 +277,38 @@ fn tbranch<'s>(input: &'s [u8], context: & Context<'s>) -> IResult<&'s [u8], TBr
               }))
 }
 
+/// Iterator over chunks of variable size. Instantiated with `into_fixed_size_iterator`.
+pub struct VarChunkIter<IChunkSizes: Iterator<Item=u32>, IElems: Iterator> {
+    /// Number of elements in each chunk
+    chunk_sizes: IChunkSizes,
+    /// Inner iterators over elements. This is wanted since we don't
+    /// want to read all baskets form file immediately
+    inner: IElems,
+}
+
+impl<IChunkSizes: Iterator<Item=u32>, IElems: Iterator> VarChunkIter<IChunkSizes, IElems> {
+    fn new(chunk_sizes: IChunkSizes, elements: IElems) -> Self {
+        Self {
+            chunk_sizes,
+            inner: elements,
+        }
+    }
+}
+
+impl<IChunkSizes: Iterator<Item=u32>, IElems: Iterator> Iterator for VarChunkIter<IChunkSizes, IElems> {
+    type Item = Vec<<IElems as Iterator>::Item>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(n_elem) = self.chunk_sizes.next() {
+            let mut chunk = Vec::with_capacity(n_elem as usize);
+            for _ in 0..n_elem {
+                chunk.push(self.inner.next().expect("Inner Iterator ended"));
+            }
+            Some(chunk)
+        } else {
+            // No more elements expected; TODO check if `inner` is also
+            // depleted
+            None
+        }
+    }
+}

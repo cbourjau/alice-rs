@@ -6,12 +6,10 @@
 //! ROOT lingo).
 
 mod branch;
-mod column_var_into_iter;
 mod container;
 mod leafs;
 mod tree;
 
-pub use self::column_var_into_iter::ColumnVarIntoIter;
 pub use self::tree::{ttree, Tree};
 
 #[cfg(test)]
