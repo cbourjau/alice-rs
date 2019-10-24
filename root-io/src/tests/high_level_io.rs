@@ -66,12 +66,10 @@ fn root_file_methods() {
 }
 
 #[test]
-#[ignore]
 fn root_file_methods_esd() {
-    let paths = ["./src/test_data/AliESDs.root"]
-        .into_iter()
-        .map(|p| PathBuf::from(p));
-    for p in paths {
+    use alice_open_data;
+    let paths = [alice_open_data::test_file().unwrap()];
+    for p in &paths {
         println!("{:?}", p);
         let f = RootFile::new_from_file(&p).expect("Failed to open file");
         let mut s = String::new();

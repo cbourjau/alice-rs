@@ -21,3 +21,6 @@ failure = "0.1.5"
 [dependencies.nom]
 version = "^3"
 #features = ["nightly", "verbose-errors"] # For better error messages
+
+[dev-dependencies]
+alice-open-data = "0.2.1"

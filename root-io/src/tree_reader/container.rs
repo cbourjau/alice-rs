@@ -100,21 +100,23 @@ mod tests {
         println!("{:#?}", tbasket2vec(&buf));
     }
 
-    /// Test the first basket of the "Tracks.fP[5]" branch
-    #[test]
-    #[ignore]
-    fn basket_esd() {
-        let path = "./src/test_data/AliESDs.root";
-        let f = File::open(&path).unwrap();
-        let mut reader = BufReader::new(f);
-        // Go to first basket
-        reader.seek(SeekFrom::Start(77881)).unwrap();
-        // size from fbasketbytes
-        let mut buf = vec![0; 87125];
-        reader.read_exact(&mut buf).unwrap();
+    // /// Test the first basket of the "Tracks.fP[5]" branch
+    // #[test]
+    // fn basket_esd() {
+    //     // This test is broken since the numbers were hardcoded for a specific file
+    //     use alice_open_data;
+    //     let path = alice_open_data::test_file().unwrap();
 
-        println!("{:?}", tkey_header(&buf).unwrap().1);
-        // println!("{:#?}", tbasket(&buf, |i| count!(i, be_f32, 15)).unwrap().1);
-        println!("{:#?}", tbasket2vec(&buf));
-    }
+    //     let f = File::open(&path).unwrap();
+    //     let mut reader = BufReader::new(f);
+    //     // Go to first basket
+    //     reader.seek(SeekFrom::Start(77881)).unwrap();
+    //     // size from fbasketbytes
+    //     let mut buf = vec![0; 87125];
+    //     reader.read_exact(&mut buf).unwrap();
+
+    //     println!("{:?}", tkey_header(&buf).unwrap().1);
+    //     // println!("{:#?}", tbasket(&buf, |i| count!(i, be_f32, 15)).unwrap().1);
+    //     println!("{:#?}", tbasket2vec(&buf));
+    // }
 }

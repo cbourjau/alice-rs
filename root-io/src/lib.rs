@@ -26,6 +26,9 @@ extern crate failure;
 extern crate flate2;
 extern crate xz2;
 
+#[cfg(test)]
+extern crate alice_open_data;
+
 // pub mod core_types;
 mod code_gen;
 pub mod core;

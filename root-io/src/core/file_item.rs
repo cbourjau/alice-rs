@@ -102,14 +102,15 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn open_esd() {
-        let path = PathBuf::from("./src/test_data/AliESDs.root");
+        use alice_open_data;
+        let path = alice_open_data::test_file().unwrap();
+
         let f = RootFile::new_from_file(&path).expect("Failed to open file");
 
         assert_eq!(f.items().len(), 2);
         assert_eq!(f.items()[0].tkey_hdr.obj_name, "esdTree");
         assert_eq!(f.items()[1].tkey_hdr.obj_name, "HLTesdTree");
-        assert_eq!(f.streamers().unwrap().len(), 108);
+        assert_eq!(f.streamers().unwrap().len(), 87);
     }
 }

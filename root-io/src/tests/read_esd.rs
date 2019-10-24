@@ -152,22 +152,63 @@ fn parse_its_chi2(input: &[u8]) -> IResult<&[u8], f32> {
 }
 
 #[test]
-#[ignore]
 fn read_esd() {
-    let path = PathBuf::from("./src/test_data/AliESDs.root");
+    use alice_open_data;
+    let path = alice_open_data::test_file().unwrap();
+
     let f = RootFile::new_from_file(&path).expect("Failed to open file");
     let t = f.items()[0].as_tree().unwrap();
-    let schema_iter = match SchemaIntoIter::new(&t) {
-        Ok(s) => s,
-        Err(err) => panic!("An error occured! Message: {}", err),
-    };
+    let schema_iter = SchemaIntoIter::new(&t).unwrap();
+    assert_eq!(schema_iter.aliesdrun_frunnumber.count(), 4);
 
-    println!(
-        "{:?}",
-        schema_iter
-            .flat_map(|m| m.tracks_fitschi2.into_iter())
-            .fold(0.0, |max, chi2| if chi2 > max { chi2 } else { max })
+    let schema_iter = SchemaIntoIter::new(&t).unwrap();
+    assert_eq!(schema_iter.aliesdrun_frunnumber.sum::<i32>(), 556152);
+    assert_eq!(schema_iter.aliesdheader_ftriggermask.sum::<u64>(), 98);
+    assert_eq!(schema_iter.primaryvertex_alivertex_fncontributors.sum::<i32>(), 2746);
+    assert_eq!(schema_iter.tracks_fx
+               .flat_map(|i| i)
+               .sum::<f32>(), -26.986227);
+    assert_eq!(schema_iter.tracks_falpha
+               .flat_map(|i| i)
+               .sum::<f32>(), -199.63356);
+    assert_eq!(schema_iter.tracks_fflags
+               .flat_map(|i| i)
+               .sum::<u64>(), 25876766546549);
+    assert_eq!(schema_iter.tracks_fitschi2
+               .flat_map(|i| i)
+               .sum::<f32>(), 376158.6);
+    assert_eq!(schema_iter.tracks_fitsncls
+               .flat_map(|i| i)
+               // Avoid an error due to overflow
+               .map(|ncls| ncls as i64)
+               .sum::<i64>(), 24783);
+    assert_eq!(schema_iter.tracks_fitsclustermap
+               .flat_map(|i| i)
+               // Avoid an error due to overflow
+               .map(|ncls| ncls as u64)
+               .sum::<u64>(), 293099);
+    assert_eq!(schema_iter
+               .primaryvertex_alivertex_fposition
+               .fold([0.0, 0.0, 0.0], |acc, el| { [acc[0] + el[0], acc[1] + el[1], acc[2] + el[2]] }),
+               [-0.006383737, 0.3380862, 2.938151]
     );
+    assert_eq!(schema_iter
+               .tracks_fp
+               .flat_map(|i| i)
+               .fold(0.0, |acc, el| { acc + el.iter().sum::<f32>() }),
+               39584.777
+    );
+    // Just add up all the chars in the strings
+    assert_eq!(schema_iter
+               .aliesdrun_ftriggerclasses
+               .flat_map(|s| s)
+               .map(|s| {
+                   s
+                       .chars()
+                       .map(|c| c as u64).sum::<u64>()
+               })
+               .sum::<u64>(),
+               109268);
 
     let schema_iter = match SchemaIntoIter::new(&t) {
         Ok(s) => s,
