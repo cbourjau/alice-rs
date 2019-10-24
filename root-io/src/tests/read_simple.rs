@@ -19,9 +19,9 @@ struct Model {
 /// analysis in one place. This makes it much harder to get them out
 /// of sync
 struct SchemaIter {
-    one: Box<dyn Iterator<Item=i32>>,
-    two: Box<dyn Iterator<Item=f32>>,
-    three: Box<dyn Iterator<Item=String>>,
+    one: Box<dyn Iterator<Item = i32>>,
+    two: Box<dyn Iterator<Item = f32>>,
+    three: Box<dyn Iterator<Item = String>>,
 }
 
 /// Initiate a new iterator by passing it the `Tree` which contains the data
@@ -32,15 +32,12 @@ impl SchemaIter {
             // a `nom`-like parser is needed to parse the
             // data. ::core::parsers contains many more parsers for
             // common ROOT types
-            one: Box::new(t
-                          .branch_by_name("one")?
-                          .into_fixed_size_iterator(be_i32)?),
-            two: Box::new(t
-                          .branch_by_name("two")?
-                          .into_fixed_size_iterator(be_f32)?),
-            three: Box::new(t
-                            .branch_by_name("three")?
-                            .into_fixed_size_iterator(string)?),
+            one: Box::new(t.branch_by_name("one")?.into_fixed_size_iterator(be_i32)?),
+            two: Box::new(t.branch_by_name("two")?.into_fixed_size_iterator(be_f32)?),
+            three: Box::new(
+                t.branch_by_name("three")?
+                    .into_fixed_size_iterator(string)?,
+            ),
         })
     }
 }

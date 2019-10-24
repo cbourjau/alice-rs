@@ -1,5 +1,5 @@
-use nom::*;
 use failure::Error;
+use nom::*;
 use std::fmt;
 use std::ops::Deref;
 

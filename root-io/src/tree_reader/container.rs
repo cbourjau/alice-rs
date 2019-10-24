@@ -75,10 +75,10 @@ fn tbasket2vec(input: &[u8]) -> IResult<&[u8], (u32, Vec<u8>)>
 
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
-    use std::io::{BufReader, SeekFrom, Read, Seek};
-    use nom::*;
     use core::tkey_header;
+    use nom::*;
+    use std::fs::File;
+    use std::io::{BufReader, Read, Seek, SeekFrom};
 
     use super::tbasket2vec;
 

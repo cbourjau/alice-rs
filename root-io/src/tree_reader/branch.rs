@@ -1,5 +1,5 @@
-use nom::*;
 use failure::Error;
+use nom::*;
 use std::io::SeekFrom;
 use std::path::PathBuf;
 
@@ -93,7 +93,6 @@ impl TBranch {
             .collect()
     }
 
-
     /// Create an iterator over the data of a column (`TBranch`) with a
     /// constant number of element per entry (or at least not a
     /// variable number of entries which depends on an external list of
@@ -123,13 +122,16 @@ impl TBranch {
     ///     }
     /// }
     /// ```
-    pub fn into_fixed_size_iterator<'a, T, P>(&'a self, p: P) -> Result<impl Iterator<Item=T> + 'static, Error> 
+    pub fn into_fixed_size_iterator<'a, T, P>(
+        &'a self,
+        p: P,
+    ) -> Result<impl Iterator<Item = T> + 'static, Error>
     where
         P: 'static + Fn(&[u8]) -> IResult<&[u8], T>,
-        T: 'static
+        T: 'static,
     {
-        let containers =
-            self.containers()
+        let containers = self
+            .containers()
             .to_owned()
             .into_iter()
             // Read and decompress data into a vec
@@ -148,10 +150,14 @@ impl TBranch {
     /// number of elements per entry.  See the file
     /// [`read_esd.rs`](https://github.com/cbourjau/root-io/blob/master/src/tests/read_esd.rs)
     /// in the repository for a comprehensive example
-    pub fn into_var_size_iterator<'a, T, P>(&'a self, p: P, el_counter: &[u32]) -> Result<impl Iterator<Item=Vec<T>> + 'static, Error> 
+    pub fn into_var_size_iterator<'a, T, P>(
+        &'a self,
+        p: P,
+        el_counter: &[u32],
+    ) -> Result<impl Iterator<Item = Vec<T>> + 'static, Error>
     where
         P: 'static + Fn(&[u8]) -> IResult<&[u8], T>,
-        T: 'static
+        T: 'static,
     {
         let mut n_elems_per_event = el_counter.iter();
         let n_elems_per_basket: Vec<u32> = self
@@ -163,8 +169,8 @@ impl TBranch {
                     .sum()
             })
             .collect();
-        let elements =
-            self.containers()
+        let elements = self
+            .containers()
             .to_owned()
             .into_iter()
             // Read and decompress data into a vec
@@ -182,11 +188,12 @@ impl TBranch {
                 }
             });
 
-        Ok(VarChunkIter::new(el_counter.to_owned().into_iter(), elements))
+        Ok(VarChunkIter::new(
+            el_counter.to_owned().into_iter(),
+            elements,
+        ))
     }
-    
 }
-
 
 /// `TBranchElements` are a subclass of `TBranch` if the content is an Object
 /// We ignore the extra information for now and just parse the TBranch"Header" in either case

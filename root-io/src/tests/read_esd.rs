@@ -8,18 +8,18 @@ use tree_reader::Tree;
 use RootFile;
 
 struct SchemaIntoIter {
-    aliesdrun_frunnumber: Box<dyn Iterator<Item=i32>>,
-    aliesdrun_ftriggerclasses: Box<dyn Iterator<Item=Vec<String>>>,
-    aliesdheader_ftriggermask: Box<dyn Iterator<Item=u64>>,
-    primaryvertex_alivertex_fposition: Box<dyn Iterator<Item=[f32; 3]>>,
-    primaryvertex_alivertex_fncontributors: Box<dyn Iterator<Item=i32>>,
-    tracks_fx: Box<dyn Iterator<Item=Vec<f32>>>,
-    tracks_fp: Box<dyn Iterator<Item=Vec<[f32; 5]>>>,
-    tracks_falpha: Box<dyn Iterator<Item=Vec<f32>>>,
-    tracks_fflags: Box<dyn Iterator<Item=Vec<u64>>>,
-    tracks_fitschi2: Box<dyn Iterator<Item=Vec<f32>>>,
-    tracks_fitsncls: Box<dyn Iterator<Item=Vec<i8>>>,
-    tracks_fitsclustermap: Box<dyn Iterator<Item=Vec<u8>>>,
+    aliesdrun_frunnumber: Box<dyn Iterator<Item = i32>>,
+    aliesdrun_ftriggerclasses: Box<dyn Iterator<Item = Vec<String>>>,
+    aliesdheader_ftriggermask: Box<dyn Iterator<Item = u64>>,
+    primaryvertex_alivertex_fposition: Box<dyn Iterator<Item = [f32; 3]>>,
+    primaryvertex_alivertex_fncontributors: Box<dyn Iterator<Item = i32>>,
+    tracks_fx: Box<dyn Iterator<Item = Vec<f32>>>,
+    tracks_fp: Box<dyn Iterator<Item = Vec<[f32; 5]>>>,
+    tracks_falpha: Box<dyn Iterator<Item = Vec<f32>>>,
+    tracks_fflags: Box<dyn Iterator<Item = Vec<u64>>>,
+    tracks_fitschi2: Box<dyn Iterator<Item = Vec<f32>>>,
+    tracks_fitsncls: Box<dyn Iterator<Item = Vec<i8>>>,
+    tracks_fitsclustermap: Box<dyn Iterator<Item = Vec<u8>>>,
 }
 
 impl SchemaIntoIter {
@@ -31,40 +31,52 @@ impl SchemaIntoIter {
         Ok(SchemaIntoIter {
             aliesdrun_frunnumber: Box::new(
                 t.branch_by_name("AliESDRun.fRunNumber")?
-                    .into_fixed_size_iterator(be_i32)?),
+                    .into_fixed_size_iterator(be_i32)?,
+            ),
             aliesdrun_ftriggerclasses: Box::new(
                 t.branch_by_name("AliESDRun.fTriggerClasses")?
-                    .into_fixed_size_iterator(parse_trigger_classes)?),
+                    .into_fixed_size_iterator(parse_trigger_classes)?,
+            ),
             aliesdheader_ftriggermask: Box::new(
                 t.branch_by_name("AliESDHeader.fTriggerMask")?
-                    .into_fixed_size_iterator(be_u64)?),
+                    .into_fixed_size_iterator(be_u64)?,
+            ),
             primaryvertex_alivertex_fposition: Box::new(
                 t.branch_by_name("PrimaryVertex.AliVertex.fPosition[3]")?
-                    .into_fixed_size_iterator(|i| count_fixed!(i, f32, be_f32, 3))?),
+                    .into_fixed_size_iterator(|i| count_fixed!(i, f32, be_f32, 3))?,
+            ),
             primaryvertex_alivertex_fncontributors: Box::new(
                 t.branch_by_name("PrimaryVertex.AliVertex.fNContributors")?
-                    .into_fixed_size_iterator(be_i32)?),
+                    .into_fixed_size_iterator(be_i32)?,
+            ),
             tracks_fx: Box::new(
                 t.branch_by_name("Tracks.fX")?
-                    .into_var_size_iterator(be_f32, &track_counter)?),
+                    .into_var_size_iterator(be_f32, &track_counter)?,
+            ),
             tracks_fp: Box::new(
                 t.branch_by_name("Tracks.fP[5]")?
-                    .into_var_size_iterator(|i| count_fixed!(i, f32, be_f32, 5), &track_counter)?),
+                    .into_var_size_iterator(|i| count_fixed!(i, f32, be_f32, 5), &track_counter)?,
+            ),
             tracks_falpha: Box::new(
                 t.branch_by_name("Tracks.fAlpha")?
-                    .into_var_size_iterator(be_f32, &track_counter)?),
+                    .into_var_size_iterator(be_f32, &track_counter)?,
+            ),
             tracks_fflags: Box::new(
                 t.branch_by_name("Tracks.fFlags")?
-                    .into_var_size_iterator(be_u64, &track_counter)?),
+                    .into_var_size_iterator(be_u64, &track_counter)?,
+            ),
             tracks_fitschi2: Box::new(
                 t.branch_by_name("Tracks.fITSchi2")?
-                    .into_var_size_iterator(parse_its_chi2, &track_counter)?),
+                    .into_var_size_iterator(parse_its_chi2, &track_counter)?,
+            ),
             tracks_fitsncls: Box::new(
                 t.branch_by_name("Tracks.fITSncls")?
-                    .into_var_size_iterator(be_i8, &track_counter)?),
+                    .into_var_size_iterator(be_i8, &track_counter)?,
+            ),
             tracks_fitsclustermap: Box::new(
                 t.branch_by_name("Tracks.fITSClusterMap")?
-                    .into_var_size_iterator(be_u8, &track_counter)?),
+                    .into_var_size_iterator(be_u8, &track_counter)?,
+            ),
         })
     }
 }
@@ -159,51 +171,70 @@ fn read_esd() {
     let schema_iter = SchemaIntoIter::new(&t).unwrap();
     assert_eq!(schema_iter.aliesdrun_frunnumber.sum::<i32>(), 556152);
     assert_eq!(schema_iter.aliesdheader_ftriggermask.sum::<u64>(), 98);
-    assert_eq!(schema_iter.primaryvertex_alivertex_fncontributors.sum::<i32>(), 2746);
-    assert_eq!(schema_iter.tracks_fx
-               .flat_map(|i| i)
-               .sum::<f32>(), -26.986227);
-    assert_eq!(schema_iter.tracks_falpha
-               .flat_map(|i| i)
-               .sum::<f32>(), -199.63356);
-    assert_eq!(schema_iter.tracks_fflags
-               .flat_map(|i| i)
-               .sum::<u64>(), 25876766546549);
-    assert_eq!(schema_iter.tracks_fitschi2
-               .flat_map(|i| i)
-               .sum::<f32>(), 376158.6);
-    assert_eq!(schema_iter.tracks_fitsncls
-               .flat_map(|i| i)
-               // Avoid an error due to overflow
-               .map(|ncls| ncls as i64)
-               .sum::<i64>(), 24783);
-    assert_eq!(schema_iter.tracks_fitsclustermap
-               .flat_map(|i| i)
-               // Avoid an error due to overflow
-               .map(|ncls| ncls as u64)
-               .sum::<u64>(), 293099);
-    assert_eq!(schema_iter
-               .primaryvertex_alivertex_fposition
-               .fold([0.0, 0.0, 0.0], |acc, el| { [acc[0] + el[0], acc[1] + el[1], acc[2] + el[2]] }),
-               [-0.006383737, 0.3380862, 2.938151]
+    assert_eq!(
+        schema_iter
+            .primaryvertex_alivertex_fncontributors
+            .sum::<i32>(),
+        2746
     );
-    assert_eq!(schema_iter
-               .tracks_fp
-               .flat_map(|i| i)
-               .fold(0.0, |acc, el| { acc + el.iter().sum::<f32>() }),
-               39584.777
+    assert_eq!(
+        schema_iter.tracks_fx.flat_map(|i| i).sum::<f32>(),
+        -26.986227
+    );
+    assert_eq!(
+        schema_iter.tracks_falpha.flat_map(|i| i).sum::<f32>(),
+        -199.63356
+    );
+    assert_eq!(
+        schema_iter.tracks_fflags.flat_map(|i| i).sum::<u64>(),
+        25876766546549
+    );
+    assert_eq!(
+        schema_iter.tracks_fitschi2.flat_map(|i| i).sum::<f32>(),
+        376158.6
+    );
+    assert_eq!(
+        schema_iter
+            .tracks_fitsncls
+            .flat_map(|i| i)
+            // Avoid an error due to overflow
+            .map(|ncls| ncls as i64)
+            .sum::<i64>(),
+        24783
+    );
+    assert_eq!(
+        schema_iter
+            .tracks_fitsclustermap
+            .flat_map(|i| i)
+            // Avoid an error due to overflow
+            .map(|ncls| ncls as u64)
+            .sum::<u64>(),
+        293099
+    );
+    assert_eq!(
+        schema_iter
+            .primaryvertex_alivertex_fposition
+            .fold([0.0, 0.0, 0.0], |acc, el| {
+                [acc[0] + el[0], acc[1] + el[1], acc[2] + el[2]]
+            }),
+        [-0.006383737, 0.3380862, 2.938151]
+    );
+    assert_eq!(
+        schema_iter
+            .tracks_fp
+            .flat_map(|i| i)
+            .fold(0.0, |acc, el| { acc + el.iter().sum::<f32>() }),
+        39584.777
     );
     // Just add up all the chars in the strings
-    assert_eq!(schema_iter
-               .aliesdrun_ftriggerclasses
-               .flat_map(|s| s)
-               .map(|s| {
-                   s
-                       .chars()
-                       .map(|c| c as u64).sum::<u64>()
-               })
-               .sum::<u64>(),
-               109268);
+    assert_eq!(
+        schema_iter
+            .aliesdrun_ftriggerclasses
+            .flat_map(|s| s)
+            .map(|s| { s.chars().map(|c| c as u64).sum::<u64>() })
+            .sum::<u64>(),
+        109268
+    );
 
     let schema_iter = match SchemaIntoIter::new(&t) {
         Ok(s) => s,
