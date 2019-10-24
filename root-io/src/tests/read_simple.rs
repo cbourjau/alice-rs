@@ -3,7 +3,7 @@ use nom::{be_f32, be_i32};
 use std::path::PathBuf;
 
 use core::parsers::string;
-use tree_reader::{ColumnFixedIntoIter, Tree};
+use tree_reader::Tree;
 use RootFile;
 
 /// A model for the (or a subset) of the data.
@@ -19,9 +19,9 @@ struct Model {
 /// analysis in one place. This makes it much harder to get them out
 /// of sync
 struct SchemaIter {
-    one: ColumnFixedIntoIter<i32>,
-    two: ColumnFixedIntoIter<f32>,
-    three: ColumnFixedIntoIter<String>,
+    one: Box<dyn Iterator<Item=i32>>,
+    two: Box<dyn Iterator<Item=f32>>,
+    three: Box<dyn Iterator<Item=String>>,
 }
 
 /// Initiate a new iterator by passing it the `Tree` which contains the data
@@ -32,9 +32,15 @@ impl SchemaIter {
             // a `nom`-like parser is needed to parse the
             // data. ::core::parsers contains many more parsers for
             // common ROOT types
-            one: ColumnFixedIntoIter::new(&t, "one", be_i32)?,
-            two: ColumnFixedIntoIter::new(&t, "two", be_f32)?,
-            three: ColumnFixedIntoIter::new(&t, "three", string)?,
+            one: Box::new(t
+                          .branch_by_name("one")?
+                          .into_fixed_size_iterator(be_i32)?),
+            two: Box::new(t
+                          .branch_by_name("two")?
+                          .into_fixed_size_iterator(be_f32)?),
+            three: Box::new(t
+                            .branch_by_name("three")?
+                            .into_fixed_size_iterator(string)?),
         })
     }
 }

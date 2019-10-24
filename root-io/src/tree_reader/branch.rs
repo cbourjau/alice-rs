@@ -1,4 +1,5 @@
 use nom::*;
+use failure::Error;
 use std::io::SeekFrom;
 use std::path::PathBuf;
 
@@ -90,6 +91,57 @@ impl TBranch {
             .windows(2)
             .map(|window| (window[1] - window[0]) as usize)
             .collect()
+    }
+
+
+    /// Create an iterator over the data of a column (`TBranch`) with a
+    /// constant number of element per entry (or at least not a
+    /// variable number of entries which depends on an external list of
+    /// indices. For the latter case see TODO.
+    ///
+    /// # Example
+    /// ```
+    /// extern crate failure;
+    /// extern crate nom;
+    /// extern crate root_io;
+    ///
+    /// use std::path::PathBuf;
+    /// use nom::be_i32;
+    ///
+    /// use root_io::tree_reader::Tree;
+    /// use root_io::RootFile;
+    ///
+    /// fn main() {
+    ///     let path = PathBuf::from("./src/test_data/simple.root");
+    ///     let f = RootFile::new_from_file(&path).expect("Failed to open file");
+    ///     let tree = f.items()[0].as_tree().unwrap();
+    ///     let numbers = tree
+    ///         .branch_by_name("one").unwrap()
+    ///         .into_fixed_size_iterator(be_i32).unwrap();
+    ///     for n in numbers {
+    ///         println!("All the numbers of this branch{:?}", n);
+    ///     }
+    /// }
+    /// ```
+    pub fn into_fixed_size_iterator<'a, T, P>(&'a self, p: P) -> Result<impl Iterator<Item=T> + 'static, Error> 
+    where
+        P: 'static + Fn(&[u8]) -> IResult<&[u8], T>,
+        T: 'static
+    {
+        let containers =
+            self.containers()
+            .to_owned()
+            .into_iter()
+            // Read and decompress data into a vec
+            .flat_map(|c| c.raw_data())
+            .flat_map(move |(n_entries, raw_slice)| {
+                let s: &[u8] = raw_slice.as_slice();
+                match count!(s, p, n_entries as usize) {
+                    IResult::Done(_, o) => o,
+                    _ => panic!("Parser failed unexpectedly!"),
+                }
+            });
+        Ok(containers)
     }
 }
 

@@ -1,4 +1,5 @@
 use nom::*;
+use failure::Error;
 use std::fmt;
 use std::ops::Deref;
 
@@ -98,6 +99,22 @@ impl<'s> Tree {
             .flat_map(|b| vec![b].into_iter().chain(b.branches().into_iter()))
             .map(|b| (b.name(), b.element_types()))
             .collect()
+    }
+
+    pub fn branch_by_name(&self, name: &str) -> Result<&TBranch, Error> {
+        self.branches()
+            .into_iter()
+            .find(|b| b.name == name)
+            .ok_or_else(|| {
+                format_err!(
+                    "Branch {} not found in tree: \n {:#?}",
+                    name,
+                    self.branches()
+                        .iter()
+                        .map(|b| b.name.to_owned())
+                        .collect::<Vec<_>>()
+                )
+            })
     }
 }
 

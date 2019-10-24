@@ -1,19 +1,18 @@
 use failure::Error;
 use nom::*;
-use std::path::PathBuf;
 
 use core::checked_byte_count;
 use core::parsers::{tnamed, tobjarray_no_context};
 use core::types::ClassInfo;
-use tree_reader::{ColumnFixedIntoIter, ColumnVarIntoIter, Tree};
+use tree_reader::{ColumnVarIntoIter, Tree};
 use RootFile;
 
 struct SchemaIntoIter {
-    aliesdrun_frunnumber: ColumnFixedIntoIter<i32>,
-    aliesdrun_ftriggerclasses: ColumnFixedIntoIter<Vec<String>>,
-    aliesdheader_ftriggermask: ColumnFixedIntoIter<u64>,
-    primaryvertex_alivertex_fposition: ColumnFixedIntoIter<[f32; 3]>,
-    primaryvertex_alivertex_fncontributors: ColumnFixedIntoIter<i32>,
+    aliesdrun_frunnumber: Box<dyn Iterator<Item=i32>>,
+    aliesdrun_ftriggerclasses: Box<dyn Iterator<Item=Vec<String>>>,
+    aliesdheader_ftriggermask: Box<dyn Iterator<Item=u64>>,
+    primaryvertex_alivertex_fposition: Box<dyn Iterator<Item=[f32; 3]>>,
+    primaryvertex_alivertex_fncontributors: Box<dyn Iterator<Item=i32>>,
     tracks_fx: ColumnVarIntoIter<f32>,
     tracks_fp: ColumnVarIntoIter<[f32; 5]>,
     tracks_falpha: ColumnVarIntoIter<f32>,
@@ -25,29 +24,26 @@ struct SchemaIntoIter {
 
 impl SchemaIntoIter {
     fn new(t: &Tree) -> Result<SchemaIntoIter, Error> {
-        let track_counter: Vec<_> = ColumnFixedIntoIter::new(&t, "Tracks", be_u32)?.collect();
+        let track_counter: Vec<_> = t
+            .branch_by_name("Tracks")?
+            .into_fixed_size_iterator(be_u32)?
+            .collect();
         Ok(SchemaIntoIter {
-            aliesdrun_frunnumber: ColumnFixedIntoIter::new(&t, "AliESDRun.fRunNumber", be_i32)?,
-            aliesdrun_ftriggerclasses: ColumnFixedIntoIter::new(
-                &t,
-                "AliESDRun.fTriggerClasses",
-                parse_trigger_classes,
-            )?,
-            aliesdheader_ftriggermask: ColumnFixedIntoIter::new(
-                &t,
-                "AliESDHeader.fTriggerMask",
-                be_u64,
-            )?,
-            primaryvertex_alivertex_fposition: ColumnFixedIntoIter::new(
-                &t,
-                "PrimaryVertex.AliVertex.fPosition[3]",
-                |i| count_fixed!(i, f32, be_f32, 3),
-            )?,
-            primaryvertex_alivertex_fncontributors: ColumnFixedIntoIter::new(
-                &t,
-                "PrimaryVertex.AliVertex.fNContributors",
-                be_i32,
-            )?,
+            aliesdrun_frunnumber: Box::new(
+                t.branch_by_name("AliESDRun.fRunNumber")?
+                    .into_fixed_size_iterator(be_i32)?),
+            aliesdrun_ftriggerclasses: Box::new(
+                t.branch_by_name("AliESDRun.fTriggerClasses")?
+                    .into_fixed_size_iterator(parse_trigger_classes)?),
+            aliesdheader_ftriggermask: Box::new(
+                t.branch_by_name("AliESDHeader.fTriggerMask")?
+                    .into_fixed_size_iterator(be_u64)?),
+            primaryvertex_alivertex_fposition: Box::new(
+                t.branch_by_name("PrimaryVertex.AliVertex.fPosition[3]")?
+                    .into_fixed_size_iterator(|i| count_fixed!(i, f32, be_f32, 3))?),
+            primaryvertex_alivertex_fncontributors: Box::new(
+                t.branch_by_name("PrimaryVertex.AliVertex.fNContributors")?
+                    .into_fixed_size_iterator(be_i32)?),
             tracks_fx: ColumnVarIntoIter::new(&t, "Tracks.fX", be_f32, &track_counter)?,
             tracks_fp: ColumnVarIntoIter::new(
                 &t,
