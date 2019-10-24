@@ -17,23 +17,20 @@ pub(crate) enum Container {
 impl Container {
     /// Return the number of entries and the data; reading it from disk if necessary
     pub(crate) fn raw_data(self) -> Result<(u32, Vec<u8>), Error> {
-        match self {
-            Container::InMemory(buf) => match tbasket2vec(buf.as_slice()) {
-                IResult::Done(_, v) => Ok(v),
-                _ => Err(format_err!("tbasket2vec parser failed")),
-            },
+        let buf = match self {
+            Container::InMemory(buf) => buf,
             Container::OnDisk(p, seek, len) => {
                 let f = File::open(&p)?;
                 let mut reader = BufReader::new(f);
                 let mut buf = vec![0; len];
                 reader.seek(seek)?;
                 reader.read_exact(&mut buf)?;
-                // println!("{:#?}", tbasket(buf.as_slice(), be_u32).unwrap().1);
-                match tbasket2vec(buf.as_slice()) {
-                    IResult::Done(_, v) => Ok(v),
-                    _ => Err(format_err!("tbasket2vec parser failed")),
-                }
+                buf
             }
+        };
+        match tbasket2vec(buf.as_slice()) {
+            IResult::Done(_, v) => Ok(v),
+            _ => Err(format_err!("tbasket2vec parser failed")),
         }
     }
     // /// For debugging: Try to find the file of this container. Out of luck if the container was inlined
