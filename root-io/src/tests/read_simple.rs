@@ -32,11 +32,11 @@ impl SchemaIter {
             // a `nom`-like parser is needed to parse the
             // data. ::core::parsers contains many more parsers for
             // common ROOT types
-            one: Box::new(t.branch_by_name("one")?.into_fixed_size_iterator(be_i32)?),
-            two: Box::new(t.branch_by_name("two")?.into_fixed_size_iterator(be_f32)?),
+            one: Box::new(t.branch_by_name("one")?.as_fixed_size_iterator(be_i32)?),
+            two: Box::new(t.branch_by_name("two")?.as_fixed_size_iterator(be_f32)?),
             three: Box::new(
                 t.branch_by_name("three")?
-                    .into_fixed_size_iterator(string)?,
+                    .as_fixed_size_iterator(string)?,
             ),
         })
     }

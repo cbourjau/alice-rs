@@ -116,14 +116,14 @@ impl TBranch {
     ///     let tree = f.items()[0].as_tree().unwrap();
     ///     let numbers = tree
     ///         .branch_by_name("one").unwrap()
-    ///         .into_fixed_size_iterator(be_i32).unwrap();
+    ///         .as_fixed_size_iterator(be_i32).unwrap();
     ///     for n in numbers {
     ///         println!("All the numbers of this branch{:?}", n);
     ///     }
     /// }
     /// ```
-    pub fn into_fixed_size_iterator<'a, T, P>(
-        &'a self,
+    pub fn as_fixed_size_iterator<T, P>(
+        &self,
         p: P,
     ) -> Result<impl Iterator<Item = T> + 'static, Error>
     where
@@ -150,8 +150,8 @@ impl TBranch {
     /// number of elements per entry.  See the file
     /// [`read_esd.rs`](https://github.com/cbourjau/root-io/blob/master/src/tests/read_esd.rs)
     /// in the repository for a comprehensive example
-    pub fn into_var_size_iterator<'a, T, P>(
-        &'a self,
+    pub fn as_var_size_iterator<T, P>(
+        &self,
         p: P,
         el_counter: &[u32],
     ) -> Result<impl Iterator<Item = Vec<T>> + 'static, Error>
@@ -197,95 +197,103 @@ impl TBranch {
 
 /// `TBranchElements` are a subclass of `TBranch` if the content is an Object
 /// We ignore the extra information for now and just parse the TBranch"Header" in either case
-pub(crate) fn tbranch_hdr<'s>(raw: &Raw<'s>, ctxt: &'s Context) -> IResult<&'s[u8], TBranch> {
+pub(crate) fn tbranch_hdr<'s>(raw: &Raw<'s>, ctxt: &'s Context) -> IResult<&'s [u8], TBranch> {
     match raw.classinfo.as_str() {
         "TBranchElement" | "TBranchObject" => {
-            preceded!(raw.obj, be_u16, // version
-                      length_value!(checked_byte_count, apply!(tbranch, ctxt)))
-        },
+            preceded!(
+                raw.obj,
+                be_u16, // version
+                length_value!(checked_byte_count, apply!(tbranch, ctxt))
+            )
+        }
         "TBranch" => tbranch(raw.obj, ctxt),
-        name => panic!("Unexpected Branch type {}", name)
+        name => panic!("Unexpected Branch type {}", name),
     }
 }
 
-fn tbranch<'s>(input: &'s [u8], context: & Context<'s>) -> IResult<&'s [u8], TBranch> {
+fn tbranch<'s>(input: &'s [u8], context: &Context<'s>) -> IResult<&'s [u8], TBranch> {
     let _curried_raw = |i| raw(i, context);
-    let wrapped_tobjarray = |i: &'s[u8]| length_value!(i, checked_byte_count, apply!(tobjarray, context));
-    do_parse!(input,
-              _ver: verify!(be_u16, |v| v == 12) >>
-               tnamed: length_value!(checked_byte_count, tnamed) >>
-               _tattfill: length_data!(checked_byte_count) >>
-               fcompress: be_i32 >>
-               fbasketsize: be_i32 >>
-               fentryoffsetlen: be_i32 >>
-               fwritebasket: be_i32 >>
-               fentrynumber: be_i64 >>
-               foffset: be_i32 >>
-               fmaxbaskets: be_i32 >>
-               fsplitlevel: be_i32 >>
-               fentries: be_i64 >>
-               ffirstentry: be_i64 >>
-               ftotbytes: be_i64 >>
-               fzipbytes: be_i64 >>
-               fbranches: wrapped_tobjarray >>
-               fleaves: wrapped_tobjarray >>
-               fbaskets: wrapped_tobjarray >>
-               fbasketbytes: preceded!(be_u8, count!(be_i32, fmaxbaskets as usize)) >>
-               fbasketentry: preceded!(be_u8, count!(be_i64, fmaxbaskets as usize)) >>
-               fbasketseek: preceded!(be_u8, count!(be_u64, fmaxbaskets as usize)) >>
-               ffilename: string >>
-              ({
-                  let name = tnamed.name;
-                  let fbranches = fbranches.iter()
-                      .map(|s| tbranch_hdr(s, context).unwrap().1)
-                      .collect();
-                  let fleaves = fleaves.into_iter()
-                      .map(|r| tleaf(r.obj, context, &r.classinfo).unwrap().1)
-                      .collect();
-                  // Remove tailing empty baskets informations
-                  let fbaskets = fbaskets.into_iter()
-                      .filter(|s| !s.obj.is_empty())
-                      .map(|s| Container::InMemory(s.obj.to_vec()));
-                  let nbaskets = fwritebasket as usize;
-                  let fbasketbytes = fbasketbytes.into_iter()
-                      .take(nbaskets)
-                      .map(|val| val as usize);
-                  let fbasketentry = fbasketentry.into_iter().take(nbaskets).collect();
-                  let fbasketseek = fbasketseek.into_iter()
-                      .take(nbaskets)
-                      .map(SeekFrom::Start);
-                  let ffilename =
-                      if ffilename == "" {
-                          context.path.to_owned()
-                      } else {
-                          PathBuf::from(ffilename)
-                      };
-                  let containers_disk = fbasketseek
-                      .zip(fbasketbytes)
-                      .map(|(seek, len)| Container::OnDisk(ffilename.clone(), seek, len));
-                  let containers = fbaskets.chain(containers_disk).collect();
-                  TBranch {name,
-                           fcompress,
-                           fbasketsize,
-                           fentryoffsetlen,
-                           fwritebasket,
-                           fentrynumber,
-                           foffset,
-                           fsplitlevel,
-                           fentries,
-                           ffirstentry,
-                           ftotbytes,
-                           fzipbytes,
-                           fbranches,
-                           fleaves,
-                           fbasketentry,
-                           containers
-                  }
-              }))
+    let wrapped_tobjarray =
+        |i: &'s [u8]| length_value!(i, checked_byte_count, apply!(tobjarray, context));
+    do_parse!(
+        input,
+        _ver: verify!(be_u16, |v| v == 12)
+            >> tnamed: length_value!(checked_byte_count, tnamed)
+            >> _tattfill: length_data!(checked_byte_count)
+            >> fcompress: be_i32
+            >> fbasketsize: be_i32
+            >> fentryoffsetlen: be_i32
+            >> fwritebasket: be_i32
+            >> fentrynumber: be_i64
+            >> foffset: be_i32
+            >> fmaxbaskets: be_i32
+            >> fsplitlevel: be_i32
+            >> fentries: be_i64
+            >> ffirstentry: be_i64
+            >> ftotbytes: be_i64
+            >> fzipbytes: be_i64
+            >> fbranches: wrapped_tobjarray
+            >> fleaves: wrapped_tobjarray
+            >> fbaskets: wrapped_tobjarray
+            >> fbasketbytes: preceded!(be_u8, count!(be_i32, fmaxbaskets as usize))
+            >> fbasketentry: preceded!(be_u8, count!(be_i64, fmaxbaskets as usize))
+            >> fbasketseek: preceded!(be_u8, count!(be_u64, fmaxbaskets as usize))
+            >> ffilename: string
+            >> ({
+                let name = tnamed.name;
+                let fbranches = fbranches
+                    .iter()
+                    .map(|s| tbranch_hdr(s, context).unwrap().1)
+                    .collect();
+                let fleaves = fleaves
+                    .into_iter()
+                    .map(|r| tleaf(r.obj, context, &r.classinfo).unwrap().1)
+                    .collect();
+                // Remove tailing empty baskets informations
+                let fbaskets = fbaskets
+                    .into_iter()
+                    .filter(|s| !s.obj.is_empty())
+                    .map(|s| Container::InMemory(s.obj.to_vec()));
+                let nbaskets = fwritebasket as usize;
+                let fbasketbytes = fbasketbytes
+                    .into_iter()
+                    .take(nbaskets)
+                    .map(|val| val as usize);
+                let fbasketentry = fbasketentry.into_iter().take(nbaskets).collect();
+                let fbasketseek = fbasketseek.into_iter().take(nbaskets).map(SeekFrom::Start);
+                let ffilename = if ffilename == "" {
+                    context.path.to_owned()
+                } else {
+                    PathBuf::from(ffilename)
+                };
+                let containers_disk = fbasketseek
+                    .zip(fbasketbytes)
+                    .map(|(seek, len)| Container::OnDisk(ffilename.clone(), seek, len));
+                let containers = fbaskets.chain(containers_disk).collect();
+                TBranch {
+                    name,
+                    fcompress,
+                    fbasketsize,
+                    fentryoffsetlen,
+                    fwritebasket,
+                    fentrynumber,
+                    foffset,
+                    fsplitlevel,
+                    fentries,
+                    ffirstentry,
+                    ftotbytes,
+                    fzipbytes,
+                    fbranches,
+                    fleaves,
+                    fbasketentry,
+                    containers,
+                }
+            })
+    )
 }
 
 /// Iterator over chunks of variable size. Instantiated with `into_fixed_size_iterator`.
-pub struct VarChunkIter<IChunkSizes: Iterator<Item=u32>, IElems: Iterator> {
+struct VarChunkIter<IChunkSizes: Iterator<Item = u32>, IElems: Iterator> {
     /// Number of elements in each chunk
     chunk_sizes: IChunkSizes,
     /// Inner iterators over elements. This is wanted since we don't
@@ -293,7 +301,7 @@ pub struct VarChunkIter<IChunkSizes: Iterator<Item=u32>, IElems: Iterator> {
     inner: IElems,
 }
 
-impl<IChunkSizes: Iterator<Item=u32>, IElems: Iterator> VarChunkIter<IChunkSizes, IElems> {
+impl<IChunkSizes: Iterator<Item = u32>, IElems: Iterator> VarChunkIter<IChunkSizes, IElems> {
     fn new(chunk_sizes: IChunkSizes, elements: IElems) -> Self {
         Self {
             chunk_sizes,
@@ -302,7 +310,9 @@ impl<IChunkSizes: Iterator<Item=u32>, IElems: Iterator> VarChunkIter<IChunkSizes
     }
 }
 
-impl<IChunkSizes: Iterator<Item=u32>, IElems: Iterator> Iterator for VarChunkIter<IChunkSizes, IElems> {
+impl<IChunkSizes: Iterator<Item = u32>, IElems: Iterator> Iterator
+    for VarChunkIter<IChunkSizes, IElems>
+{
     type Item = Vec<<IElems as Iterator>::Item>;
 
     fn next(&mut self) -> Option<Self::Item> {

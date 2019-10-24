@@ -26,56 +26,56 @@ impl SchemaIntoIter {
     fn new(t: &Tree) -> Result<SchemaIntoIter, Error> {
         let track_counter: Vec<_> = t
             .branch_by_name("Tracks")?
-            .into_fixed_size_iterator(be_u32)?
+            .as_fixed_size_iterator(be_u32)?
             .collect();
         Ok(SchemaIntoIter {
             aliesdrun_frunnumber: Box::new(
                 t.branch_by_name("AliESDRun.fRunNumber")?
-                    .into_fixed_size_iterator(be_i32)?,
+                    .as_fixed_size_iterator(be_i32)?,
             ),
             aliesdrun_ftriggerclasses: Box::new(
                 t.branch_by_name("AliESDRun.fTriggerClasses")?
-                    .into_fixed_size_iterator(parse_trigger_classes)?,
+                    .as_fixed_size_iterator(parse_trigger_classes)?,
             ),
             aliesdheader_ftriggermask: Box::new(
                 t.branch_by_name("AliESDHeader.fTriggerMask")?
-                    .into_fixed_size_iterator(be_u64)?,
+                    .as_fixed_size_iterator(be_u64)?,
             ),
             primaryvertex_alivertex_fposition: Box::new(
                 t.branch_by_name("PrimaryVertex.AliVertex.fPosition[3]")?
-                    .into_fixed_size_iterator(|i| count_fixed!(i, f32, be_f32, 3))?,
+                    .as_fixed_size_iterator(|i| count_fixed!(i, f32, be_f32, 3))?,
             ),
             primaryvertex_alivertex_fncontributors: Box::new(
                 t.branch_by_name("PrimaryVertex.AliVertex.fNContributors")?
-                    .into_fixed_size_iterator(be_i32)?,
+                    .as_fixed_size_iterator(be_i32)?,
             ),
             tracks_fx: Box::new(
                 t.branch_by_name("Tracks.fX")?
-                    .into_var_size_iterator(be_f32, &track_counter)?,
+                    .as_var_size_iterator(be_f32, &track_counter)?,
             ),
             tracks_fp: Box::new(
                 t.branch_by_name("Tracks.fP[5]")?
-                    .into_var_size_iterator(|i| count_fixed!(i, f32, be_f32, 5), &track_counter)?,
+                    .as_var_size_iterator(|i| count_fixed!(i, f32, be_f32, 5), &track_counter)?,
             ),
             tracks_falpha: Box::new(
                 t.branch_by_name("Tracks.fAlpha")?
-                    .into_var_size_iterator(be_f32, &track_counter)?,
+                    .as_var_size_iterator(be_f32, &track_counter)?,
             ),
             tracks_fflags: Box::new(
                 t.branch_by_name("Tracks.fFlags")?
-                    .into_var_size_iterator(be_u64, &track_counter)?,
+                    .as_var_size_iterator(be_u64, &track_counter)?,
             ),
             tracks_fitschi2: Box::new(
                 t.branch_by_name("Tracks.fITSchi2")?
-                    .into_var_size_iterator(parse_its_chi2, &track_counter)?,
+                    .as_var_size_iterator(parse_its_chi2, &track_counter)?,
             ),
             tracks_fitsncls: Box::new(
                 t.branch_by_name("Tracks.fITSncls")?
-                    .into_var_size_iterator(be_i8, &track_counter)?,
+                    .as_var_size_iterator(be_i8, &track_counter)?,
             ),
             tracks_fitsclustermap: Box::new(
                 t.branch_by_name("Tracks.fITSClusterMap")?
-                    .into_var_size_iterator(be_u8, &track_counter)?,
+                    .as_var_size_iterator(be_u8, &track_counter)?,
             ),
         })
     }
