@@ -159,6 +159,7 @@ fn parse_its_chi2(input: &[u8]) -> IResult<&[u8], f32> {
 }
 
 #[test]
+#[cfg(not(target_os="macos"))]
 fn read_esd() {
     use alice_open_data;
     let path = alice_open_data::test_file().unwrap();

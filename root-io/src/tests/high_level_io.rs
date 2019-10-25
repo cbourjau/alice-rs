@@ -66,6 +66,7 @@ fn root_file_methods() {
 }
 
 #[test]
+#[cfg(not(target_os="macos"))]
 fn root_file_methods_esd() {
     use alice_open_data;
     let paths = [alice_open_data::test_file().unwrap()];

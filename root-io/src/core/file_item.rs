@@ -101,7 +101,9 @@ mod tests {
         assert_eq!(f.streamers().unwrap().len(), 18);
     }
 
+    // Skip this test on MacOs since the downloaded file is not working on Travis
     #[test]
+    #[cfg(not(target_os="macos"))]
     fn open_esd() {
         use alice_open_data;
         let path = alice_open_data::test_file().unwrap();
