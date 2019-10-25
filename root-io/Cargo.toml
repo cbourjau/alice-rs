@@ -24,3 +24,9 @@ version = "^3"
 
 [dev-dependencies]
 alice-open-data = "0.2.1"
+criterion = "0.3"
+
+# Run with cargo bench --bench iter_branch -- --baseline pathbuf-in-container --color never
+[[bench]]
+name = "iter_branch"
+harness = false
