@@ -8,6 +8,8 @@ rust:
   - beta
 
 script:
+  - cargo install alice-download --force
+  - alice-download 1
   - cargo clean
   - rustup component add rustfmt clippy
   - cargo +$TRAVIS_RUST_VERSION clippy
