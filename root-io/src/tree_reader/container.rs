@@ -2,16 +2,18 @@ use failure::Error;
 use nom::*;
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
-use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 use core::*;
+
+type Reader = Arc<Mutex<BufReader<File>>>;
 
 #[derive(Debug, Clone)]
 pub(crate) enum Container {
     /// Decompressed content of a `TBasket`
     InMemory(Vec<u8>),
     /// Filename, Position, and len of a `TBasket` on disk
-    OnDisk(PathBuf, SeekFrom, usize),
+    OnDisk(Reader, SeekFrom, usize),
 }
 
 impl Container {
@@ -19,9 +21,8 @@ impl Container {
     pub(crate) fn raw_data(self) -> Result<(u32, Vec<u8>), Error> {
         let buf = match self {
             Container::InMemory(buf) => buf,
-            Container::OnDisk(p, seek, len) => {
-                let f = File::open(&p)?;
-                let mut reader = BufReader::new(f);
+            Container::OnDisk(reader, seek, len) => {
+                let mut reader = reader.lock().unwrap();
                 let mut buf = vec![0; len];
                 reader.seek(seek)?;
                 reader.read_exact(&mut buf)?;
