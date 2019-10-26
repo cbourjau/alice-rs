@@ -94,6 +94,31 @@ fn download_with_https(uri: Url) -> Result<reqwest::Response, Error> {
 #[cfg(test)]
 mod tests {
     use std::{env, fs};
+    use super::*;
+
+    #[test]
+    fn download_partial() {
+        use reqwest::header::RANGE;
+        let client = reqwest::Client::builder()
+            .add_root_certificate(Certificate::from_pem(ROOT).unwrap())
+            .add_root_certificate(Certificate::from_pem(GRID).unwrap())
+            .build()
+            .unwrap();
+        let rsp = client
+            .get("https://eospublichttp.cern.ch/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root")
+            .header("User-Agent", "alice-rs")
+            .header(RANGE, "bytes=0-1023, 1030-1050")
+            .send().unwrap();
+        dbg!(&rsp);
+
+        let partial = rsp.bytes().collect::<Result::<Vec<_>, _>>().unwrap();
+        let from_disc = std::fs::read(test_file().unwrap()).unwrap();
+        assert!(
+            partial.iter()
+                .zip(from_disc.iter())
+                .all(|(el1, el2)| el1 == el2)
+        );
+    }
     #[test]
     fn test_get_file_lists() {
         let runs = [139_038, 139_173, 139_437, 139_438, 139_465];
