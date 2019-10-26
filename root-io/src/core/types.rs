@@ -1,5 +1,5 @@
 use std::fmt;
-use std::path::PathBuf;
+use crate::core::DataSource;
 
 use nom::HexDisplay;
 
@@ -68,7 +68,7 @@ pub struct Raw<'s> {
 #[derive(Debug)]
 pub struct Context<'s> {
     /// Path to file of this context
-    pub path: PathBuf,
+    pub source: DataSource,
     /// Offset between the beginning of `s` and to where absolute
     /// positions in the buffer point (e.g. for class defs)
     /// Usually something like TKey-length + 4

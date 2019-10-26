@@ -1,7 +1,5 @@
 use failure::Error;
 use nom::*;
-use std::io::SeekFrom;
-use std::path::PathBuf;
 
 use code_gen::rust::ToRustType;
 use core::parsers::*;
@@ -260,15 +258,15 @@ fn tbranch<'s>(input: &'s [u8], context: &Context<'s>) -> IResult<&'s [u8], TBra
                     .take(nbaskets)
                     .map(|val| val as usize);
                 let fbasketentry = fbasketentry.into_iter().take(nbaskets).collect();
-                let fbasketseek = fbasketseek.into_iter().take(nbaskets).map(SeekFrom::Start);
-                let ffilename = if ffilename == "" {
-                    context.path.to_owned()
+                let fbasketseek = fbasketseek.into_iter().take(nbaskets);
+                let source = if ffilename == "" {
+                    context.source.to_owned()
                 } else {
-                    PathBuf::from(ffilename)
+                    unimplemented!("Root files referencing other Root files is not implemented")
                 };
                 let containers_disk = fbasketseek
                     .zip(fbasketbytes)
-                    .map(|(seek, len)| Container::OnDisk(ffilename.clone(), seek, len));
+                    .map(|(seek, len)| Container::OnDisk(source.clone(), seek, len as u64));
                 let containers = fbaskets.chain(containers_disk).collect();
                 TBranch {
                     name,

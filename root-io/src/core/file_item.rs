@@ -1,25 +1,23 @@
 use failure::Error;
 use nom::*;
-use std::fs::File;
-use std::io::{BufReader, Read, Seek, SeekFrom};
-use std::path::{Path, PathBuf};
+use std::io::SeekFrom;
 
 use core::{checked_byte_count, decompress};
-use core::{Context, TKeyHeader};
+use core::{Context, DataSource, TKeyHeader};
 use tree_reader::{ttree, Tree};
 
 /// Describes a single item within this file (e.g. a `Tree`)
 #[derive(Debug)]
 pub struct FileItem {
-    file_path: PathBuf,
+    source: DataSource,
     tkey_hdr: TKeyHeader,
 }
 
 impl FileItem {
     /// New file item from the information in a TKeyHeader and the associated file
-    pub(crate) fn new<P: AsRef<Path>>(tkey_hdr: &TKeyHeader, file_path: P) -> FileItem {
+    pub(crate) fn new(tkey_hdr: &TKeyHeader, source: DataSource) -> FileItem {
         FileItem {
-            file_path: file_path.as_ref().to_path_buf(),
+            source,
             tkey_hdr: tkey_hdr.to_owned(),
         }
     }
@@ -49,17 +47,26 @@ impl FileItem {
     where
         F: for<'s> Fn(&'s [u8], &'s Context<'s>) -> IResult<&'s [u8], O>,
     {
-        let f = File::open(&self.file_path)?;
-        let mut reader = BufReader::new(f);
-        let mut comp_buf =
-            vec![0; (self.tkey_hdr.total_size - self.tkey_hdr.key_len as u32) as usize];
-        let key_start = self.tkey_hdr.seek_key;
-        let payload_offset = SeekFrom::Current(i64::from(self.tkey_hdr.key_len));
+        let start = {
+            if let SeekFrom::Start(start) = self.tkey_hdr.seek_key {
+                start + self.tkey_hdr.key_len as u64
+            } else {
+                return Err(format_err!("Expected SeekFrom::Start variant"));
+            }
+        };
+        let len = self.tkey_hdr.total_size - self.tkey_hdr.key_len as u32;
+        let comp_buf = self.source.fetch(start, len as u64)?;
+        // let f = File::open(&self.file_path)?;
+        // let mut reader = BufReader::new(f);
+        // let mut comp_buf =
+        //     vec![0; (self.tkey_hdr.total_size - self.tkey_hdr.key_len as u32) as usize];
+        // let key_start = self.tkey_hdr.seek_key;
+        // let payload_offset = SeekFrom::Current(i64::from(self.tkey_hdr.key_len));
 
-        // Skip TKey and jump right to the payload
-        reader.seek(key_start)?;
-        reader.seek(payload_offset)?;
-        reader.read_exact(&mut comp_buf)?;
+        // // Skip TKey and jump right to the payload
+        // reader.seek(key_start)?;
+        // reader.seek(payload_offset)?;
+        // reader.read_exact(&mut comp_buf)?;
 
         let buf = {
             if self.tkey_hdr.total_size < self.tkey_hdr.uncomp_len {
@@ -73,7 +80,7 @@ impl FileItem {
         let s = buf.as_slice();
         let k_map_offset = 2;
         let context = Context {
-            path: self.file_path.to_owned(),
+            source: self.source.clone(),
             offset: (self.tkey_hdr.key_len + k_map_offset) as u64,
             s,
         };

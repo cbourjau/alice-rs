@@ -1,7 +1,6 @@
 use std::fmt;
-use std::fs::File;
-use std::io::{BufReader, Read, Seek, SeekFrom};
-use std::path::{Path, PathBuf};
+use std::io::{Read, Seek, SeekFrom};
+use std::path::{Path};
 
 use failure::Error;
 use nom::*;
@@ -13,7 +12,7 @@ use MAP_OFFSET;
 /// `RootFile` wraps the most basic information of a ROOT file.
 #[derive(Debug)]
 pub struct RootFile {
-    path: PathBuf,
+    source: DataSource,
     hdr: FileHeader,
     items: Vec<FileItem>,
 }
@@ -103,8 +102,9 @@ named!(
 impl RootFile {
     /// Open a ROOT file and read in the necessary meta information
     pub fn new_from_file(path: &Path) -> Result<Self, Error> {
-        let f = File::open(&path)?;
-        let mut reader = BufReader::new(f);
+        let source = DataSource::new(path.to_str().unwrap());
+        let mut reader = source.reader()?;
+        reader.seek(SeekFrom::Start(0))?;
         let hdr = parse_buffer(&mut reader, 256, file_header)?;
 
         // Jump to the TDirectory and parse it
@@ -121,17 +121,15 @@ impl RootFile {
         }?;
         let items = keys
             .iter()
-            .map(|k_hdr| FileItem::new(k_hdr, &path))
+            .map(|k_hdr| FileItem::new(k_hdr, source.clone()))
             .collect();
 
-        let path = path.to_owned();
-        Ok(RootFile { path, hdr, items })
+        Ok(RootFile { source, hdr, items })
     }
 
     /// Return all `TSreamerInfo` for the data in this file
     pub fn streamers(&self) -> Result<Vec<TStreamerInfo>, Error> {
-        let f = File::open(&self.path)?;
-        let mut reader = BufReader::new(f);
+        let mut reader = self.source.reader()?;
 
         // Read streamer info
         reader.seek(self.hdr.seek_info)?;
@@ -140,7 +138,7 @@ impl RootFile {
 
         let key_len = info_key.hdr.key_len;
         let context = Context {
-            path: self.path.to_owned(),
+            source: self.source.clone(),
             offset: key_len as u64 + MAP_OFFSET,
             s: info_key.obj.as_slice(),
         };
@@ -234,7 +232,7 @@ impl RootFile {
 
 /// Use given parse on reader. If the initial `buf_size` is not large
 /// enough it will increase it appropriately
-fn parse_buffer<R, F, O>(reader: &mut BufReader<R>, buf_size: usize, f: F) -> Result<O, Error>
+fn parse_buffer<R, F, O>(reader: &mut R, buf_size: usize, f: F) -> Result<O, Error>
 where
     R: Read + Seek,
     F: Fn(&[u8]) -> IResult<&[u8], O>,
@@ -270,9 +268,10 @@ mod test {
 
     #[test]
     fn file_header_test() {
-        let path = "./src/test_data/simple.root";
-        let f = File::open(path).unwrap();
-        let mut reader = BufReader::new(f);
+        let source = DataSource::new("./src/test_data/simple.root");
+        let mut reader = source.reader().unwrap();
+        // Unnecessary, but explicit
+        reader.seek(SeekFrom::Start(0)).unwrap();
 
         let hdr = parse_buffer(&mut reader, 100, file_header).unwrap();
         let should = FileHeader {
@@ -295,9 +294,10 @@ mod test {
 
     #[test]
     fn directory_test() {
-        let path = "./src/test_data/simple.root";
-        let f = File::open(path).unwrap();
-        let mut reader = BufReader::new(f);
+        let source = DataSource::new("./src/test_data/simple.root");
+        let mut reader = source.reader().unwrap();
+        // Unnecessary, but explicit
+        reader.seek(SeekFrom::Start(0)).unwrap();
         let hdr = parse_buffer(&mut reader, 100, file_header).unwrap();
         reader.seek(hdr.seek_dir).unwrap();
         let dir = parse_buffer(&mut reader, 100, directory).unwrap();
@@ -318,9 +318,8 @@ mod test {
 
     #[test]
     fn streamerinfo_test() {
-        let path = PathBuf::from("./src/test_data/simple.root");
-        let f = File::open(&path).unwrap();
-        let mut reader = BufReader::new(f);
+        let source = DataSource::new("./src/test_data/simple.root");
+        let mut reader = source.reader().unwrap();
         // See file test
         reader.seek(SeekFrom::Start(1117)).unwrap();
         let key = parse_buffer(&mut reader, 4446, tkey).unwrap();
@@ -329,7 +328,7 @@ mod test {
         let key_len = key.hdr.key_len;
         let k_map_offset = 2;
         let context = Context {
-            path: path.to_path_buf(),
+            source,
             offset: (key_len + k_map_offset) as u64,
             s: key.obj.as_slice(),
         };

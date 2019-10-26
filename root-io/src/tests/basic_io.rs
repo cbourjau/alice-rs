@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use core::*;
 
 #[test]
@@ -25,9 +23,9 @@ fn list_of_rules() {
         103, 101, 34, 32, 99, 111, 100, 101, 61, 34, 123, 32, 102, 78, 67, 108, 117, 115, 116, 101,
         114, 82, 97, 110, 103, 101, 32, 61, 32, 48, 59, 32, 125, 34, 32, 0, 0,
     ];
-    // Should not be neede
+    // Should not be needed; just some dummy
     let context = Context {
-        path: PathBuf::from(""),
+        source: DataSource::new(""),
         offset: 0,
         s: &[],
     };
