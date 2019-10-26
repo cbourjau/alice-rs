@@ -9,8 +9,10 @@ mod branch;
 mod container;
 mod leafs;
 mod tree;
+mod clustered_bucket_iter;
 
 pub use self::tree::{ttree, Tree};
+pub(crate) use self::clustered_bucket_iter::ClusteredBucketIter;
 
 #[cfg(test)]
 mod tests {

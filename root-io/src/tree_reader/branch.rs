@@ -7,7 +7,7 @@ use code_gen::rust::ToRustType;
 use core::parsers::*;
 use core::types::*;
 
-use tree_reader::container::Container;
+use tree_reader::{container::Container, ClusteredBucketIter};
 use tree_reader::leafs::tleaf;
 use tree_reader::leafs::TLeaf;
 
@@ -130,12 +130,7 @@ impl TBranch {
         P: 'static + Fn(&[u8]) -> IResult<&[u8], T>,
         T: 'static,
     {
-        let containers = self
-            .containers()
-            .to_owned()
-            .into_iter()
-            // Read and decompress data into a vec
-            .flat_map(|c| c.raw_data())
+        let containers = ClusteredBucketIter::new(self.containers().to_owned())
             .flat_map(move |(n_entries, raw_slice)| {
                 let s: &[u8] = raw_slice.as_slice();
                 match count!(s, p, n_entries as usize) {
@@ -169,12 +164,7 @@ impl TBranch {
                     .sum()
             })
             .collect();
-        let elements = self
-            .containers()
-            .to_owned()
-            .into_iter()
-            // Read and decompress data into a vec
-            .flat_map(|c| c.raw_data())
+        let elements = ClusteredBucketIter::new(self.containers().to_owned())
             .zip(n_elems_per_basket.into_iter())
             .flat_map(move |((n_entries_in_buf, raw_slice), n_elems)| {
                 let s: &[u8] = raw_slice.as_slice();
