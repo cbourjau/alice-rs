@@ -1,9 +1,7 @@
 use failure::Error;
 use nom::*;
-use std::io::{BufReader, SeekFrom};
+use std::io::SeekFrom;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
-use std::fs::File;
 
 use code_gen::rust::ToRustType;
 use core::parsers::*;
@@ -268,16 +266,9 @@ fn tbranch<'s>(input: &'s [u8], context: &Context<'s>) -> IResult<&'s [u8], TBra
                 } else {
                     PathBuf::from(ffilename)
                 };
-                let containers_disk = {
-                    let f = File::open(ffilename).unwrap();
-                    let reader = Arc::new(Mutex::new(BufReader::new(f)));
-
-                    fbasketseek
-                        .zip(fbasketbytes)
-                        .map(move |(seek, len)| {
-                            Container::OnDisk(reader.clone(), seek, len)
-                        })
-                };
+                let containers_disk = fbasketseek
+                    .zip(fbasketbytes)
+                    .map(|(seek, len)| Container::OnDisk(ffilename.clone(), seek, len));
                 let containers = fbaskets.chain(containers_disk).collect();
                 TBranch {
                     name,
