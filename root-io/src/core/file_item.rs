@@ -41,7 +41,7 @@ impl FileItem {
         )
     }
 
-    /// Read (and posibly decompress) data from disk and parse it as
+    /// Read (and possibly decompress) data from disk and parse it as
     /// the appropriate type using the TStreamerInfo types.
     /// The return type of the parser function must not contain a
     /// reference to the parsed buffer
