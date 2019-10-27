@@ -252,95 +252,116 @@ mod test {
 
     #[test]
     fn file_header_test() {
-        let source = LocalDataSource::new("./src/test_data/simple.root".parse().unwrap());
-        let hdr = source
-            .fetch(0, FILE_HEADER_SIZE)
-            .and_then(|buf| file_header(&buf)
-                      .to_result()
-                      .map_err(|e| e.into())
-            ).unwrap();
+        let local = Rc::new(LocalDataSource::new("./src/test_data/simple.root".parse().unwrap()));
+        let remote = Rc::new(
+            RemoteDataSource::new(
+                "https://github.com/cbourjau/alice-rs/blob/master/root-io/src/test_data/simple.root?raw=true"
+            ).unwrap());
+        let sources: Vec<Rc<dyn DataSource>> = vec![local, remote];
+        for source in &sources {
+            let hdr = source
+                .fetch(0, FILE_HEADER_SIZE)
+                .and_then(|buf| file_header(&buf)
+                          .to_result()
+                          .map_err(|e| e.into())
+                ).unwrap();
 
-        let should = FileHeader {
-            version: 60600,
-            begin: 100,
-            end: 5614,
-            seek_free: 5559,
-            nbytes_free: 55,
-            n_entries_free: 1,
-            n_bytes_name: 58,
-            pointer_size: 4,
-            compression: 1,
-            seek_info: 1117,
-            nbytes_info: 4442,
-            uuid: 409442932018821,
-            seek_dir: 158,
-        };
-        assert_eq!(hdr, should);
+            let should = FileHeader {
+                version: 60600,
+                begin: 100,
+                end: 5614,
+                seek_free: 5559,
+                nbytes_free: 55,
+                n_entries_free: 1,
+                n_bytes_name: 58,
+                pointer_size: 4,
+                compression: 1,
+                seek_info: 1117,
+                nbytes_info: 4442,
+                uuid: 409442932018821,
+                seek_dir: 158,
+            };
+            assert_eq!(hdr, should);
+        }
     }
 
     #[test]
     fn directory_test() {
-        let source = LocalDataSource::new("./src/test_data/simple.root".parse().unwrap());
-        // Unnecessary, but explicit
-        let hdr = source
-            .fetch(0, FILE_HEADER_SIZE)
-            .and_then(|buf| file_header(&buf)
-                      .to_result()
-                      .map_err(|e| e.into())
-            ).unwrap();
+        let local = Rc::new(LocalDataSource::new("./src/test_data/simple.root".parse().unwrap()));
+        let remote = Rc::new(
+            RemoteDataSource::new(
+                "https://github.com/cbourjau/alice-rs/blob/master/root-io/src/test_data/simple.root?raw=true"
+            ).unwrap());
+        let sources: Vec<Rc<dyn DataSource>> = vec![local, remote];
+        for source in &sources {
+            let hdr = source
+                .fetch(0, FILE_HEADER_SIZE)
+                .and_then(|buf| file_header(&buf)
+                          .to_result()
+                          .map_err(|e| e.into())
+                ).unwrap();
 
-        let dir = source
-            .fetch(hdr.seek_dir, TDIRECTORY_MAX_SIZE)
-            .and_then(|buf| directory(&buf)
-                      .to_result()
-                      .map_err(|e| e.into())
-            ).unwrap();
-        assert_eq!(
-            dir,
-            Directory {
-                version: 5,
-                c_time: 1418768412,
-                m_time: 1418768412,
-                n_bytes_keys: 96,
-                n_bytes_name: 58,
-                seek_dir: 100,
-                // TODO: This should probably be an Option
-                seek_parent: 0,
-                seek_keys: 1021
-            }
-        );
+            let dir = source
+                .fetch(hdr.seek_dir, TDIRECTORY_MAX_SIZE)
+                .and_then(|buf| directory(&buf)
+                          .to_result()
+                          .map_err(|e| e.into())
+                ).unwrap();
+            assert_eq!(
+                dir,
+                Directory {
+                    version: 5,
+                    c_time: 1418768412,
+                    m_time: 1418768412,
+                    n_bytes_keys: 96,
+                    n_bytes_name: 58,
+                    seek_dir: 100,
+                    // TODO: This should probably be an Option
+                    seek_parent: 0,
+                    seek_keys: 1021
+                }
+            );
+        }
     }
 
     #[test]
     fn streamerinfo_test() {
-        let source = Rc::new(LocalDataSource::new("./src/test_data/simple.root".parse().unwrap()));
-        let key = source
-            .fetch(1117, 4446)
-            .and_then(|buf| tkey(&buf)
-                      .to_result()
-                      .map_err(|e| e.into())
-            ).unwrap();
-        assert_eq!(key.hdr.obj_name, "StreamerInfo");
+        let local = Rc::new(LocalDataSource::new("./src/test_data/simple.root".parse().unwrap()));
+        let remote = Rc::new(
+            RemoteDataSource::new(
+                "https://github.com/cbourjau/alice-rs/blob/master/root-io/src/test_data/simple.root?raw=true"
+            ).unwrap());
+        let sources: Vec<Rc<dyn DataSource>> = vec![local, remote];
+        for source in &sources {
 
-        let key_len = key.hdr.key_len;
-        let k_map_offset = 2;
-        let context = Context {
-            source,
-            offset: (key_len + k_map_offset) as u64,
-            s: key.obj.as_slice(),
-        };
+            let key = source
+                .fetch(1117, 4446)
+                .and_then(|buf| tkey(&buf)
+                          .to_result()
+                          .map_err(|e| e.into())
+                ).unwrap();
+            assert_eq!(key.hdr.obj_name, "StreamerInfo");
 
-        match length_value!(
-            key.obj.as_slice(),
-            checked_byte_count,
-            apply!(tlist, &context)
-        ) {
-            IResult::Done(_, l) => {
-                assert_eq!(l.ver, 5);
-                assert_eq!(l.name, "");
-                assert_eq!(l.len, 19);
-            }
-            _ => panic!("Not parsed as TList!"),
-        };
+            let key_len = key.hdr.key_len;
+            let k_map_offset = 2;
+            let context = Context {
+                source: source.clone(),
+                offset: (key_len + k_map_offset) as u64,
+                s: key.obj.as_slice(),
+            };
+
+            match length_value!(
+                key.obj.as_slice(),
+                checked_byte_count,
+                apply!(tlist, &context)
+            ) {
+                IResult::Done(_, l) => {
+                    assert_eq!(l.ver, 5);
+                    assert_eq!(l.name, "");
+                    assert_eq!(l.len, 19);
+                }
+                _ => panic!("Not parsed as TList!"),
+            };
+        }
     }
 }

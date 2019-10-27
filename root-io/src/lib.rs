@@ -25,8 +25,8 @@ extern crate quote;
 extern crate failure;
 extern crate flate2;
 extern crate xz2;
+extern crate reqwest;
 
-#[cfg(test)]
 extern crate alice_open_data;
 
 // pub mod core_types;
