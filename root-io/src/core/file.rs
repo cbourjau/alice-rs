@@ -1,5 +1,4 @@
 use std::fmt;
-use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path};
 
 use failure::Error;
@@ -8,6 +7,14 @@ use nom::*;
 use code_gen::rust::{ToNamedRustParser, ToRustStruct};
 use core::*;
 use MAP_OFFSET;
+
+
+/// Size of serialized `FileHeader` in bytes
+const FILE_HEADER_SIZE: u64 = 53;
+
+/// Size of serialized TDirectory. Depending on the ROOT version this
+/// may use 32 or 64 bit pointers. This is the maximal (64 bit size).
+const TDIRECTORY_MAX_SIZE: u64 = 42;
 
 /// `RootFile` wraps the most basic information of a ROOT file.
 #[derive(Debug)]
@@ -100,18 +107,27 @@ impl RootFile {
     /// Open a ROOT file and read in the necessary meta information
     pub fn new_from_file(path: &Path) -> Result<Self, Error> {
         let source = DataSource::new(path.to_str().unwrap());
-        let mut reader = source.reader()?;
-        reader.seek(SeekFrom::Start(0))?;
-        let hdr = parse_buffer(&mut reader, 256, file_header)?;
+
+        let hdr = source
+            .fetch(0, FILE_HEADER_SIZE)
+            .and_then(|buf| file_header(&buf)
+                      .to_result()
+                      .map_err(|e| e.into())
+            )?;
 
         // Jump to the TDirectory and parse it
-        reader.seek(SeekFrom::Start(hdr.seek_dir))?;
-        let dir = parse_buffer(&mut reader, 256, directory)?;
-        let tkey_of_keys = {
-            // Jump to TKey holding a list of TKeys describing the file content
-            reader.seek(SeekFrom::Start(dir.seek_keys))?;
-            parse_buffer(&mut reader, 1024, tkey)?
-        };
+        let dir = source
+            .fetch(hdr.seek_dir, TDIRECTORY_MAX_SIZE)
+            .and_then(|buf| directory(&buf)
+                      .to_result()
+                      .map_err(|e| e.into())
+            )?;
+        let tkey_of_keys = source
+            .fetch(dir.seek_keys, dir.n_bytes_keys as u64)
+            .and_then(|buf| tkey(&buf)
+                      .to_result()
+                      .map_err(|e| e.into())
+            )?;
         let keys = match tkey_headers(&tkey_of_keys.obj) {
             IResult::Done(_, hdrs) => Ok(hdrs),
             _ => Err(format_err!("Expected TKeyHeaders")),
@@ -126,12 +142,14 @@ impl RootFile {
 
     /// Return all `TSreamerInfo` for the data in this file
     pub fn streamers(&self) -> Result<Vec<TStreamerInfo>, Error> {
-        let mut reader = self.source.reader()?;
-
-        // Read streamer info
-        reader.seek(SeekFrom::Start(self.hdr.seek_info))?;
         // Dunno why we are 4 bytes off with the size of the streamer info...
-        let info_key = parse_buffer(&mut reader, (self.hdr.nbytes_info + 4) as usize, tkey)?;
+        let seek_info_len = (self.hdr.nbytes_info + 4) as u64;
+        let info_key = self.source
+            .fetch(self.hdr.seek_info, seek_info_len)
+            .and_then(|buf| tkey(&buf)
+                      .to_result()
+                      .map_err(|e| e.into())
+            )?;
 
         let key_len = info_key.hdr.key_len;
         let context = Context {
@@ -227,38 +245,6 @@ impl RootFile {
     }
 }
 
-/// Use given parse on reader. If the initial `buf_size` is not large
-/// enough it will increase it appropriately
-fn parse_buffer<R, F, O>(reader: &mut R, buf_size: usize, f: F) -> Result<O, Error>
-where
-    R: Read + Seek,
-    F: Fn(&[u8]) -> IResult<&[u8], O>,
-{
-    let buf = &mut vec![0; buf_size];
-    let read_bytes = {
-        match reader.read_exact(buf) {
-            // We probably hit the end of the file; backup and read as much as possible
-            Err(_) => reader.read_to_end(buf)?,
-            _ => buf_size,
-        }
-    };
-    match f(buf) {
-        IResult::Done(_, parsed) => Ok(parsed),
-        IResult::Incomplete(needed) => {
-            // Reset seek position and try again with updated buf size
-            reader.seek(SeekFrom::Current(-(read_bytes as i64)))?;
-            match needed {
-                Needed::Size(s) => parse_buffer(reader, s, f),
-                _ => parse_buffer(reader, buf_size + 1000, f),
-            }
-        }
-        IResult::Error(e) => {
-            println!("{}", buf.to_hex(8));
-            Err(format_err!("{:?}", e))
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -266,11 +252,13 @@ mod test {
     #[test]
     fn file_header_test() {
         let source = DataSource::new("./src/test_data/simple.root");
-        let mut reader = source.reader().unwrap();
-        // Unnecessary, but explicit
-        reader.seek(SeekFrom::Start(0)).unwrap();
+        let hdr = source
+            .fetch(0, FILE_HEADER_SIZE)
+            .and_then(|buf| file_header(&buf)
+                      .to_result()
+                      .map_err(|e| e.into())
+            ).unwrap();
 
-        let hdr = parse_buffer(&mut reader, 100, file_header).unwrap();
         let should = FileHeader {
             version: 60600,
             begin: 100,
@@ -292,12 +280,20 @@ mod test {
     #[test]
     fn directory_test() {
         let source = DataSource::new("./src/test_data/simple.root");
-        let mut reader = source.reader().unwrap();
         // Unnecessary, but explicit
-        reader.seek(SeekFrom::Start(0)).unwrap();
-        let hdr = parse_buffer(&mut reader, 100, file_header).unwrap();
-        reader.seek(SeekFrom::Start(hdr.seek_dir)).unwrap();
-        let dir = parse_buffer(&mut reader, 100, directory).unwrap();
+        let hdr = source
+            .fetch(0, FILE_HEADER_SIZE)
+            .and_then(|buf| file_header(&buf)
+                      .to_result()
+                      .map_err(|e| e.into())
+            ).unwrap();
+
+        let dir = source
+            .fetch(hdr.seek_dir, TDIRECTORY_MAX_SIZE)
+            .and_then(|buf| directory(&buf)
+                      .to_result()
+                      .map_err(|e| e.into())
+            ).unwrap();
         assert_eq!(
             dir,
             Directory {
@@ -317,10 +313,12 @@ mod test {
     #[test]
     fn streamerinfo_test() {
         let source = DataSource::new("./src/test_data/simple.root");
-        let mut reader = source.reader().unwrap();
-        // See file test
-        reader.seek(SeekFrom::Start(1117)).unwrap();
-        let key = parse_buffer(&mut reader, 4446, tkey).unwrap();
+        let key = source
+            .fetch(1117, 4446)
+            .and_then(|buf| tkey(&buf)
+                      .to_result()
+                      .map_err(|e| e.into())
+            ).unwrap();
         assert_eq!(key.hdr.obj_name, "StreamerInfo");
 
         let key_len = key.hdr.key_len;
