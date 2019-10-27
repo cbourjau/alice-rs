@@ -5,7 +5,7 @@ use std::io::{Read, Seek, SeekFrom};
 use failure::Error;
 
 use alice_open_data::client;
-use reqwest::{Client, Url, header::{RANGE, USER_AGENT}};
+use reqwest::{blocking::Client, Url, header::{RANGE, USER_AGENT}};
 
 pub trait DataSource: std::fmt::Debug {
     fn fetch(&self, start: u64, len: u64) -> Result<Vec<u8>, Error>;
