@@ -1,5 +1,6 @@
 use std::fmt;
 use std::path::{Path};
+use std::rc::Rc;
 
 use failure::Error;
 use nom::*;
@@ -19,7 +20,7 @@ const TDIRECTORY_MAX_SIZE: u64 = 42;
 /// `RootFile` wraps the most basic information of a ROOT file.
 #[derive(Debug)]
 pub struct RootFile {
-    source: DataSource,
+    source: Rc<dyn DataSource>,
     hdr: FileHeader,
     items: Vec<FileItem>,
 }
@@ -106,7 +107,7 @@ named!(
 impl RootFile {
     /// Open a ROOT file and read in the necessary meta information
     pub fn new_from_file(path: &Path) -> Result<Self, Error> {
-        let source = DataSource::new(path.to_str().unwrap());
+        let source = Rc::new(LocalDataSource::new(path.to_owned()));
 
         let hdr = source
             .fetch(0, FILE_HEADER_SIZE)
@@ -251,7 +252,7 @@ mod test {
 
     #[test]
     fn file_header_test() {
-        let source = DataSource::new("./src/test_data/simple.root");
+        let source = LocalDataSource::new("./src/test_data/simple.root".parse().unwrap());
         let hdr = source
             .fetch(0, FILE_HEADER_SIZE)
             .and_then(|buf| file_header(&buf)
@@ -279,7 +280,7 @@ mod test {
 
     #[test]
     fn directory_test() {
-        let source = DataSource::new("./src/test_data/simple.root");
+        let source = LocalDataSource::new("./src/test_data/simple.root".parse().unwrap());
         // Unnecessary, but explicit
         let hdr = source
             .fetch(0, FILE_HEADER_SIZE)
@@ -312,7 +313,7 @@ mod test {
 
     #[test]
     fn streamerinfo_test() {
-        let source = DataSource::new("./src/test_data/simple.root");
+        let source = Rc::new(LocalDataSource::new("./src/test_data/simple.root".parse().unwrap()));
         let key = source
             .fetch(1117, 4446)
             .and_then(|buf| tkey(&buf)

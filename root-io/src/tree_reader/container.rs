@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use failure::Error;
 use nom::*;
 
@@ -8,7 +10,7 @@ pub(crate) enum Container {
     /// Decompressed content of a `TBasket`
     InMemory(Vec<u8>),
     /// Filename, start byte, and len of a `TBasket` on disk
-    OnDisk(DataSource, u64, u64),
+    OnDisk(Rc<dyn DataSource>, u64, u64),
 }
 
 impl Container {

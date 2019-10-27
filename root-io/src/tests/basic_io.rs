@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use core::*;
 
 #[test]
@@ -25,7 +27,7 @@ fn list_of_rules() {
     ];
     // Should not be needed; just some dummy
     let context = Context {
-        source: DataSource::new(""),
+        source: Rc::new(LocalDataSource::new("".parse().unwrap())),
         offset: 0,
         s: &[],
     };

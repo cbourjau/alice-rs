@@ -1,4 +1,6 @@
 use std::fmt;
+use std::rc::Rc;
+
 use crate::core::DataSource;
 
 use nom::HexDisplay;
@@ -72,7 +74,7 @@ pub struct Raw<'s> {
 #[derive(Debug)]
 pub struct Context<'s> {
     /// Path to file of this context
-    pub source: DataSource,
+    pub source: Rc<dyn DataSource>,
     /// Offset between the beginning of `s` and to where absolute
     /// positions in the buffer point (e.g. for class defs)
     /// Usually something like TKey-length + 4
