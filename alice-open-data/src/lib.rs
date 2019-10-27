@@ -4,13 +4,21 @@ extern crate dirs;
 extern crate glob;
 extern crate reqwest;
 
-use failure::Error;
-use reqwest::Certificate;
-use reqwest::Url;
 use std::fs::{DirBuilder, File};
 use std::io::copy;
 use std::io::Read;
 use std::path::PathBuf;
+
+use failure::Error;
+use reqwest::{Certificate, Client, Url};
+
+/// Setup a `reqwest::Client` with the necessary SSL certificates
+pub fn client() -> Result<Client, Error> {
+    Ok(reqwest::Client::builder()
+        .add_root_certificate(Certificate::from_pem(ROOT).unwrap())
+        .add_root_certificate(Certificate::from_pem(GRID).unwrap())
+        .build()?)
+}
 
 /// Download the given file to the local collection
 pub fn download(base_dir: PathBuf, url: Url) -> Result<u64, Error> {
@@ -83,12 +91,7 @@ pub fn get_file_list(run: u32) -> Result<Vec<Url>, Error> {
 }
 
 fn download_with_https(uri: Url) -> Result<reqwest::Response, Error> {
-    let client = reqwest::Client::builder()
-        .add_root_certificate(Certificate::from_pem(ROOT).unwrap())
-        .add_root_certificate(Certificate::from_pem(GRID).unwrap())
-        .build()
-        .unwrap();
-    Ok(client.get(uri).send()?)
+    Ok(client()?.get(uri).send()?)
 }
 
 #[cfg(test)]
