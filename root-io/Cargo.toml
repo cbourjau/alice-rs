@@ -22,7 +22,7 @@ reqwest = "0.10.0-alpha.1"
 
 [dependencies.nom]
 version = "^3"
-#features = ["nightly", "verbose-errors"] # For better error messages
+features = [] # avoid the default memchar feature for wasm's sake
 
 [dev-dependencies]
 criterion = "0.3"
