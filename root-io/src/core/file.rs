@@ -106,9 +106,18 @@ named!(
 
 impl RootFile {
     /// Open a ROOT file and read in the necessary meta information
+    pub fn new_from_url(url: &str) -> Result<Self, Error> {
+        let source = Rc::new(RemoteDataSource::new(url)?);
+        Self::new(source)
+    }
+
+    /// Open a ROOT file and read in the necessary meta information
     pub fn new_from_file(path: &Path) -> Result<Self, Error> {
         let source = Rc::new(LocalDataSource::new(path.to_owned()));
+        Self::new(source)
+    }
 
+    fn new<S: DataSource + 'static>(source: Rc<S>) -> Result<Self, Error> {
         let hdr = source
             .fetch(0, FILE_HEADER_SIZE)
             .and_then(|buf| file_header(&buf)
