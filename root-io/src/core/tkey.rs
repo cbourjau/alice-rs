@@ -1,6 +1,5 @@
 use core::*;
 use nom::*;
-use std::io::SeekFrom;
 
 #[derive(Debug, Clone)]
 pub struct TKeyHeader {
@@ -10,8 +9,8 @@ pub struct TKeyHeader {
     datime: u32,
     pub(crate) key_len: i16,
     cycle: i16,
-    pub(crate) seek_key: SeekFrom,
-    seek_pdir: SeekFrom,
+    pub(crate) seek_key: SeekPointer,
+    seek_pdir: SeekPointer,
     pub(crate) class_name: String,
     pub(crate) obj_name: String,
     obj_title: String,
@@ -58,13 +57,12 @@ TKey headers are stored for faster later `Seek`ing"#],
 );
 
 named_args!(
-    seek_point(version: u16)<SeekFrom>,
-    map!(
+    seek_point(version: u16)<u64>,
         alt_complete!(
-            cond_reduce!(version > 1000, be_u64) |
-            be_u32 => {|v| u64::from(v)}),
-        SeekFrom::Start
-    )
+            cond_reduce!(
+                version > 1000, be_u64)
+                | be_u32 => {|v| u64::from(v)}
+        )
 );
 
 named!(

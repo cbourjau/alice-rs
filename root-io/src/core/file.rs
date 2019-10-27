@@ -28,10 +28,10 @@ struct FileHeader {
     n_bytes_name: i32,
     pointer_size: u8,
     compression: i32,
-    seek_info: SeekFrom,
+    seek_info: SeekPointer,
     nbytes_info: i32,
     uuid: i64,
-    seek_dir: SeekFrom,
+    seek_dir: SeekPointer,
 }
 
 #[derive(Debug, PartialEq)]
@@ -41,9 +41,9 @@ pub struct Directory {
     m_time: u32,
     n_bytes_keys: i32,
     n_bytes_name: i32,
-    seek_dir: SeekFrom,
-    seek_parent: SeekFrom,
-    seek_keys: SeekFrom,
+    seek_dir: SeekPointer,
+    seek_parent: SeekPointer,
+    seek_keys: SeekPointer,
 }
 
 named!(
@@ -60,11 +60,11 @@ named!(
             n_bytes_name: be_i32 >>
             pointer_size: be_u8 >>
             compression: be_i32 >>
-            seek_info: map!(be_i32, |v| SeekFrom::Start(v as u64)) >>
+            seek_info: map!(be_i32, |v| v as u64) >>
             nbytes_info: be_i32 >>
             uuid: be_i64 >>
             ({
-                let seek_dir = SeekFrom::Start((begin + n_bytes_name) as u64);
+                let seek_dir = (begin + n_bytes_name) as u64;
                 FileHeader {
                     version, begin, end, seek_free, nbytes_free,
                     n_entries_free, n_bytes_name, pointer_size,
@@ -90,9 +90,6 @@ named!(
         seek_keys: alt_complete!(
             cond_reduce!(version > 1000, be_u64) | be_i32 => {|val| val as u64}) >>
             ({
-                let seek_dir = SeekFrom::Start(seek_dir);
-                let seek_parent = SeekFrom::Start(seek_parent);
-                let seek_keys = SeekFrom::Start(seek_keys);
                 Directory {version, c_time, m_time, n_bytes_keys,
                            n_bytes_name, seek_dir, seek_parent, seek_keys,
                 }})
@@ -108,11 +105,11 @@ impl RootFile {
         let hdr = parse_buffer(&mut reader, 256, file_header)?;
 
         // Jump to the TDirectory and parse it
-        reader.seek(hdr.seek_dir)?;
+        reader.seek(SeekFrom::Start(hdr.seek_dir))?;
         let dir = parse_buffer(&mut reader, 256, directory)?;
         let tkey_of_keys = {
             // Jump to TKey holding a list of TKeys describing the file content
-            reader.seek(dir.seek_keys)?;
+            reader.seek(SeekFrom::Start(dir.seek_keys))?;
             parse_buffer(&mut reader, 1024, tkey)?
         };
         let keys = match tkey_headers(&tkey_of_keys.obj) {
@@ -132,7 +129,7 @@ impl RootFile {
         let mut reader = self.source.reader()?;
 
         // Read streamer info
-        reader.seek(self.hdr.seek_info)?;
+        reader.seek(SeekFrom::Start(self.hdr.seek_info))?;
         // Dunno why we are 4 bytes off with the size of the streamer info...
         let info_key = parse_buffer(&mut reader, (self.hdr.nbytes_info + 4) as usize, tkey)?;
 
@@ -284,10 +281,10 @@ mod test {
             n_bytes_name: 58,
             pointer_size: 4,
             compression: 1,
-            seek_info: SeekFrom::Start(1117),
+            seek_info: 1117,
             nbytes_info: 4442,
             uuid: 409442932018821,
-            seek_dir: SeekFrom::Start(158),
+            seek_dir: 158,
         };
         assert_eq!(hdr, should);
     }
@@ -299,7 +296,7 @@ mod test {
         // Unnecessary, but explicit
         reader.seek(SeekFrom::Start(0)).unwrap();
         let hdr = parse_buffer(&mut reader, 100, file_header).unwrap();
-        reader.seek(hdr.seek_dir).unwrap();
+        reader.seek(SeekFrom::Start(hdr.seek_dir)).unwrap();
         let dir = parse_buffer(&mut reader, 100, directory).unwrap();
         assert_eq!(
             dir,
@@ -309,9 +306,10 @@ mod test {
                 m_time: 1418768412,
                 n_bytes_keys: 96,
                 n_bytes_name: 58,
-                seek_dir: SeekFrom::Start(100),
-                seek_parent: SeekFrom::Start(0),
-                seek_keys: SeekFrom::Start(1021)
+                seek_dir: 100,
+                // TODO: This should probably be an Option
+                seek_parent: 0,
+                seek_keys: 1021
             }
         );
     }

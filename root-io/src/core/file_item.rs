@@ -1,6 +1,5 @@
 use failure::Error;
 use nom::*;
-use std::io::SeekFrom;
 
 use core::{checked_byte_count, decompress};
 use core::{Context, DataSource, TKeyHeader};
@@ -47,26 +46,9 @@ impl FileItem {
     where
         F: for<'s> Fn(&'s [u8], &'s Context<'s>) -> IResult<&'s [u8], O>,
     {
-        let start = {
-            if let SeekFrom::Start(start) = self.tkey_hdr.seek_key {
-                start + self.tkey_hdr.key_len as u64
-            } else {
-                return Err(format_err!("Expected SeekFrom::Start variant"));
-            }
-        };
+        let start = self.tkey_hdr.seek_key + self.tkey_hdr.key_len as u64;
         let len = self.tkey_hdr.total_size - self.tkey_hdr.key_len as u32;
         let comp_buf = self.source.fetch(start, len as u64)?;
-        // let f = File::open(&self.file_path)?;
-        // let mut reader = BufReader::new(f);
-        // let mut comp_buf =
-        //     vec![0; (self.tkey_hdr.total_size - self.tkey_hdr.key_len as u32) as usize];
-        // let key_start = self.tkey_hdr.seek_key;
-        // let payload_offset = SeekFrom::Current(i64::from(self.tkey_hdr.key_len));
-
-        // // Skip TKey and jump right to the payload
-        // reader.seek(key_start)?;
-        // reader.seek(payload_offset)?;
-        // reader.read_exact(&mut comp_buf)?;
 
         let buf = {
             if self.tkey_hdr.total_size < self.tkey_hdr.uncomp_len {
