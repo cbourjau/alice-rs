@@ -24,7 +24,7 @@ extern crate quote;
 #[macro_use]
 extern crate failure;
 extern crate flate2;
-extern crate xz2;
+extern crate lzma_rs;
 extern crate reqwest;
 
 extern crate alice_open_data;

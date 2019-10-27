@@ -13,7 +13,7 @@ use std::str;
 use failure::Error;
 use flate2::bufread::ZlibDecoder;
 use nom::{self, be_f64, be_i32, be_u16, be_u32, be_u8, rest};
-use xz2::read::XzDecoder;
+use lzma_rs::xz_decompress;
 
 use core::*;
 
@@ -167,11 +167,11 @@ fn decode_reader(bytes: &[u8], magic: &str) -> Result<Vec<u8>, Error> {
     match magic {
         "ZL" => {
             let mut decoder = ZlibDecoder::new(&bytes[..]);
-            decoder.read_to_end(&mut ret)?
+            decoder.read_to_end(&mut ret)?;
         }
         "XZ" => {
-            let mut decoder = XzDecoder::new(&bytes[..]);
-            decoder.read_to_end(&mut ret)?
+            let mut reader = std::io::BufReader::new(bytes);
+            xz_decompress(&mut reader, &mut ret).unwrap();
         }
         m => return Err(format_err!("Unsupported compression format `{}`", m)),
     };
