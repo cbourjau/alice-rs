@@ -1,4 +1,6 @@
 use nom::*;
+use nom::number::complete::*;
+
 use quote::*;
 
 use code_gen::rust::{ToNamedRustParser, ToRustParser, ToRustStruct, ToRustType};
@@ -36,7 +38,7 @@ where
                   let data_members = data_members.iter()
                       .filter_map(|el| {
                           match tstreamer(el) {
-                              IResult::Done(_, v) => Some(v),
+                              Ok((_, v)) => Some(v),
                               _ => {println!("Failed to parse TStreamer for {}:\n{}",
                                              el.classinfo, el.obj.to_hex(16));
                                     None

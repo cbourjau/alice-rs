@@ -21,8 +21,7 @@ reqwest = {"version"="0.10.0-alpha.1", "features"=["blocking"]}
 lzma-rs = "0.1.1"
 
 [dependencies.nom]
-version = "^3"
-features = [] # avoid the default memchar feature for wasm's sake
+version = "^5"
 
 [dev-dependencies]
 criterion = "0.3"

@@ -1,5 +1,7 @@
 use core::*;
 use nom::*;
+use nom::number::complete::*;
+use nom::combinator::map;
 
 #[derive(Debug, Clone)]
 pub struct TKeyHeader {
@@ -35,8 +37,8 @@ TKey headers are stored for faster later `Seek`ing"#],
               datime: be_u32 >>
               key_len: be_i16 >>
               cycle: be_i16 >>
-              seek_key: apply!(seek_point, version) >>
-              seek_pdir: apply!(seek_point, version) >>
+              seek_key: call!(seek_point, version) >>
+              seek_pdir: call!(seek_point, version) >>
               class_name: string >>
               obj_name: string >>
               obj_title: string >>
@@ -56,14 +58,15 @@ TKey headers are stored for faster later `Seek`ing"#],
     )
 );
 
-named_args!(
-    seek_point(version: u16)<u64>,
-        alt_complete!(
-            cond_reduce!(
-                version > 1000, be_u64)
-                | be_u32 => {|v| u64::from(v)}
-        )
-);
+
+/// Parse a file-pointer based on the version of the file
+fn seek_point(input: &[u8], version: u16) -> nom::IResult<&[u8], u64> {
+    if version > 1000 {
+        be_u64(input)
+    } else {
+        map(be_u32, u64::from)(input)
+    }
+}
 
 named!(
     #[doc="Parse a full TKey including its payload"],

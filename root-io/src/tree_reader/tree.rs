@@ -1,5 +1,7 @@
 use failure::Error;
 use nom::*;
+use nom::number::complete::*;
+
 use std::fmt;
 use std::ops::Deref;
 
@@ -130,7 +132,7 @@ pub fn ttree<'s>(input: &'s [u8], context: &Context) -> IResult<&'s [u8], Tree> 
                                                 Some))
     };
     let grab_checked_byte_count = |i| length_data!(i, checked_byte_count);
-    let wrapped_tobjarray = |i: &'s[u8]| length_value!(i, checked_byte_count, apply!(tobjarray, context));    
+    let wrapped_tobjarray = |i: &'s[u8]| length_value!(i, checked_byte_count, call!(tobjarray, context));
     do_parse!(input,
               ver: be_u16 >>
               tnamed: length_value!(checked_byte_count, tnamed) >>

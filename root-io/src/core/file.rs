@@ -3,7 +3,10 @@ use std::path::{Path};
 use std::rc::Rc;
 
 use failure::Error;
-use nom::*;
+use nom::{
+    self,
+    number::complete::{be_i32, be_u32, be_u8, be_i64, be_i16, be_u64},
+};
 
 use code_gen::rust::{ToNamedRustParser, ToRustStruct};
 use core::*;
@@ -82,21 +85,27 @@ named!(
     )
 );
 
+/// Parse a file-pointer based on the version of the file
+fn versioned_pointer(input: &[u8], version: i16) -> nom::IResult<&[u8], u64> {
+    if version > 1000 {
+        be_u64(input)
+    } else {
+        map!(input, be_i32, |val| val as u64)
+    }
+}
+
 named!(
     #[doc="Directory within a root file; exists on ever file"],
     directory<&[u8], Directory>,
     do_parse!(
         version: be_i16 >>
-        c_time: be_u32 >>
-        m_time: be_u32 >>
-        n_bytes_keys: be_i32 >>
-        n_bytes_name: be_i32 >>
-        seek_dir: alt_complete!(
-            cond_reduce!(version > 1000, be_u64) | be_i32 => {|val| val as u64}) >>
-        seek_parent: alt_complete!(
-            cond_reduce!(version > 1000, be_u64) | be_i32 => {|val| val as u64}) >>
-        seek_keys: alt_complete!(
-            cond_reduce!(version > 1000, be_u64) | be_i32 => {|val| val as u64}) >>
+            c_time: be_u32 >>
+            m_time: be_u32 >>
+            n_bytes_keys: be_i32 >>
+            n_bytes_name: be_i32 >>
+            seek_dir: call!(versioned_pointer, version) >>
+            seek_parent: call!(versioned_pointer, version) >>
+            seek_keys: call!(versioned_pointer, version) >>
             ({
                 Directory {version, c_time, m_time, n_bytes_keys,
                            n_bytes_name, seek_dir, seek_parent, seek_keys,
@@ -121,25 +130,25 @@ impl RootFile {
         let hdr = source
             .fetch(0, FILE_HEADER_SIZE)
             .and_then(|buf| file_header(&buf)
-                      .to_result()
-                      .map_err(|e| e.into())
+                      .map_err(|_| format_err!("Failed to parse file header"))
+                      .map(|(_i, o)| o)
             )?;
 
         // Jump to the TDirectory and parse it
         let dir = source
             .fetch(hdr.seek_dir, TDIRECTORY_MAX_SIZE)
             .and_then(|buf| directory(&buf)
-                      .to_result()
-                      .map_err(|e| e.into())
+                      .map_err(|_| format_err!("Failed to parse TDirectory"))
+                      .map(|(_i, o)| o)
             )?;
         let tkey_of_keys = source
             .fetch(dir.seek_keys, dir.n_bytes_keys as u64)
             .and_then(|buf| tkey(&buf)
-                      .to_result()
-                      .map_err(|e| e.into())
+                      .map_err(|_| format_err!("Failed to parse TKeys"))
+                      .map(|(_i, o)| o)
             )?;
         let keys = match tkey_headers(&tkey_of_keys.obj) {
-            IResult::Done(_, hdrs) => Ok(hdrs),
+            Ok((_, hdrs)) => Ok(hdrs),
             _ => Err(format_err!("Expected TKeyHeaders")),
         }?;
         let items = keys
@@ -156,10 +165,7 @@ impl RootFile {
         let seek_info_len = (self.hdr.nbytes_info + 4) as u64;
         let info_key = self.source
             .fetch(self.hdr.seek_info, seek_info_len)
-            .and_then(|buf| tkey(&buf)
-                      .to_result()
-                      .map_err(|e| e.into())
-            )?;
+            .and_then(|buf| Ok(tkey(&buf).unwrap().1))?;
 
         let key_len = info_key.hdr.key_len;
         let context = Context {
@@ -168,10 +174,10 @@ impl RootFile {
             s: info_key.obj.as_slice(),
         };
         // This TList in the payload has a bytecount in front...
-        let wrapped_tlist = |i| apply!(i, tlist, &context);
+        let wrapped_tlist = |i| tlist(i, &context);
         let tlist_objs =
             match length_value!(info_key.obj.as_slice(), checked_byte_count, wrapped_tlist) {
-                IResult::Done(_, l) => Ok(l.objs),
+                Ok((_, l)) => Ok(l.objs),
                 _ => Err(format_err!("Expected TStreamerInfo's TList")),
             }?;
         // Mainly this is a TList of `TStreamerInfo`s, but there might
@@ -271,8 +277,8 @@ mod test {
             let hdr = source
                 .fetch(0, FILE_HEADER_SIZE)
                 .and_then(|buf| file_header(&buf)
-                          .to_result()
-                          .map_err(|e| e.into())
+                          .map_err(|_| format_err!("Failed to parse file header"))
+                          .map(|(_i, o)| o)
                 ).unwrap();
 
             let should = FileHeader {
@@ -306,15 +312,15 @@ mod test {
             let hdr = source
                 .fetch(0, FILE_HEADER_SIZE)
                 .and_then(|buf| file_header(&buf)
-                          .to_result()
-                          .map_err(|e| e.into())
+                          .map_err(|_| format_err!("Failed to parse file header"))
+                          .map(|(_i, o)| o)
                 ).unwrap();
 
             let dir = source
                 .fetch(hdr.seek_dir, TDIRECTORY_MAX_SIZE)
                 .and_then(|buf| directory(&buf)
-                          .to_result()
-                          .map_err(|e| e.into())
+                          .map_err(|_| format_err!("Failed to parse file header"))
+                          .map(|(_i, o)| o)
                 ).unwrap();
             assert_eq!(
                 dir,
@@ -346,8 +352,8 @@ mod test {
             let key = source
                 .fetch(1117, 4446)
                 .and_then(|buf| tkey(&buf)
-                          .to_result()
-                          .map_err(|e| e.into())
+                          .map_err(|_| format_err!("Failed to parse file header"))
+                          .map(|(_i, o)| o)
                 ).unwrap();
             assert_eq!(key.hdr.obj_name, "StreamerInfo");
 
@@ -362,9 +368,9 @@ mod test {
             match length_value!(
                 key.obj.as_slice(),
                 checked_byte_count,
-                apply!(tlist, &context)
+                call!(tlist, &context)
             ) {
-                IResult::Done(_, l) => {
+                Ok((_, l)) => {
                     assert_eq!(l.ver, 5);
                     assert_eq!(l.name, "");
                     assert_eq!(l.len, 19);

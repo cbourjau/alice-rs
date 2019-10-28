@@ -12,13 +12,20 @@ use std::str;
 
 use failure::Error;
 use flate2::bufread::ZlibDecoder;
-use nom::{self, be_f64, be_i32, be_u16, be_u32, be_u8, rest};
+use nom::{
+    self,
+    bytes::complete::{take, take_until},
+    number::complete::{be_f64, be_i32, be_u16, be_u32, be_u8},
+    sequence::tuple,
+    multi::{count, length_value, length_data},
+    combinator::{rest, map_res},
+};
 use lzma_rs::xz_decompress;
 
 use core::*;
 
-fn is_byte_count(v: u32) -> bool {
-    Flags::from_bits_truncate(u64::from(v)).intersects(Flags::BYTE_COUNT_MASK)
+fn is_byte_count(v: &u32) -> bool {
+    Flags::from_bits_truncate(u64::from(*v)).intersects(Flags::BYTE_COUNT_MASK)
 }
 
 // Check that the given byte count is not zero after applying bit mask
@@ -30,7 +37,7 @@ named!(
     verify!(
         map!(verify!(be_u32, is_byte_count),
              |v| u64::from(v) & !Flags::BYTE_COUNT_MASK.bits()),
-        |v| v != 0)
+        |v| *v != 0)
 );
 
 /// Read ROOT's version of short and long strings (preceeded by u8). Does not read null terminated!
@@ -68,31 +75,58 @@ pub fn tlist<'s, 'c>(input: &'s [u8], context: &'c Context) -> nom::IResult<&'s 
 where
     's: 'c,
 {
-    let wrapped_raw = |i| raw(i, context);
-    do_parse!(input,
-              ver: be_u16 >>
-              tobj: tobject >>
-              name: string >>
-              len: be_i32 >>
-              objs: count!(
-                  do_parse!(obj: length_value!(checked_byte_count, wrapped_raw) >>
-                            // It seems like the TList can have gaps
-                            // between the elements. The size of the
-                            // gap is specified with a be_u8 following
-                            // the previous element.
-                            _gap: opt!(complete!(length_data!(be_u8))) >>
-                            (obj)),
-                  len as usize) >>
-              _rest: rest >>
-              ({
-                  TList{
-                      ver: ver,
-                      tobj: tobj,
-                      name: name,
-                      len: len as usize,
-                      objs: objs
-                  }}))
+    let (input, (ver, tobj, name, len)) = tuple((be_u16, tobject, string, be_i32))(input)?;
+    let (input, objs) = count(
+        |i| {
+            let wrapped_raw = |i| raw(i, context);
+            let (i, obj) = length_value(checked_byte_count, wrapped_raw)(i)?;
+            let (i, _) = length_data(be_u8)(i)?;
+            Ok((i, obj))
+        },
+        len as usize
+    )(input)?;
+
+    let (input, _) = rest(input)?;
+    Ok((input, TList{
+        ver: ver,
+        tobj: tobj,
+        name: name,
+        len: len as usize,
+        objs: objs
+    }))
 }
+
+// /// Parse a `TList`
+// pub fn tlist<'s, 'c>(input: &'s [u8], context: &'c Context) -> nom::IResult<&'s [u8], TList<'c>>
+// where
+//     's: 'c,
+// {
+//     let wrapped_raw = |i| raw(i, context);
+//     do_parse!(input,
+//               ver: be_u16 >>
+//               tobj: tobject >>
+//               name: string >>
+//               len: be_i32 >>
+//               objs: count!(
+//                   do_parse!(obj: length_value!(checked_byte_count, wrapped_raw) >>
+//                             // It seems like the TList can have gaps
+//                             // between the elements. The size of the
+//                             // gap is specified with a be_u8 following
+//                             // the previous element.
+//                             _gap: opt!(complete!(length_data!(be_u8))) >>
+//                             (obj)),
+//                   len as usize) >>
+//               _rest: rest >>
+//               ({
+//                   TList{
+//                       ver: ver,
+//                       tobj: tobj,
+//                       name: name,
+//                       len: len as usize,
+//                       objs: objs
+//                   }})
+//     )
+// }
 
 named!(
     #[doc="Parser for `TNamed` objects"],
@@ -178,26 +212,19 @@ fn decode_reader(bytes: &[u8], magic: &str) -> Result<Vec<u8>, Error> {
     Ok(ret)
 }
 
-named!(
-    #[doc="Decompress the given buffer. Figures out the compression algorithm from the preceeding \"magic\" bytes"],
-    pub decompress<&[u8], Vec<u8>>,
-    do_parse!(magic: take_str!(2) >>
-              _header: take!(7) >>
-              comp_buf: call!(nom::rest) >>
-              ret: expr_res!(decode_reader(comp_buf, magic)) >> 
-              (ret)
-    )
-);
+/// Decompress the given buffer. Figures out the compression algorithm from the preceeding \"magic\" bytes
+pub fn decompress(input: &[u8]) -> nom::IResult<&[u8], Vec<u8>> {
+    map_res(tuple((|i| take_str!(i, 2usize), take(7usize), rest)),
+            |(magic, _header, comp_buf)| decode_reader(comp_buf, magic))(input)
+}
 
-named!(
-    #[doc="Parse a null terminated string"],
-    pub c_string<&[u8], String>,
-    map!(
-        map_res!(
-            take_until_and_consume!(b"\x00".as_ref()),
-            |s| str::from_utf8(s)),
-        |s| s.to_string())
-);
+/// Parse a null terminated string
+pub fn c_string(i: &[u8]) -> nom::IResult<&[u8], String> {
+    let (i, s) = map_res(take_until(b"\x00".as_ref()), str::from_utf8)(i)?;
+    // consume the null tag
+    let (i, _) = take(1usize)(i)?;
+    Ok((i, s.to_string()))
+}
 
 /// Figure out the class we are looking at. The data might not be
 /// saved locally but rather in a reference to some other place in the
@@ -209,7 +236,7 @@ pub fn classinfo(input: &[u8]) -> nom::IResult<&[u8], ClassInfo>
     do_parse!(input,
               bcnt: be_u32 >>
               tag: switch!(
-                  value!(!is_byte_count(bcnt) || u64::from(bcnt) == Flags::NEW_CLASSTAG.bits()),
+                  value!(!is_byte_count(&bcnt) || u64::from(bcnt) == Flags::NEW_CLASSTAG.bits()),
                   true => value!(bcnt) |
                   false => call!(be_u32)) >>
               cl: switch!(
@@ -257,9 +284,9 @@ where
     };
     do_parse!(input,
               ci: switch!(classinfo,
-                          ClassInfo::New(s) => tuple!(value!(s), length_value!(checked_byte_count, call!(nom::rest))) |
+                          ClassInfo::New(s) => tuple!(value!(s), length_value!(checked_byte_count, call!(rest))) |
                           ClassInfo::Exists(tag) => tuple!(value!(get_name_elsewhere(tag)),
-                                                             length_value!(checked_byte_count, call!(nom::rest))) |
+                                                             length_value!(checked_byte_count, call!(rest))) |
                           ClassInfo::References(tag) => value!(get_name_and_buf_elsewhere(tag))) >>
               (ci)
     )
@@ -271,7 +298,7 @@ where
     's: 'c,
 {
     do_parse!(input,
-              string_and_obj: apply!(class_name_and_buffer, context) >>
+              string_and_obj: call!(class_name_and_buffer, context) >>
               // obj: length_value!(checked_byte_count, call!(nom::rest)) >>
               ({let (classinfo, obj) = string_and_obj;
                 Raw{classinfo, obj}})
@@ -283,23 +310,15 @@ where
 /// given buffer contains a reference to some other part of the file.
 pub fn raw_no_context(input: &[u8]) -> nom::IResult<&[u8], (ClassInfo, &[u8])> {
     use self::ClassInfo::*;
-    let first = do_parse!(input,
-              ci: classinfo >>
-              rest: call!(nom::rest) >> 
-              (ci, rest)
-    );
-    if first.is_done() {
-        let (_, (ci, rest)) = first.unwrap();
-        let obj = match ci {
-            References(0) => value!(rest, &input[..0]),
-            New(_) | Exists(_) => length_value!(rest, checked_byte_count, call!(nom::rest)),
-            // If its a reference to any other thing but 0 it needs a context
-            _ => panic!("Object needs context!"),
-        };
-        obj.map(|o| (ci, o))
-    } else {
-        first
-    }
+    let (input, ci) = classinfo(input)?;
+    let obj = match ci {
+        // point to beginning of slice
+        References(0) => value!(input, &input[..0]),
+        New(_) | Exists(_) => length_value!(input, checked_byte_count, call!(rest)),
+        // If its a reference to any other thing but 0 it needs a context
+        _ => panic!("Object needs context!"),
+    };
+    obj.map(|(i, o)| (i, (ci, o)))
 }
 
 #[cfg(test)]

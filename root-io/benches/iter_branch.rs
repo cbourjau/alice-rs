@@ -3,7 +3,7 @@ extern crate root_io;
 extern crate alice_open_data;
 extern crate nom;
 
-use nom::{be_i32, be_u32, be_f32};
+use nom::number::complete::{be_i32, be_u32, be_f32};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use root_io::RootFile;
@@ -15,7 +15,7 @@ fn fixed_size_branch() {
     let t = f.items()[0].as_tree().unwrap();
     let iter = t
         .branch_by_name("PrimaryVertex.AliVertex.fNContributors").unwrap()
-        .as_fixed_size_iterator(be_i32).unwrap();
+        .as_fixed_size_iterator(|i| be_i32(i)).unwrap();
     iter.for_each(|el| {black_box(el);});
 }
 
@@ -26,11 +26,11 @@ fn var_size_branch() {
 
     let track_counter: Vec<_> = t
         .branch_by_name("Tracks").unwrap()
-        .as_fixed_size_iterator(be_u32).unwrap()
+        .as_fixed_size_iterator(|i| be_u32(i)).unwrap()
         .collect();
     let iter = t
         .branch_by_name("Tracks.fX").unwrap()
-        .as_var_size_iterator(be_f32, &track_counter).unwrap();
+        .as_var_size_iterator(|i| be_f32(i), &track_counter).unwrap();
     iter.for_each(|el| {black_box(el);});
 }
 

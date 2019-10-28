@@ -1,5 +1,7 @@
 use failure::Error;
 use nom::*;
+use nom::number::complete::*;
+use nom::sequence::{pair, tuple};
 
 use core::checked_byte_count;
 use core::parsers::{tnamed, tobjarray_no_context};
@@ -11,10 +13,10 @@ struct SchemaIntoIter {
     aliesdrun_frunnumber: Box<dyn Iterator<Item = i32>>,
     aliesdrun_ftriggerclasses: Box<dyn Iterator<Item = Vec<String>>>,
     aliesdheader_ftriggermask: Box<dyn Iterator<Item = u64>>,
-    primaryvertex_alivertex_fposition: Box<dyn Iterator<Item = [f32; 3]>>,
+    primaryvertex_alivertex_fposition: Box<dyn Iterator<Item = (f32, f32, f32)>>,
     primaryvertex_alivertex_fncontributors: Box<dyn Iterator<Item = i32>>,
     tracks_fx: Box<dyn Iterator<Item = Vec<f32>>>,
-    tracks_fp: Box<dyn Iterator<Item = Vec<[f32; 5]>>>,
+    tracks_fp: Box<dyn Iterator<Item = Vec<(f32, f32, f32, f32, f32)>>>,
     tracks_falpha: Box<dyn Iterator<Item = Vec<f32>>>,
     tracks_fflags: Box<dyn Iterator<Item = Vec<u64>>>,
     tracks_fitschi2: Box<dyn Iterator<Item = Vec<f32>>>,
@@ -26,12 +28,12 @@ impl SchemaIntoIter {
     fn new(t: &Tree) -> Result<SchemaIntoIter, Error> {
         let track_counter: Vec<_> = t
             .branch_by_name("Tracks")?
-            .as_fixed_size_iterator(be_u32)?
+            .as_fixed_size_iterator(|i| be_u32(i))?
             .collect();
         Ok(SchemaIntoIter {
             aliesdrun_frunnumber: Box::new(
                 t.branch_by_name("AliESDRun.fRunNumber")?
-                    .as_fixed_size_iterator(be_i32)?,
+                    .as_fixed_size_iterator(|i| be_i32(i))?,
             ),
             aliesdrun_ftriggerclasses: Box::new(
                 t.branch_by_name("AliESDRun.fTriggerClasses")?
@@ -39,31 +41,31 @@ impl SchemaIntoIter {
             ),
             aliesdheader_ftriggermask: Box::new(
                 t.branch_by_name("AliESDHeader.fTriggerMask")?
-                    .as_fixed_size_iterator(be_u64)?,
+                    .as_fixed_size_iterator(|i| be_u64(i))?,
             ),
             primaryvertex_alivertex_fposition: Box::new(
                 t.branch_by_name("PrimaryVertex.AliVertex.fPosition[3]")?
-                    .as_fixed_size_iterator(|i| count_fixed!(i, f32, be_f32, 3))?,
+                    .as_fixed_size_iterator(|i| tuple((be_f32, be_f32, be_f32))(i))?,
             ),
             primaryvertex_alivertex_fncontributors: Box::new(
                 t.branch_by_name("PrimaryVertex.AliVertex.fNContributors")?
-                    .as_fixed_size_iterator(be_i32)?,
+                    .as_fixed_size_iterator(|i| be_i32(i))?,
             ),
             tracks_fx: Box::new(
                 t.branch_by_name("Tracks.fX")?
-                    .as_var_size_iterator(be_f32, &track_counter)?,
+                    .as_var_size_iterator(|i| be_f32(i), &track_counter)?,
             ),
             tracks_fp: Box::new(
                 t.branch_by_name("Tracks.fP[5]")?
-                    .as_var_size_iterator(|i| count_fixed!(i, f32, be_f32, 5), &track_counter)?,
+                    .as_var_size_iterator(|i| tuple((be_f32, be_f32, be_f32, be_f32, be_f32))(i), &track_counter)?,
             ),
             tracks_falpha: Box::new(
                 t.branch_by_name("Tracks.fAlpha")?
-                    .as_var_size_iterator(be_f32, &track_counter)?,
+                    .as_var_size_iterator(|i| be_f32(i), &track_counter)?,
             ),
             tracks_fflags: Box::new(
                 t.branch_by_name("Tracks.fFlags")?
-                    .as_var_size_iterator(be_u64, &track_counter)?,
+                    .as_var_size_iterator(|i| be_u64(i), &track_counter)?,
             ),
             tracks_fitschi2: Box::new(
                 t.branch_by_name("Tracks.fITSchi2")?
@@ -71,11 +73,11 @@ impl SchemaIntoIter {
             ),
             tracks_fitsncls: Box::new(
                 t.branch_by_name("Tracks.fITSncls")?
-                    .as_var_size_iterator(be_i8, &track_counter)?,
+                    .as_var_size_iterator(|i| be_i8(i), &track_counter)?,
             ),
             tracks_fitsclustermap: Box::new(
                 t.branch_by_name("Tracks.fITSClusterMap")?
-                    .as_var_size_iterator(be_u8, &track_counter)?,
+                    .as_var_size_iterator(|i| be_u8(i), &track_counter)?,
             ),
         })
     }
@@ -84,13 +86,13 @@ impl SchemaIntoIter {
 /// A model for the / a subset of the ESD data
 #[derive(Debug)]
 struct Model {
-    primaryvertex_alivertex_fposition: [f32; 3],
+    primaryvertex_alivertex_fposition: (f32, f32, f32),
     primaryvertex_alivertex_fncontributors: i32,
     aliesdrun_frunnumber: i32,
     aliesdrun_ftriggerclasses: Vec<String>,
     aliesdheader_ftriggermask: u64,
     tracks_fx: Vec<f32>,
-    tracks_fp: Vec<[f32; 5]>,
+    tracks_fp: Vec<(f32, f32, f32, f32, f32)>,
     tracks_falpha: Vec<f32>,
     tracks_fflags: Vec<u64>,
     tracks_fitschi2: Vec<f32>,
@@ -128,18 +130,19 @@ impl Iterator for SchemaIntoIter {
 /// as an `TObjArray` of `TNamed` objects for each event. This breaks
 /// it down to a simple vector
 fn parse_trigger_classes(input: &[u8]) -> IResult<&[u8], Vec<String>> {
-    let vals = length_value!(input, checked_byte_count, tobjarray_no_context);
-    vals.map(|arr| {
-        arr.iter()
-            .map(|&(ref ci, ref el)| match *ci {
-                ClassInfo::References(0) => "".to_string(),
-                _ => match tnamed(el.as_slice()).map(|tn| tn.name) {
-                    IResult::Done(_, n) => n,
-                    _ => panic!(),
-                },
-            })
-            .collect::<Vec<String>>()
-    })
+    // each element of the tobjarray has a Vec<u8>
+    let (input, vals) = length_value!(input, checked_byte_count, tobjarray_no_context)?;
+    let strings = vals
+        .iter()
+        .map(|&(ref ci, ref el)| match *ci {
+            ClassInfo::References(0) => "".to_string(),
+            _ => match tnamed(el.as_slice()) {
+                Ok((_, tn)) => tn.name,
+                _ => panic!(),
+            },
+        })
+        .collect::<Vec<String>>();
+    Ok((input, strings))
 }
 
 /// Some Double_32 values are saved with a custom mantissa... The
@@ -148,14 +151,13 @@ fn parse_trigger_classes(input: &[u8]) -> IResult<&[u8], Vec<String>> {
 /// This function reconstructs a float from the exponent and mantissa
 /// TODO: Use ByteOrder crate to be cross-platform!
 fn parse_its_chi2(input: &[u8]) -> IResult<&[u8], f32> {
-    pair!(input, be_u8, be_u16).map(|(exp, man)| {
-        let nbits = 8;
-        let mut s = exp as u32;
-        // Move the exponent into the last 23 bits
-        s <<= 23;
-        s |= (man as u32 & ((1 << (nbits + 1)) - 1)) << (23 - nbits);
-        f32::from_bits(s)
-    })
+    let (input, (exp, man)) = pair(be_u8, be_u16)(input)?;
+    let nbits = 8;
+    let mut s = exp as u32;
+    // Move the exponent into the last 23 bits
+    s <<= 23;
+    s |= (man as u32 & ((1 << (nbits + 1)) - 1)) << (23 - nbits);
+    Ok((input, f32::from_bits(s)))
 }
 
 #[cfg(test)]
@@ -231,7 +233,7 @@ mod tests {
             schema_iter
                 .primaryvertex_alivertex_fposition
                 .fold([0.0, 0.0, 0.0], |acc, el| {
-                    [acc[0] + el[0], acc[1] + el[1], acc[2] + el[2]]
+                    [acc[0] + el.0, acc[1] + el.1, acc[2] + el.2]
                 }),
             [-0.006383737, 0.3380862, 2.938151]
         );
@@ -239,7 +241,7 @@ mod tests {
             schema_iter
                 .tracks_fp
                 .flat_map(|i| i)
-                .fold(0.0, |acc, el| { acc + el.iter().sum::<f32>() }),
+                .fold(0.0, |acc, el| { acc + [el.0, el.1, el.2, el.3, el.4].iter().sum::<f32>() }),
             39584.777
         );
         // Just add up all the chars in the strings

@@ -69,9 +69,9 @@ impl FileItem {
             s,
         };
         // wrap parser in a byte count
-        let res = length_value!(s, checked_byte_count, apply!(&parser, &context));
+        let res = length_value!(s, checked_byte_count, call!(&parser, &context));
         match res {
-            IResult::Done(_, obj) => Ok(obj),
+            Ok((_, obj)) => Ok(obj),
             _ => Err(format_err!("Supplied parser failed!")),
         }
     }

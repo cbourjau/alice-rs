@@ -2,6 +2,8 @@ use std::rc::Rc;
 
 use failure::Error;
 use nom::*;
+use nom::number::complete::*;
+use nom::combinator::rest;
 
 use core::*;
 
@@ -23,7 +25,7 @@ impl Container {
             }
         };
         match tbasket2vec(buf.as_slice()) {
-            IResult::Done(_, v) => Ok(v),
+            Ok((_, v)) => Ok(v),
             _ => Err(format_err!("tbasket2vec parser failed")),
         }
     }

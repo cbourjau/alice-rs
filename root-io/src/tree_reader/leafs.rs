@@ -1,4 +1,6 @@
 use nom::*;
+use nom::number::complete::*;
+
 use quote::{Ident, Tokens};
 use std::fmt;
 
@@ -185,13 +187,13 @@ pub(crate) fn tleaf<'s>(
     // let c_name = c_name.as_bytes();
     match c_name {
         // Variable length string; has same layout as `Primitive`
-        "TLeafC" => map!(i, apply!(tleafprimitive, context), TLeaf::String),
-        "TLeafElement" => map!(i, apply!(tleafelement, context), TLeaf::Element),
-        "TLeafObject" => map!(i, apply!(tleafobject, context), |v| TLeaf::Object(
+        "TLeafC" => map!(i, call!(tleafprimitive, context), TLeaf::String),
+        "TLeafElement" => map!(i, call!(tleafelement, context), TLeaf::Element),
+        "TLeafObject" => map!(i, call!(tleafobject, context), |v| TLeaf::Object(
             c_name.to_string(),
             v
         )),
-        _ => map!(i, apply!(tleafprimitive, context), |v| TLeaf::Primitive(
+        _ => map!(i, call!(tleafprimitive, context), |v| TLeaf::Primitive(
             c_name.to_string(),
             v
         )),
@@ -233,7 +235,7 @@ fn tleafelement<'s>(input: &'s [u8], context: &'s Context<'s>)
                     -> IResult<&'s [u8], TLeafElement> {
     do_parse!(input,
               _ver: be_u16 >>
-              base: length_value!(checked_byte_count, apply!(tleafbase, context)) >>
+              base: length_value!(checked_byte_count, call!(tleafbase, context)) >>
               id: be_i32 >>
               type_id: map_res!(be_i32, TypeID::new) >>
               (TLeafElement {base, id, type_id})
@@ -243,7 +245,7 @@ fn tleafprimitive<'s>(input: &'s [u8], context: &'s Context<'s>)
                     -> IResult<&'s [u8], TLeafBase> {
     do_parse!(input,
               _ver: be_u16 >>
-              base: length_value!(checked_byte_count, apply!(tleafbase, context)) >>
+              base: length_value!(checked_byte_count, call!(tleafbase, context)) >>
               _fmaximum: be_f32 >>
               _fminimum: be_f32 >>
               (base)
@@ -253,7 +255,7 @@ fn tleafobject<'s>(input: &'s [u8], context: &'s Context<'s>)
                     -> IResult<&'s [u8], TLeafBase> {
     do_parse!(input,
               _ver: be_u16 >>
-              base: length_value!(checked_byte_count, apply!(tleafbase, context)) >>
+              base: length_value!(checked_byte_count, call!(tleafbase, context)) >>
               _fvirtual: be_u8 >>
               (base)
     )

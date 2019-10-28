@@ -1,5 +1,7 @@
 use failure::Error;
 use nom::*;
+use nom::number::complete::*;
+use nom::multi::count;
 
 use code_gen::rust::ToRustType;
 use core::parsers::*;
@@ -94,7 +96,7 @@ impl TBranch {
     /// Create an iterator over the data of a column (`TBranch`) with a
     /// constant number of element per entry (or at least not a
     /// variable number of entries which depends on an external list of
-    /// indices. For the latter case see TODO.
+    /// indices. For the latter case see `as_var_size_iterator`).
     ///
     /// # Example
     /// ```
@@ -103,7 +105,7 @@ impl TBranch {
     /// extern crate root_io;
     ///
     /// use std::path::PathBuf;
-    /// use nom::be_i32;
+    /// use nom::number::complete::be_i32;
     ///
     /// use root_io::tree_reader::Tree;
     /// use root_io::RootFile;
@@ -114,7 +116,8 @@ impl TBranch {
     ///     let tree = f.items()[0].as_tree().unwrap();
     ///     let numbers = tree
     ///         .branch_by_name("one").unwrap()
-    ///         .as_fixed_size_iterator(be_i32).unwrap();
+    ///         // Must pass parser as closure
+    ///         .as_fixed_size_iterator(|i| be_i32(i)).unwrap();
     ///     for n in numbers {
     ///         println!("All the numbers of this branch{:?}", n);
     ///     }
@@ -123,10 +126,10 @@ impl TBranch {
     pub fn as_fixed_size_iterator<T, P>(
         &self,
         p: P,
-    ) -> Result<impl Iterator<Item = T> + 'static, Error>
+    ) -> Result<impl Iterator<Item = T>, Error>
     where
-        P: 'static + Fn(&[u8]) -> IResult<&[u8], T>,
-        T: 'static,
+        P: Fn(&[u8]) -> IResult<&[u8], T>,
+        T: 'static + Clone,
     {
         let containers = self
             .containers()
@@ -136,8 +139,8 @@ impl TBranch {
             .flat_map(|c| c.raw_data())
             .flat_map(move |(n_entries, raw_slice)| {
                 let s: &[u8] = raw_slice.as_slice();
-                match count!(s, p, n_entries as usize) {
-                    IResult::Done(_, o) => o,
+                match count(&p, n_entries as usize)(s) {
+                    Ok((_, o)) => o,
                     _ => panic!("Parser failed unexpectedly!"),
                 }
             });
@@ -176,8 +179,8 @@ impl TBranch {
             .zip(n_elems_per_basket.into_iter())
             .flat_map(move |((n_entries_in_buf, raw_slice), n_elems)| {
                 let s: &[u8] = raw_slice.as_slice();
-                match count!(s, p, n_elems as usize) {
-                    IResult::Done(_, o) => o,
+                match count!(s, &p, n_elems as usize) {
+                    Ok((_, o)) => o,
                     _ => panic!(
                         "Parser failed unexpectedly! {}, {}",
                         n_entries_in_buf,
@@ -201,7 +204,7 @@ pub(crate) fn tbranch_hdr<'s>(raw: &Raw<'s>, ctxt: &'s Context) -> IResult<&'s [
             preceded!(
                 raw.obj,
                 be_u16, // version
-                length_value!(checked_byte_count, apply!(tbranch, ctxt))
+                length_value!(checked_byte_count, call!(tbranch, ctxt))
             )
         }
         "TBranch" => tbranch(raw.obj, ctxt),
@@ -212,10 +215,10 @@ pub(crate) fn tbranch_hdr<'s>(raw: &Raw<'s>, ctxt: &'s Context) -> IResult<&'s [
 fn tbranch<'s>(input: &'s [u8], context: &Context<'s>) -> IResult<&'s [u8], TBranch> {
     let _curried_raw = |i| raw(i, context);
     let wrapped_tobjarray =
-        |i: &'s [u8]| length_value!(i, checked_byte_count, apply!(tobjarray, context));
+        |i: &'s [u8]| length_value!(i, checked_byte_count, call!(tobjarray, context));
     do_parse!(
         input,
-        _ver: verify!(be_u16, |v| v == 12)
+        _ver: verify!(be_u16, |v| *v == 12)
             >> tnamed: length_value!(checked_byte_count, tnamed)
             >> _tattfill: length_data!(checked_byte_count)
             >> fcompress: be_i32

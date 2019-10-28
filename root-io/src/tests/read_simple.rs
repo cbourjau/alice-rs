@@ -1,5 +1,5 @@
 use failure::Error;
-use nom::{be_f32, be_i32};
+use nom::number::complete::*;
 use std::path::PathBuf;
 
 use core::parsers::string;
@@ -32,8 +32,8 @@ impl SchemaIter {
             // a `nom`-like parser is needed to parse the
             // data. ::core::parsers contains many more parsers for
             // common ROOT types
-            one: Box::new(t.branch_by_name("one")?.as_fixed_size_iterator(be_i32)?),
-            two: Box::new(t.branch_by_name("two")?.as_fixed_size_iterator(be_f32)?),
+            one: Box::new(t.branch_by_name("one")?.as_fixed_size_iterator(|i| be_i32(i))?),
+            two: Box::new(t.branch_by_name("two")?.as_fixed_size_iterator(|i| be_f32(i))?),
             three: Box::new(
                 t.branch_by_name("three")?
                     .as_fixed_size_iterator(string)?,

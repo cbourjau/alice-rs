@@ -1,4 +1,6 @@
 use nom::*;
+use nom::number::complete::*;
+
 use quote::*;
 
 use code_gen::rust::{ToRustParser, ToRustType};
