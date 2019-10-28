@@ -1,26 +1,42 @@
 #[macro_use]
 extern crate failure;
+#[cfg(not(target_arch = "wasm32"))]
 extern crate dirs;
 extern crate glob;
 extern crate reqwest;
+#[cfg(target_arch = "wasm32")]
+extern crate wasm_bindgen_futures;
+extern crate futures;
 
 use std::fs::{DirBuilder, File};
 use std::io::copy;
 use std::io::Read;
 use std::path::PathBuf;
 
+#[cfg(target_arch = "wasm32")]
+use futures::FutureExt;
 use failure::Error;
-use reqwest::{Certificate, Client, Url};
+use reqwest::Url;
+#[cfg(not(target_arch = "wasm32"))]
+use reqwest::{Certificate, blocking::Client};
+#[cfg(target_arch = "wasm32")]
+use reqwest::Client;
 
 /// Setup a `reqwest::Client` with the necessary SSL certificates
+#[cfg(not(target_arch = "wasm32"))]
 pub fn client() -> Result<Client, Error> {
-    Ok(reqwest::Client::builder()
+    Ok(Client::builder()
         .add_root_certificate(Certificate::from_pem(ROOT).unwrap())
         .add_root_certificate(Certificate::from_pem(GRID).unwrap())
         .build()?)
 }
+#[cfg(target_arch = "wasm32")]
+pub fn client() -> Result<Client, Error> {
+    Ok(Client::new())
+}
 
 /// Download the given file to the local collection
+#[cfg(not(target_arch = "wasm32"))]
 pub fn download(base_dir: PathBuf, url: Url) -> Result<u64, Error> {
     let mut dest = base_dir;
     let mut sub_dir = url.path().to_owned();
@@ -41,6 +57,7 @@ pub fn download(base_dir: PathBuf, url: Url) -> Result<u64, Error> {
 }
 
 /// Base path to the local ALICE open data directory
+#[cfg(not(target_arch = "wasm32"))]
 pub fn data_dir() -> Result<PathBuf, Error> {
     let mut dir = dirs::home_dir().ok_or_else(|| format_err!("No home directory"))?;
     dir.push("lhc_open_data");
@@ -49,6 +66,7 @@ pub fn data_dir() -> Result<PathBuf, Error> {
 
 /// Hardcoded path to a specific file. Useful for testing.
 /// That file should be the the first to be downloaded automatically.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn test_file() -> Result<PathBuf, Error> {
     let mut dir = data_dir()?;
     dir.push("eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root");
@@ -56,6 +74,7 @@ pub fn test_file() -> Result<PathBuf, Error> {
 }
 
 /// Path to all files of `LHC10h`
+#[cfg(not(target_arch = "wasm32"))]
 pub fn all_files_10h() -> Result<Vec<PathBuf>, Error> {
     let mut search_dir = data_dir()?;
     search_dir.push("**/AliESDs.root");
@@ -66,6 +85,7 @@ pub fn all_files_10h() -> Result<Vec<PathBuf>, Error> {
     Ok(files)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn get_file_list(run: u32) -> Result<Vec<Url>, Error> {
     let uri = "http://opendata.cern.ch/record/".to_owned()
         + match run {
@@ -76,7 +96,7 @@ pub fn get_file_list(run: u32) -> Result<Vec<Url>, Error> {
             139_465 => "1106/files/ALICE_LHC10h_PbPb_ESD_139465_file_index.txt",
             _ => return Err(format_err!("Invalid run number")),
         };
-    let mut resp = reqwest::get(uri.as_str())?;
+    let mut resp = reqwest::blocking::get(uri.as_str())?;
     if resp.status().is_success() {
         let mut content = String::new();
         resp.read_to_string(&mut content)?;
@@ -90,8 +110,21 @@ pub fn get_file_list(run: u32) -> Result<Vec<Url>, Error> {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+fn download_with_https(uri: Url) -> Result<reqwest::blocking::Response, Error> {
+    return Ok(client()?.get(uri).send()?);
+}
+
+#[cfg(target_arch = "wasm32")]
 fn download_with_https(uri: Url) -> Result<reqwest::Response, Error> {
-    Ok(client()?.get(uri).send()?)
+    use std::sync::mpsc::channel;
+    let (rx, tx) = channel();
+    let future = client()?
+        .get(uri)
+        .send()
+        .map(move |res| rx.send(res.unwrap()).unwrap());
+    wasm_bindgen_futures::spawn_local(future);
+    Ok(tx.recv()?)
 }
 
 #[cfg(test)]
@@ -102,7 +135,7 @@ mod tests {
     #[test]
     fn download_partial() {
         use reqwest::header::RANGE;
-        let client = reqwest::Client::builder()
+        let client = Client::builder()
             .add_root_certificate(Certificate::from_pem(ROOT).unwrap())
             .add_root_certificate(Certificate::from_pem(GRID).unwrap())
             .build()
@@ -110,7 +143,7 @@ mod tests {
         let rsp = client
             .get("https://eospublichttp.cern.ch/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root")
             .header("User-Agent", "alice-rs")
-            .header(RANGE, "bytes=0-1023, 1030-1050")
+            .header(RANGE, "bytes=0-1023")
             .send().unwrap();
         dbg!(&rsp);
 
