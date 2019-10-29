@@ -1,41 +1,14 @@
-#[macro_use]
-extern crate failure;
-#[cfg(not(target_arch = "wasm32"))]
-extern crate dirs;
-extern crate glob;
-extern crate reqwest;
-#[cfg(target_arch = "wasm32")]
-extern crate wasm_bindgen_futures;
-extern crate futures;
-
 use std::fs::{DirBuilder, File};
-use std::io::copy;
-use std::io::Read;
+use std::io::Write;
 use std::path::PathBuf;
 
 #[cfg(target_arch = "wasm32")]
 use futures::FutureExt;
-use failure::Error;
-use reqwest::Url;
-#[cfg(not(target_arch = "wasm32"))]
-use reqwest::blocking::Client;
-#[cfg(target_arch = "wasm32")]
-use reqwest::Client;
-
-/// Setup a `reqwest::Client` with the necessary SSL certificates
-#[cfg(not(target_arch = "wasm32"))]
-pub fn client() -> Result<Client, Error> {
-    Ok(Client::builder()
-        .build()?)
-}
-#[cfg(target_arch = "wasm32")]
-pub fn client() -> Result<Client, Error> {
-    Ok(Client::new())
-}
+use failure::{Error, format_err};
+use reqwest::{Client, Response, Url};
 
 /// Download the given file to the local collection
-#[cfg(not(target_arch = "wasm32"))]
-pub fn download(base_dir: PathBuf, url: Url) -> Result<u64, Error> {
+pub async fn download(base_dir: PathBuf, url: Url) -> Result<usize, Error> {
     let mut dest = base_dir;
     let mut sub_dir = url.path().to_owned();
     // Remove the leading "\" from the original path
@@ -49,9 +22,10 @@ pub fn download(base_dir: PathBuf, url: Url) -> Result<u64, Error> {
     if let Some(dir) = dest.parent() {
         DirBuilder::new().recursive(true).create(dir)?;
     }
-    let mut resp = download_with_https(url)?;
+    let resp = download_with_https(url).await?;
+    let bytes: Vec<_> = resp.bytes().await?.into_iter().collect();
     let mut f = File::create(dest)?;
-    Ok(copy(&mut resp, &mut f)?)
+    Ok(f.write(&bytes)?)
 }
 
 /// Base path to the local ALICE open data directory
@@ -83,8 +57,7 @@ pub fn all_files_10h() -> Result<Vec<PathBuf>, Error> {
     Ok(files)
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-pub fn get_file_list(run: u32) -> Result<Vec<Url>, Error> {
+pub async fn get_file_list(run: u32) -> Result<Vec<Url>, Error> {
     let uri = "http://opendata.cern.ch/record/".to_owned()
         + match run {
             139_038 => "1102/files/ALICE_LHC10h_PbPb_ESD_139038_file_index.txt",
@@ -94,10 +67,11 @@ pub fn get_file_list(run: u32) -> Result<Vec<Url>, Error> {
             139_465 => "1106/files/ALICE_LHC10h_PbPb_ESD_139465_file_index.txt",
             _ => return Err(format_err!("Invalid run number")),
         };
-    let mut resp = reqwest::blocking::get(uri.as_str())?;
+    let req = Client::new()
+        .get(uri.as_str());
+    let resp = req.send().await?;
     if resp.status().is_success() {
-        let mut content = String::new();
-        resp.read_to_string(&mut content)?;
+        let content = resp.text().await?;
         Ok(content
             .lines()
             .map(|l| format!("http://opendata.cern.ch/{}", &l[26..]))
@@ -108,67 +82,74 @@ pub fn get_file_list(run: u32) -> Result<Vec<Url>, Error> {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-fn download_with_https(uri: Url) -> Result<reqwest::blocking::Response, Error> {
-    return Ok(client()?.get(uri).send()?);
+async fn download_with_https(uri: Url) -> Result<Response, Error> {
+    return Ok(Client::new().get(uri).send().await?);
 }
 
-#[cfg(target_arch = "wasm32")]
-fn download_with_https(uri: Url) -> Result<reqwest::Response, Error> {
-    use std::sync::mpsc::channel;
-    let (rx, tx) = channel();
-    let future = client()?
-        .get(uri)
-        .send()
-        .map(move |res| rx.send(res.unwrap()).unwrap());
-    wasm_bindgen_futures::spawn_local(future);
-    Ok(tx.recv()?)
-}
+// #[cfg(target_arch = "wasm32")]
+// fn download_with_https(uri: Url) -> Result<reqwest::Response, Error> {
+//     use std::sync::mpsc::channel;
+//     let (rx, tx) = channel();
+//     let future = Client::new()
+//         .get(uri)
+//         .send()
+//         .map(move |res| rx.send(res.unwrap()).unwrap());
+//     wasm_bindgen_futures::spawn_local(future);
+//     Ok(tx.recv()?)
+// }
 
 #[cfg(test)]
 mod tests {
     use std::{env, fs};
     use super::*;
+    use tokio;
 
-    #[test]
-    fn download_partial() {
+    #[tokio::test]
+    async fn download_partial() {
         use reqwest::header::RANGE;
         let client = Client::builder()
             .build()
             .unwrap();
         let rsp = client
-            .get("http://opendata.cern.ch/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root")
+        // .get("https://eospublichttp.cern.ch/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root")
+            .get("http://opendata.cern.ch//eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root")
             .header("User-Agent", "alice-rs")
             .header(RANGE, "bytes=0-1023")
-            .send().unwrap();
+            .send().await.unwrap();
         dbg!(&rsp);
 
-        let partial = rsp.bytes().collect::<Result::<Vec<_>, _>>().unwrap();
-        let from_disc = std::fs::read(test_file().unwrap()).unwrap();
-        assert!(
-            partial.iter()
-                .zip(from_disc.iter())
-                .all(|(el1, el2)| el1 == el2)
-        );
+        let partial = rsp.bytes().await.unwrap();
+        assert_eq!(partial.len(), 1024);
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let from_disc = std::fs::read(test_file().unwrap()).unwrap();
+            assert!(
+                partial.iter()
+                    .zip(from_disc.iter())
+                    .all(|(el1, el2)| el1 == el2)
+            );
+        }
     }
-    #[test]
-    fn test_get_file_lists() {
+
+    #[tokio::test]
+    async fn test_get_file_lists() {
         let runs = [139_038, 139_173, 139_437, 139_438, 139_465];
         for run in runs.iter() {
             println!("Testing run {}", run);
-            super::get_file_list(*run).unwrap();
+            super::get_file_list(*run).await.unwrap();
         }
     }
-    #[test]
-    fn test_download_file() {
-        let uris = &super::get_file_list(139038).unwrap();
-        let resp = super::download_with_https(uris[0].clone()).unwrap();
+
+    #[tokio::test]
+    async fn test_download_file() {
+        let uris = &super::get_file_list(139038).await.unwrap();
+        let resp = super::download_with_https(uris[0].clone()).await.unwrap();
         println!("{:?}", resp);
         println!("{:?}", uris[0].path());
     }
-    #[test]
-    fn test_download_file_high_level() {
-        let uri = super::get_file_list(139038).unwrap()[0].clone();
+    #[tokio::test]
+    async fn test_download_file_high_level() {
+        let uri = super::get_file_list(139038).await.unwrap()[0].clone();
         {
             // Remobe old stuff:
             let mut dir = env::temp_dir();
@@ -180,10 +161,10 @@ mod tests {
         let base_dir = env::temp_dir();
         // Download if file does not exist
         assert_eq!(
-            super::download(base_dir.clone(), uri.clone()).unwrap(),
+            super::download(base_dir.clone(), uri.clone()).await.unwrap(),
             14283265
         );
         // Don't download twice
-        assert_eq!(super::download(base_dir.clone(), uri.clone()).unwrap(), 0);
+        assert_eq!(super::download(base_dir.clone(), uri.clone()).await.unwrap(), 0);
     }
 }

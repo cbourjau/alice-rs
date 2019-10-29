@@ -8,7 +8,7 @@ readme = "README.md"
 keywords = ["cern", "alice", "lhc", "physics", "data"]
 categories = ["science"]
 license = "MPL-2.0"
-
+edition="2018"
 
 [dependencies]
 glob = "^0.2.11"
@@ -21,3 +21,6 @@ dirs = "1.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4.2"
+
+[dev-dependencies]
+tokio = "0.2.0-alpha.6"
