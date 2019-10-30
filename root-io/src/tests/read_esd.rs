@@ -173,7 +173,8 @@ mod tests {
             #[cfg(not(target_os="macos"))]
             RootFile::new_from_file(&path).expect("Failed to open file"),
             RootFile::new_from_url(
-                "https://eospublichttp.cern.ch/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root"
+                // "http://opendata.cern.ch/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root"
+                "http://cirrocumuli.com/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root"
             ).expect("Failed to open file"),
         ];
         for f in &files {

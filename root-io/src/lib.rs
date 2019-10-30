@@ -27,6 +27,11 @@ extern crate flate2;
 extern crate lzma_rs;
 extern crate reqwest;
 
+#[cfg(not(target_arch = "wasm32"))]
+extern crate tokio;
+#[cfg(target_arch = "wasm32")]
+extern crate wasm_bindgen_futures;
+
 extern crate alice_open_data;
 
 // pub mod core_types;
