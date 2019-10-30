@@ -5,13 +5,14 @@ use nom::number::complete::*;
 use std::fmt;
 use std::ops::Deref;
 
-use core::parsers::*;
-use core::types::*;
-
-use tree_reader::branch::tbranch_hdr;
-use tree_reader::branch::TBranch;
-use tree_reader::leafs::tleaf;
-use tree_reader::leafs::TLeaf;
+use crate::{
+    core::parsers::*,
+    core::types::*,
+    tree_reader::branch::tbranch_hdr,
+    tree_reader::branch::TBranch,
+    tree_reader::leafs::tleaf,
+    tree_reader::leafs::TLeaf,
+};
 
 /// `TTree` potentially has members with very large `Vec<u8>` buffers
 /// The `Pointer` type is used to overwrite the default `Debug` trait

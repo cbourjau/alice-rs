@@ -8,9 +8,11 @@ use nom::{
     number::complete::{be_i32, be_u32, be_u8, be_i64, be_i16, be_u64},
 };
 
-use code_gen::rust::{ToNamedRustParser, ToRustStruct};
-use core::*;
-use MAP_OFFSET;
+use crate::{
+    code_gen::rust::{ToNamedRustParser, ToRustStruct},
+    core::*,
+    MAP_OFFSET,
+};
 
 
 /// Size of serialized `FileHeader` in bytes

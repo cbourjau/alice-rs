@@ -40,7 +40,7 @@ pub mod core;
 mod tests;
 pub mod tree_reader;
 
-pub use core::{FileItem, RootFile};
+pub use crate::core::{FileItem, RootFile};
 
 /// Offset when using Context; should be in `Context`, maybe?
 const MAP_OFFSET: u64 = 2;

@@ -1,7 +1,7 @@
 use failure::Error;
 use quote::*;
 
-use code_gen::rust::{ToRustParser, ToRustType};
+use crate::code_gen::rust::{ToRustParser, ToRustType};
 
 /// Integer ID describing a streamed type in a `TStreamer`
 #[derive(Debug, Clone)]

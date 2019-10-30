@@ -5,7 +5,7 @@ use nom::*;
 use nom::number::complete::*;
 use nom::combinator::rest;
 
-use core::*;
+use crate::core::*;
 
 #[derive(Debug, Clone)]
 pub(crate) enum Container {
@@ -68,10 +68,10 @@ fn tbasket2vec(input: &[u8]) -> IResult<&[u8], (u32, Vec<u8>)>
 
 #[cfg(test)]
 mod tests {
-    use core::tkey_header;
-    use nom::*;
     use std::fs::File;
     use std::io::{BufReader, Read, Seek, SeekFrom};
+    use nom::*;
+    use crate::core::tkey_header;
 
     use super::tbasket2vec;
 

@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use core::*;
+use crate::core::*;
 
 #[test]
 fn list_of_rules() {

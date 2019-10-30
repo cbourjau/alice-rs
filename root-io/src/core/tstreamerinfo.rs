@@ -3,9 +3,11 @@ use nom::number::complete::*;
 
 use quote::*;
 
-use code_gen::rust::{ToNamedRustParser, ToRustParser, ToRustStruct, ToRustType};
-use code_gen::utils::type_is_core;
-use core::*;
+use crate::{
+    code_gen::rust::{ToNamedRustParser, ToRustParser, ToRustStruct, ToRustType},
+    code_gen::utils::type_is_core,
+    core::*,
+};
 
 #[derive(Debug)]
 pub struct TStreamerInfo {

@@ -1,10 +1,13 @@
-use failure::Error;
-use nom::number::complete::*;
 use std::path::PathBuf;
 
-use core::parsers::string;
-use tree_reader::Tree;
-use RootFile;
+use failure::Error;
+use nom::number::complete::*;
+
+use crate::{
+    core::parsers::string,
+    tree_reader::Tree,
+    RootFile,
+};
 
 /// A model for the (or a subset) of the data.
 /// This is the object which contains the data of one "event"

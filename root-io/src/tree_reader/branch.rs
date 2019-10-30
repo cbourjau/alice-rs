@@ -3,13 +3,14 @@ use nom::*;
 use nom::number::complete::*;
 use nom::multi::count;
 
-use code_gen::rust::ToRustType;
-use core::parsers::*;
-use core::types::*;
-
-use tree_reader::container::Container;
-use tree_reader::leafs::tleaf;
-use tree_reader::leafs::TLeaf;
+use crate::{
+    code_gen::rust::ToRustType,
+    core::parsers::*,
+    core::types::*,
+    tree_reader::container::Container,
+    tree_reader::leafs::tleaf,
+    tree_reader::leafs::TLeaf,
+};
 
 /// A `TBranch` describes one "Column" of a `TTree`
 /// Even though this class is described in the `TStreamerInfo` of a ROOT

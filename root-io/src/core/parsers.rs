@@ -23,7 +23,7 @@ use nom::{
 };
 use lzma_rs::xz_decompress;
 
-use core::*;
+use crate::core::*;
 
 fn is_byte_count(v: &u32) -> bool {
     Flags::from_bits_truncate(*v).intersects(Flags::BYTE_COUNT_MASK)
@@ -312,7 +312,7 @@ where
 /// a `Context` is required to parse the underlying buffer (i.e., the
 /// given buffer contains a reference to some other part of the file.
 pub fn raw_no_context(input: &[u8]) -> nom::IResult<&[u8], (ClassInfo, &[u8])> {
-    use self::ClassInfo::*;
+    use super::ClassInfo::*;
     let (input, ci) = classinfo(input)?;
     let obj = match ci {
         // point to beginning of slice

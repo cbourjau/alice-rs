@@ -3,9 +3,11 @@ use nom::number::complete::*;
 
 use quote::*;
 
-use code_gen::rust::{ToRustParser, ToRustType};
-use code_gen::utils::{alias_or_lifetime, sanitize, type_is_core};
-use core::*;
+use crate::{
+    code_gen::rust::{ToRustParser, ToRustType},
+    code_gen::utils::{alias_or_lifetime, sanitize, type_is_core},
+    core::*,
+};
 
 /// Union of all posible `TStreamers`. See figure at
 /// <https://root.cern.ch/doc/master/classTStreamerElement.html>

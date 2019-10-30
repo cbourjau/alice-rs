@@ -3,9 +3,14 @@ use std::rc::Rc;
 use failure::Error;
 use nom::*;
 
-use core::{checked_byte_count, decompress};
-use core::{Context, DataSource, TKeyHeader};
-use tree_reader::{ttree, Tree};
+use crate::core::{
+    Context,
+    DataSource,
+    TKeyHeader,
+    checked_byte_count,
+    decompress
+};
+use crate::tree_reader::{ttree, Tree};
 
 /// Describes a single item within this file (e.g. a `Tree`)
 #[derive(Debug)]
@@ -79,8 +84,8 @@ impl FileItem {
 
 #[cfg(test)]
 mod tests {
-    use core::RootFile;
     use std::path::PathBuf;
+    use crate::core::RootFile;
 
     #[test]
     fn open_simple() {

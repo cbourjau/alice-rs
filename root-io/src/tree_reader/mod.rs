@@ -14,9 +14,11 @@ pub use self::tree::{ttree, Tree};
 
 #[cfg(test)]
 mod tests {
-    pub use super::ttree;
-    use core::RootFile;
     use std::path::PathBuf;
+
+    use super::ttree;
+    use crate::core::RootFile;
+
 
     #[test]
     fn simple_tree() {

@@ -3,11 +3,13 @@ use nom::*;
 use nom::number::complete::*;
 use nom::sequence::{pair, tuple};
 
-use core::checked_byte_count;
-use core::parsers::{tnamed, tobjarray_no_context};
-use core::types::ClassInfo;
-use tree_reader::Tree;
-use RootFile;
+use crate::{
+    core::checked_byte_count,
+    core::parsers::{tnamed, tobjarray_no_context},
+    core::types::ClassInfo,
+    tree_reader::Tree,
+    RootFile
+};
 
 struct SchemaIntoIter {
     aliesdrun_frunnumber: Box<dyn Iterator<Item = i32>>,
