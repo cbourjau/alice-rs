@@ -3,9 +3,8 @@ use nom::*;
 use nom::number::complete::*;
 use nom::sequence::{pair, tuple};
 
-use crate::{
-    core::checked_byte_count,
-    core::parsers::{tnamed, tobjarray_no_context},
+use root_io::{
+    core::parsers::{checked_byte_count, tnamed, tobjarray_no_context},
     core::types::ClassInfo,
     tree_reader::Tree,
     RootFile

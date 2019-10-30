@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use failure::Error;
 use nom::number::complete::*;
 
-use crate::{
+use root_io::{
     core::parsers::string,
     tree_reader::Tree,
     RootFile,

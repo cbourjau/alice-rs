@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::core::*;
+use root_io::*;
 
 #[test]
 fn root_file_methods() {
