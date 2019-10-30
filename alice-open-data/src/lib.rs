@@ -1,3 +1,4 @@
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs::{DirBuilder, File};
 use std::io::Write;
 use std::path::PathBuf;
@@ -8,6 +9,7 @@ use failure::{Error, format_err};
 use reqwest::{Client, Response, Url};
 
 /// Download the given file to the local collection
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn download(base_dir: PathBuf, url: Url) -> Result<usize, Error> {
     let mut dest = base_dir;
     let mut sub_dir = url.path().to_owned();
@@ -58,6 +60,7 @@ pub fn all_files_10h() -> Result<Vec<PathBuf>, Error> {
 }
 
 pub async fn get_file_list(run: u32) -> Result<Vec<Url>, Error> {
+    #[cfg(not(target_arch = "wasm32"))]
     let uri = "http://opendata.cern.ch/record/".to_owned()
         + match run {
             139_038 => "1102/files/ALICE_LHC10h_PbPb_ESD_139038_file_index.txt",
@@ -67,6 +70,8 @@ pub async fn get_file_list(run: u32) -> Result<Vec<Url>, Error> {
             139_465 => "1106/files/ALICE_LHC10h_PbPb_ESD_139465_file_index.txt",
             _ => return Err(format_err!("Invalid run number")),
         };
+    #[cfg(target_arch = "wasm32")]
+    let uri = "http://cirrocumuli.com/ALICE_LHC10h_PbPb_ESD_139038_file_index.txt".to_string();
     let req = Client::new()
         .get(uri.as_str());
     let resp = req.send().await?;
@@ -98,8 +103,9 @@ async fn download_with_https(uri: Url) -> Result<Response, Error> {
 //     Ok(tx.recv()?)
 // }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
-mod tests {
+mod tests_x84 {
     use std::{env, fs};
     use super::*;
     use tokio;

@@ -13,14 +13,20 @@ edition="2018"
 [dependencies]
 glob = "^0.2.11"
 failure = "0.1.1"
-reqwest = {"version"= "0.10.0-alpha.1", "features"=["blocking"]}
+reqwest = "0.10.0-alpha.1"
 futures-preview = { version = "0.3.0-alpha.14"}
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 dirs = "1.0"
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen-futures = "0.4.2"
+[target.'cfg(target_arch = "wasm32")'.dependencies.web-sys]
+version = "0.3.4"
+features = [ 'console' ]
 
-[dev-dependencies]
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tokio = "0.2.0-alpha.6"
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen = "0.2.53"
+wasm-bindgen-test = "0.3.3"
