@@ -9,6 +9,11 @@ use reqwest::{Client, Response, Url, header::{RANGE, USER_AGENT}};
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::runtime::Runtime;
 
+#[cfg(target_arch = "wasm32")]
+use std::sync::mpsc::{sync_channel, SyncSender};
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen_futures::spawn_local;
+
 pub trait DataSource: std::fmt::Debug {
     fn fetch(&self, start: u64, len: u64) -> Result<Vec<u8>, Error>;
 }
@@ -66,7 +71,34 @@ fn wait_it_out(future: impl Future<Output=Result<Response, reqwest::Error>>) -> 
     Ok(bytes.as_ref().to_vec())
 }
 
+
+
 #[cfg(target_arch = "wasm32")]
-fn wait_it_out(future: impl Future<Output=Result<Response, reqwest::Error>>) -> Result<Vec<u8>, Error> {
-    unimplemented!()
+fn wait_it_out<F>(future: F) -> Result<Vec<u8>, Error>
+where
+    F: 'static + Future<Output=Result<Response, reqwest::Error>>,
+{
+    let (tx, rx) = sync_channel(1);
+
+    // Create a future with output (); instead we send back the result via a channel
+    // Would have probably been cleaner to use `.map`...
+    async fn await_and_send_back<F>(fut: F, tx: SyncSender<Result<Vec<u8>, Error>>) -> ()
+    where
+         F: 'static + Future<Output=Result<Response, reqwest::Error>>,
+    {
+        let res = {
+            match fut.await {
+                Ok(rsp) => {
+                    match rsp.bytes().await {
+                        Ok(bytes) => Ok(bytes.as_ref().to_vec()),
+                        Err(e) => Err(e.into())
+                    }
+                },
+                Err(e) => Err(e.into())
+            }
+        };
+        tx.send(res).expect("Failed to send back bytes");
+    }
+    spawn_local(await_and_send_back(future, tx));
+    rx.recv()?
 }
