@@ -10,7 +10,7 @@ pub(crate) type SeekPointer = u64;
 
 
 bitflags! {
-    pub(crate) struct Flags: u64 {
+    pub(crate) struct Flags: u32 {
         const BYTE_COUNT_MASK = 0x4000_0000;
         const BYTE_COUNT_VMASK = 0x4000;      // 16384
         const CLASS_MASK = 0x8000_0000;
@@ -32,9 +32,9 @@ pub enum ClassInfo {
     /// Class name of the new class
     New(String),
     /// Byte offset of new class tag in record, + 2; whatever... followed by object
-    Exists(u64),
+    Exists(u32),
     /// Byte offset of new class tag in record, + 2; whatever... ref to object
-    References(u64),
+    References(u32),
 }
 
 /// The most basic ROOT object from which almost everything inherits

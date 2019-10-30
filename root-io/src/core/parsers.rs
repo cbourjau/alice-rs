@@ -9,6 +9,7 @@ use std::io::Read;
 // from streamerinfo.txt which is included in the official ROOT source
 // code for (old) layout
 use std::str;
+use std::convert::TryFrom;
 
 use failure::Error;
 use flate2::bufread::ZlibDecoder;
@@ -25,7 +26,7 @@ use lzma_rs::xz_decompress;
 use core::*;
 
 fn is_byte_count(v: &u32) -> bool {
-    Flags::from_bits_truncate(u64::from(*v)).intersects(Flags::BYTE_COUNT_MASK)
+    Flags::from_bits_truncate(*v).intersects(Flags::BYTE_COUNT_MASK)
 }
 
 // Check that the given byte count is not zero after applying bit mask
@@ -33,10 +34,10 @@ named!(
     #[doc="Return the size in bytes of the following object in the
     input. The count is the remainder of this object minus the size
     of the count."],
-    pub checked_byte_count<&[u8], u64>,
+    pub checked_byte_count<&[u8], u32>,
     verify!(
         map!(verify!(be_u32, is_byte_count),
-             |v| u64::from(v) & !Flags::BYTE_COUNT_MASK.bits()),
+             |v| v & !Flags::BYTE_COUNT_MASK.bits()),
         |v| *v != 0)
 );
 
@@ -236,7 +237,7 @@ pub fn classinfo(input: &[u8]) -> nom::IResult<&[u8], ClassInfo>
     do_parse!(input,
               bcnt: be_u32 >>
               tag: switch!(
-                  value!(!is_byte_count(&bcnt) || u64::from(bcnt) == Flags::NEW_CLASSTAG.bits()),
+                  value!(!is_byte_count(&bcnt) || bcnt == Flags::NEW_CLASSTAG.bits()),
                   true => value!(bcnt) |
                   false => call!(be_u32)) >>
               cl: switch!(
@@ -245,9 +246,9 @@ pub fn classinfo(input: &[u8]) -> nom::IResult<&[u8], ClassInfo>
                   0xFFFF_FFFF => map!(c_string, ClassInfo::New) |
                   // Is this an existing class or is it another tag (pointer elswhere)
                   tag => switch!(
-                      value!(Flags::from_bits_truncate(u64::from(tag)).contains(Flags::CLASS_MASK)),
-                      false => value!(ClassInfo::References(u64::from(tag))) |
-                      true => value!(ClassInfo::Exists(u64::from(tag) & !Flags::CLASS_MASK.bits()))
+                      value!(Flags::from_bits_truncate(tag).contains(Flags::CLASS_MASK)),
+                      false => value!(ClassInfo::References(tag)) |
+                      true => value!(ClassInfo::Exists(tag & !Flags::CLASS_MASK.bits()))
                   )) >>
               (cl)
     )
@@ -266,9 +267,11 @@ pub fn class_name_and_buffer<'s, 'c>(
 where
     's: 'c,
 {
+    let ctx_offset = u32::try_from(context.offset)
+        .expect("Encountered pointer larger than 32 bits. Please file a bug.");
     let get_name_elsewhere = |tag| {
         let abs_offset = tag & !Flags::CLASS_MASK.bits();
-        let s = &context.s[((abs_offset - context.offset) as usize)..];
+        let s = &context.s[((abs_offset - ctx_offset) as usize)..];
         let (_, (name, _)) = class_name_and_buffer(s, context).unwrap();
         name
     };
@@ -278,7 +281,7 @@ where
         if abs_offset == 0 {
             return ("".to_string(), &context.s[..0]);
         }
-        let s = &context.s[((abs_offset - context.offset) as usize)..];
+        let s = &context.s[((abs_offset - ctx_offset) as usize)..];
         let (_, (name, buf)) = class_name_and_buffer(s, context).unwrap();
         (name, buf)
     };

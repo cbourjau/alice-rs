@@ -9,9 +9,6 @@ use reqwest::{Client, Response, Url, header::{RANGE, USER_AGENT}};
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::runtime::Runtime;
 
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen_futures;
-
 pub trait DataSource: std::fmt::Debug {
     fn fetch(&self, start: u64, len: u64) -> Result<Vec<u8>, Error>;
 }
