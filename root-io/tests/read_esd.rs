@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use failure::Error;
 use nom::*;
 use nom::number::complete::*;
@@ -161,13 +163,36 @@ fn parse_its_chi2(input: &[u8]) -> IResult<&[u8], f32> {
     Ok((input, f32::from_bits(s)))
 }
 
-#[cfg(test)]
-mod tests {
+#[cfg(target_arch="wasm32")]
+mod wasm {
     use super::*;
 
+    use wasm_bindgen_test::*;
+    wasm_bindgen_test_configure!(run_in_browser);
+
+    #[wasm_bindgen_test]
+    fn read_esd_wasm() {
+        let files = [
+            // There is an issue on MacOs with opening the ESD test files
+            RootFile::new_from_url(
+                // "http://opendata.cern.ch/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root"
+                "http://cirrocumuli.com/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root"
+            ).expect("Failed to open file"),
+        ];
+        for f in &files {
+            let t = f.items()[0].as_tree().unwrap();
+            test_branch_iterators(&t);
+        }
+    }
+}
+
+#[cfg(not(target_arch="wasm32"))]
+mod x64 {
+    use super::*;
+    use alice_open_data;
+
     #[test]
-    fn read_esd() {
-        use alice_open_data;
+    fn read_esd_local() {
         let path = alice_open_data::test_file().unwrap();
         let files = [
             // There is an issue on MacOs with opening the ESD test files
@@ -183,88 +208,88 @@ mod tests {
             test_branch_iterators(&t);
         }
     }
+}
 
-    fn test_branch_iterators(tree: &Tree) {
-        let schema_iter = SchemaIntoIter::new(tree).unwrap();
-        assert_eq!(schema_iter.aliesdrun_frunnumber.count(), 4);
+fn test_branch_iterators(tree: &Tree) {
+    let schema_iter = SchemaIntoIter::new(tree).unwrap();
+    assert_eq!(schema_iter.aliesdrun_frunnumber.count(), 4);
 
-        let schema_iter = SchemaIntoIter::new(tree).unwrap();
-        assert_eq!(schema_iter.aliesdrun_frunnumber.sum::<i32>(), 556152);
-        assert_eq!(schema_iter.aliesdheader_ftriggermask.sum::<u64>(), 98);
-        assert_eq!(
-            schema_iter
-                .primaryvertex_alivertex_fncontributors
-                .sum::<i32>(),
-            2746
-        );
-        assert_eq!(
-            schema_iter.tracks_fx.flat_map(|i| i).sum::<f32>(),
-            -26.986227
-        );
-        assert_eq!(
-            schema_iter.tracks_falpha.flat_map(|i| i).sum::<f32>(),
-            -199.63356
-        );
-        assert_eq!(
-            schema_iter.tracks_fflags.flat_map(|i| i).sum::<u64>(),
-            25876766546549
-        );
-        assert_eq!(
-            schema_iter.tracks_fitschi2.flat_map(|i| i).sum::<f32>(),
-            376158.6
-        );
-        assert_eq!(
-            schema_iter
-                .tracks_fitsncls
-                .flat_map(|i| i)
-            // Avoid an error due to overflow
-                .map(|ncls| ncls as i64)
-                .sum::<i64>(),
-            24783
-        );
-        assert_eq!(
-            schema_iter
-                .tracks_fitsclustermap
-                .flat_map(|i| i)
-            // Avoid an error due to overflow
-                .map(|ncls| ncls as u64)
-                .sum::<u64>(),
-            293099
-        );
-        assert_eq!(
-            schema_iter
-                .primaryvertex_alivertex_fposition
-                .fold([0.0, 0.0, 0.0], |acc, el| {
-                    [acc[0] + el.0, acc[1] + el.1, acc[2] + el.2]
-                }),
-            [-0.006383737, 0.3380862, 2.938151]
-        );
-        assert_eq!(
-            schema_iter
-                .tracks_fp
-                .flat_map(|i| i)
-                .fold(0.0, |acc, el| { acc + [el.0, el.1, el.2, el.3, el.4].iter().sum::<f32>() }),
-            39584.777
-        );
-        // Just add up all the chars in the strings
-        assert_eq!(
-            schema_iter
-                .aliesdrun_ftriggerclasses
-                .flat_map(|s| s)
-                .map(|s| { s.chars().map(|c| c as u64).sum::<u64>() })
-                .sum::<u64>(),
-            109268
-        );
+    let schema_iter = SchemaIntoIter::new(tree).unwrap();
+    assert_eq!(schema_iter.aliesdrun_frunnumber.sum::<i32>(), 556152);
+    assert_eq!(schema_iter.aliesdheader_ftriggermask.sum::<u64>(), 98);
+    assert_eq!(
+        schema_iter
+            .primaryvertex_alivertex_fncontributors
+            .sum::<i32>(),
+        2746
+    );
+    assert_eq!(
+        schema_iter.tracks_fx.flat_map(|i| i).sum::<f32>(),
+        -26.986227
+    );
+    assert_eq!(
+        schema_iter.tracks_falpha.flat_map(|i| i).sum::<f32>(),
+        -199.63356
+    );
+    assert_eq!(
+        schema_iter.tracks_fflags.flat_map(|i| i).sum::<u64>(),
+        25876766546549
+    );
+    assert_eq!(
+        schema_iter.tracks_fitschi2.flat_map(|i| i).sum::<f32>(),
+        376158.6
+    );
+    assert_eq!(
+        schema_iter
+            .tracks_fitsncls
+            .flat_map(|i| i)
+        // Avoid an error due to overflow
+            .map(|ncls| ncls as i64)
+            .sum::<i64>(),
+        24783
+    );
+    assert_eq!(
+        schema_iter
+            .tracks_fitsclustermap
+            .flat_map(|i| i)
+        // Avoid an error due to overflow
+            .map(|ncls| ncls as u64)
+            .sum::<u64>(),
+        293099
+    );
+    assert_eq!(
+        schema_iter
+            .primaryvertex_alivertex_fposition
+            .fold([0.0, 0.0, 0.0], |acc, el| {
+                [acc[0] + el.0, acc[1] + el.1, acc[2] + el.2]
+            }),
+        [-0.006383737, 0.3380862, 2.938151]
+    );
+    assert_eq!(
+        schema_iter
+            .tracks_fp
+            .flat_map(|i| i)
+            .fold(0.0, |acc, el| { acc + [el.0, el.1, el.2, el.3, el.4].iter().sum::<f32>() }),
+        39584.777
+    );
+    // Just add up all the chars in the strings
+    assert_eq!(
+        schema_iter
+            .aliesdrun_ftriggerclasses
+            .flat_map(|s| s)
+            .map(|s| { s.chars().map(|c| c as u64).sum::<u64>() })
+            .sum::<u64>(),
+        109268
+    );
 
-        let schema_iter = match SchemaIntoIter::new(&tree) {
-            Ok(s) => s,
-            Err(err) => panic!("An error occured! Message: {}", err),
-        };
-        println!(
-            "{:?}",
-            schema_iter
-                .flat_map(|m| m.tracks_fitschi2.into_iter())
-                .fold(0.0, |max, chi2| if chi2 > max { chi2 } else { max })
-        );
-    }
+    let schema_iter = match SchemaIntoIter::new(&tree) {
+        Ok(s) => s,
+        Err(err) => panic!("An error occured! Message: {}", err),
+    };
+    println!(
+        "{:?}",
+        schema_iter
+            .flat_map(|m| m.tracks_fitschi2.into_iter())
+            .fold(0.0, |max, chi2| if chi2 > max { chi2 } else { max })
+    );
 }

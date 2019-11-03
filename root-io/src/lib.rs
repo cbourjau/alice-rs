@@ -29,8 +29,6 @@ extern crate reqwest;
 
 #[cfg(not(target_arch = "wasm32"))]
 extern crate tokio;
-#[cfg(target_arch = "wasm32")]
-extern crate wasm_bindgen_futures;
 
 extern crate alice_open_data;
 
@@ -39,6 +37,7 @@ mod code_gen;
 pub mod core;
 mod tests;
 pub mod tree_reader;
+pub mod test_utils;
 
 pub use crate::core::{FileItem, RootFile};
 

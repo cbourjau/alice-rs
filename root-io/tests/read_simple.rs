@@ -1,5 +1,4 @@
-use std::path::PathBuf;
-
+#![cfg(test)]
 use failure::Error;
 use nom::number::complete::*;
 
@@ -57,13 +56,39 @@ impl Iterator for SchemaIter {
     }
 }
 
-#[test]
-fn read_simple() {
-    let path = PathBuf::from("./src/test_data/simple.root");
-    let f = RootFile::new_from_file(&path).expect("Failed to open file");
+fn read_simple(f: RootFile) {
     let t = f.items()[0].as_tree().unwrap();
     let schema = SchemaIter::new(t).unwrap();
     for m in schema.into_iter() {
         println!("{:?}", m);
     }
 }
+
+#[cfg(not(target_arch="wasm32"))]
+mod x64 {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn read_simple_local() {
+        let path = PathBuf::from("./src/test_data/simple.root");
+        let f = RootFile::new_from_file(&path).expect("Failed to open file");
+        read_simple(f);
+    }
+}
+
+#[cfg(target_arch="wasm32")]
+mod wasm {
+    use super::*;
+
+    use wasm_bindgen_test::*;
+    wasm_bindgen_test_configure!(run_in_browser);
+
+    #[wasm_bindgen_test]
+    fn read_simple_remote() {
+        let url = "http://cirrocumuli.com/test_data/simple.root";
+        let f = RootFile::new_from_url(url).expect("Failed to open remote file");
+        read_simple(f);
+    }
+}
+

@@ -272,7 +272,7 @@ mod test {
         let local = Rc::new(LocalDataSource::new("./src/test_data/simple.root".parse().unwrap()));
         let remote = Rc::new(
             RemoteDataSource::new(
-                "https://github.com/cbourjau/alice-rs/blob/master/root-io/src/test_data/simple.root?raw=true"
+                "http://cirrocumuli.com/test_data/simple.root"
             ).unwrap());
         let sources: Vec<Rc<dyn DataSource>> = vec![local, remote];
         for source in &sources {
@@ -307,7 +307,7 @@ mod test {
         let local = Rc::new(LocalDataSource::new("./src/test_data/simple.root".parse().unwrap()));
         let remote = Rc::new(
             RemoteDataSource::new(
-                "https://github.com/cbourjau/alice-rs/blob/master/root-io/src/test_data/simple.root?raw=true"
+                "http://cirrocumuli.com/test_data/simple.root"
             ).unwrap());
         let sources: Vec<Rc<dyn DataSource>> = vec![local, remote];
         for source in &sources {
