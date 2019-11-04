@@ -15,16 +15,17 @@ pub use self::tree::{ttree, Tree};
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
+    use tokio;
 
     use super::ttree;
     use crate::core::RootFile;
 
 
-    #[test]
-    fn simple_tree() {
+    #[tokio::test]
+    async fn simple_tree() {
         let path = PathBuf::from("./src/test_data/simple.root");
-        let f = RootFile::new_from_file(&path).expect("Failed to open file");
-        f.items()[0].parse_with(ttree).unwrap();
+        let f = RootFile::new_from_file(&path).await.expect("Failed to open file");
+        f.items()[0].parse_with(ttree).await.unwrap();
     }
 
     #[test]

@@ -1,21 +1,21 @@
 use std::path::PathBuf;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
-use std::future::Future;
 
 use failure::Error;
-use reqwest::{Client, Response, Url, header::{RANGE, USER_AGENT}};
-
-#[cfg(not(target_arch = "wasm32"))]
-use tokio::runtime::Runtime;
+use reqwest::{Client, Url, header::{RANGE, USER_AGENT}};
 
 #[cfg(target_arch = "wasm32")]
 use std::sync::mpsc::{sync_channel, SyncSender};
+
+use async_trait::async_trait;
+
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen_futures::spawn_local;
 
+#[async_trait(?Send)]
 pub trait DataSource: std::fmt::Debug {
-    fn fetch(&self, start: u64, len: u64) -> Result<Vec<u8>, Error>;
+    async fn fetch(&self, start: u64, len: u64) -> Result<Vec<u8>, Error>;
 }
 
 #[derive(Debug, Clone)]
@@ -27,8 +27,9 @@ impl LocalDataSource {
     }
 }
 
+#[async_trait(?Send)]
 impl DataSource for LocalDataSource {
-    fn fetch(&self, start: u64, len: u64) -> Result<Vec<u8>, Error> {
+    async fn fetch(&self, start: u64, len: u64) -> Result<Vec<u8>, Error> {
         let mut f = File::open(&self.0)?;
         f.seek(SeekFrom::Start(start))?;
         let mut buf = vec![0; len as usize];
@@ -52,25 +53,19 @@ impl RemoteDataSource {
     }
 }
 
+#[async_trait(?Send)]
 impl DataSource for RemoteDataSource {
-    fn fetch(&self, start: u64, len: u64) -> Result<Vec<u8>, Error> {
-        let fut = Client::new()
+    async fn fetch(&self, start: u64, len: u64) -> Result<Vec<u8>, Error> {
+        let rsp = Client::new()
             .get(self.url.clone())
             .header(USER_AGENT, "alice-rs")
             .header(RANGE, format!("bytes={}-{}", start, start + len - 1))
-            .send();
-        wait_it_out(fut)
+            .send()
+            .await?;
+        let bytes = rsp.bytes().await?;
+        Ok(bytes.as_ref().to_vec())
     }
 }
-
-#[cfg(not(target_arch = "wasm32"))]
-fn wait_it_out(future: impl Future<Output=Result<Response, reqwest::Error>>) -> Result<Vec<u8>, Error> {
-    let rt = Runtime::new()?;
-    let rsp = rt.block_on(future)?;
-    let bytes = rt.block_on(rsp.bytes())?;
-    Ok(bytes.as_ref().to_vec())
-}
-
 
 
 #[cfg(target_arch = "wasm32")]

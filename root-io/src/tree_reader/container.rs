@@ -17,11 +17,11 @@ pub(crate) enum Container {
 
 impl Container {
     /// Return the number of entries and the data; reading it from disk if necessary
-    pub(crate) fn raw_data(self) -> Result<(u32, Vec<u8>), Error> {
+    pub(crate) async fn raw_data(self) -> Result<(u32, Vec<u8>), Error> {
         let buf = match self {
             Container::InMemory(buf) => buf,
             Container::OnDisk(source, seek, len) => {
-                source.fetch(seek, len)?
+                source.fetch(seek, len).await?
             }
         };
         match tbasket2vec(buf.as_slice()) {

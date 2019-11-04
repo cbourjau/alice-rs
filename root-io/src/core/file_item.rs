@@ -30,8 +30,8 @@ impl FileItem {
 
     /// Parse this item as a `Tree`. Instead one could also call
     /// `parse_with` with the `ttree` parser
-    pub fn as_tree(&self) -> Result<Tree, Error> {
-        self.parse_with(ttree)
+    pub async fn as_tree(&self) -> Result<Tree, Error> {
+        self.parse_with(ttree).await
     }
 
     /// Information about this file item in Human readable form
@@ -49,13 +49,13 @@ impl FileItem {
     /// the appropriate type using the TStreamerInfo types.
     /// The return type of the parser function must not contain a
     /// reference to the parsed buffer
-    pub(crate) fn parse_with<O, F>(&self, parser: F) -> Result<O, Error>
+    pub(crate) async fn parse_with<O, F>(&self, parser: F) -> Result<O, Error>
     where
         F: for<'s> Fn(&'s [u8], &'s Context<'s>) -> IResult<&'s [u8], O>,
     {
         let start = self.tkey_hdr.seek_key + self.tkey_hdr.key_len as u64;
         let len = self.tkey_hdr.total_size - self.tkey_hdr.key_len as u32;
-        let comp_buf = self.source.fetch(start, len as u64)?;
+        let comp_buf = self.source.fetch(start, len as u64).await?;
 
         let buf = {
             if self.tkey_hdr.total_size < self.tkey_hdr.uncomp_len {
@@ -87,28 +87,34 @@ mod tests {
     use std::path::PathBuf;
     use crate::core::RootFile;
 
-    #[test]
-    fn open_simple() {
+    #[tokio::test]
+    async fn open_simple() {
         let path = PathBuf::from("./src/test_data/simple.root");
-        let f = RootFile::new_from_file(&path).expect("Failed to open file");
+        let f = RootFile::new_from_file(&path)
+            .await
+            .expect("Failed to open file");
         assert_eq!(f.items().len(), 1);
         assert_eq!(f.items()[0].tkey_hdr.obj_name, "tree");
         // Only streamers; not rules
-        assert_eq!(f.streamers().unwrap().len(), 18);
+        assert_eq!(f.streamers()
+                   .await
+                   .unwrap().len(), 18);
     }
 
     // Skip this test on MacOs since the downloaded file is not working on Travis
-    #[test]
+    #[tokio::test]
     #[cfg(all(not(target_os="macos"), not(target_arch="wasm32")))]
-    fn open_esd() {
+    async fn open_esd() {
         use alice_open_data;
         let path = alice_open_data::test_file().unwrap();
 
-        let f = RootFile::new_from_file(&path).expect("Failed to open file");
+        let f = RootFile::new_from_file(&path)
+            .await
+            .expect("Failed to open file");
 
         assert_eq!(f.items().len(), 2);
         assert_eq!(f.items()[0].tkey_hdr.obj_name, "esdTree");
         assert_eq!(f.items()[1].tkey_hdr.obj_name, "HLTesdTree");
-        assert_eq!(f.streamers().unwrap().len(), 87);
+        assert_eq!(f.streamers().await.unwrap().len(), 87);
     }
 }

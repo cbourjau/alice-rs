@@ -117,20 +117,22 @@ named!(
 
 impl RootFile {
     /// Open a ROOT file and read in the necessary meta information
-    pub fn new_from_url(url: &str) -> Result<Self, Error> {
+    pub async fn new_from_url(url: &str) -> Result<Self, Error> {
         let source = Rc::new(RemoteDataSource::new(url)?);
-        Self::new(source)
+        Self::new(source).await
     }
 
     /// Open a ROOT file and read in the necessary meta information
-    pub fn new_from_file(path: &Path) -> Result<Self, Error> {
+    pub async fn new_from_file(path: &Path) -> Result<Self, Error> {
         let source = Rc::new(LocalDataSource::new(path.to_owned()));
-        Self::new(source)
+        Self::new(source).await
+            
     }
 
-    fn new<S: DataSource + 'static>(source: Rc<S>) -> Result<Self, Error> {
+    async fn new<S: DataSource + 'static>(source: Rc<S>) -> Result<Self, Error> {
         let hdr = source
             .fetch(0, FILE_HEADER_SIZE)
+            .await
             .and_then(|buf| file_header(&buf)
                       .map_err(|_| format_err!("Failed to parse file header"))
                       .map(|(_i, o)| o)
@@ -139,12 +141,14 @@ impl RootFile {
         // Jump to the TDirectory and parse it
         let dir = source
             .fetch(hdr.seek_dir, TDIRECTORY_MAX_SIZE)
+            .await
             .and_then(|buf| directory(&buf)
                       .map_err(|_| format_err!("Failed to parse TDirectory"))
                       .map(|(_i, o)| o)
             )?;
         let tkey_of_keys = source
             .fetch(dir.seek_keys, dir.n_bytes_keys as u64)
+            .await
             .and_then(|buf| tkey(&buf)
                       .map_err(|_| format_err!("Failed to parse TKeys"))
                       .map(|(_i, o)| o)
@@ -162,11 +166,12 @@ impl RootFile {
     }
 
     /// Return all `TSreamerInfo` for the data in this file
-    pub fn streamers(&self) -> Result<Vec<TStreamerInfo>, Error> {
+    pub async fn streamers(&self) -> Result<Vec<TStreamerInfo>, Error> {
         // Dunno why we are 4 bytes off with the size of the streamer info...
         let seek_info_len = (self.hdr.nbytes_info + 4) as u64;
         let info_key = self.source
             .fetch(self.hdr.seek_info, seek_info_len)
+            .await
             .and_then(|buf| Ok(tkey(&buf).unwrap().1))?;
 
         let key_len = info_key.hdr.key_len;
@@ -217,15 +222,15 @@ impl RootFile {
     }
 
     /// Translate the streamer info of this file to a YAML file
-    pub fn streamer_info_as_yaml<W: fmt::Write>(&self, s: &mut W) -> Result<(), Error> {
-        for el in &self.streamers()? {
+    pub async fn streamer_info_as_yaml<W: fmt::Write>(&self, s: &mut W) -> Result<(), Error> {
+        for el in &self.streamers().await? {
             writeln!(s, "{:#}", el.to_yaml())?;
         }
         Ok(())
     }
 
     /// Generate Rust code from the streamer info of this file
-    pub fn streamer_info_as_rust<W: fmt::Write>(&self, s: &mut W) -> Result<(), Error> {
+    pub async fn streamer_info_as_rust<W: fmt::Write>(&self, s: &mut W) -> Result<(), Error> {
         // Add necessary imports at the top of the file
         writeln!(
             s,
@@ -241,13 +246,13 @@ impl RootFile {
         )?;
 
         // generate structs
-        for el in &self.streamers()? {
+        for el in &self.streamers().await? {
             // The structs contain comments which introduce line breaks; i.e. readable
             writeln!(s, "{}", el.to_struct().to_string())?;
         }
 
         // generate parsers
-        for el in &self.streamers()? {
+        for el in &self.streamers().await? {
             // The parsers have no comments, but are ugly; We introduce some
             // Linebreaks here to not have rustfmt choke later (doing it later
             // is inconvinient since the comments in the structs might contain
@@ -266,9 +271,10 @@ impl RootFile {
 #[cfg(test)]
 mod test {
     use super::*;
+    use tokio;
 
-    #[test]
-    fn file_header_test() {
+    #[tokio::test]
+    async fn file_header_test() {
         let local = Rc::new(LocalDataSource::new("./src/test_data/simple.root".parse().unwrap()));
         let remote = Rc::new(
             RemoteDataSource::new(
@@ -278,6 +284,7 @@ mod test {
         for source in &sources {
             let hdr = source
                 .fetch(0, FILE_HEADER_SIZE)
+                .await
                 .and_then(|buf| file_header(&buf)
                           .map_err(|_| format_err!("Failed to parse file header"))
                           .map(|(_i, o)| o)
@@ -302,8 +309,8 @@ mod test {
         }
     }
 
-    #[test]
-    fn directory_test() {
+    #[tokio::test]
+    async fn directory_test() {
         let local = Rc::new(LocalDataSource::new("./src/test_data/simple.root".parse().unwrap()));
         let remote = Rc::new(
             RemoteDataSource::new(
@@ -313,6 +320,7 @@ mod test {
         for source in &sources {
             let hdr = source
                 .fetch(0, FILE_HEADER_SIZE)
+                .await
                 .and_then(|buf| file_header(&buf)
                           .map_err(|_| format_err!("Failed to parse file header"))
                           .map(|(_i, o)| o)
@@ -320,6 +328,7 @@ mod test {
 
             let dir = source
                 .fetch(hdr.seek_dir, TDIRECTORY_MAX_SIZE)
+                .await
                 .and_then(|buf| directory(&buf)
                           .map_err(|_| format_err!("Failed to parse file header"))
                           .map(|(_i, o)| o)
@@ -341,8 +350,8 @@ mod test {
         }
     }
 
-    #[test]
-    fn streamerinfo_test() {
+    #[tokio::test]
+    async fn streamerinfo_test() {
         let local = Rc::new(LocalDataSource::new("./src/test_data/simple.root".parse().unwrap()));
         let remote = Rc::new(
             RemoteDataSource::new(
@@ -353,6 +362,7 @@ mod test {
 
             let key = source
                 .fetch(1117, 4446)
+                .await
                 .and_then(|buf| tkey(&buf)
                           .map_err(|_| format_err!("Failed to parse file header"))
                           .map(|(_i, o)| o)

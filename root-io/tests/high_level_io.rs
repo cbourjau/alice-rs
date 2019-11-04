@@ -59,16 +59,17 @@ fn local_paths() -> Vec<PathBuf> {
 #[cfg(not(target_arch="wasm32"))]
 mod local {
     use super::*;
+    use tokio;
 
-    #[test]
-    fn root_file_methods() {
+    #[tokio::test]
+    async fn root_file_methods() {
         let paths = local_paths();
         for p in paths {
             println!("{:?}", p);
-            let f = RootFile::new_from_file(&p).expect("Failed to open file");
+            let f = RootFile::new_from_file(&p).await.expect("Failed to open file");
             let mut s = String::new();
-            f.streamer_info_as_yaml(&mut s).unwrap();
-            f.streamer_info_as_rust(&mut s).unwrap();
+            f.streamer_info_as_yaml(&mut s).await.unwrap();
+            f.streamer_info_as_rust(&mut s).await.unwrap();
             for item in f.items() {
                 item.name();
                 item.verbose_info();
@@ -76,17 +77,17 @@ mod local {
         }
     }
 
-    #[test]
     #[cfg(not(target_os="macos"))]
-    fn root_file_methods_esd() {
+    #[tokio::test]
+    async fn root_file_methods_esd() {
         use alice_open_data;
         let paths = [alice_open_data::test_file().unwrap()];
         for p in &paths {
             println!("{:?}", p);
-            let f = RootFile::new_from_file(&p).expect("Failed to open file");
+            let f = RootFile::new_from_file(&p).await.expect("Failed to open file");
             let mut s = String::new();
-            f.streamer_info_as_yaml(&mut s).unwrap();
-            f.streamer_info_as_rust(&mut s).unwrap();
+            f.streamer_info_as_yaml(&mut s).await.unwrap();
+            f.streamer_info_as_rust(&mut s).await.unwrap();
             for item in f.items() {
                 item.name();
                 item.verbose_info();

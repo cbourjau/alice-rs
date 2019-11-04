@@ -1,4 +1,4 @@
-use failure::Error;
+use futures::prelude::*;
 use nom::*;
 use nom::number::complete::*;
 use nom::multi::count;
@@ -81,19 +81,6 @@ impl TBranch {
             .collect()
     }
 
-    /// Number of events in each basket. This might be important to know when parsing basket for variale length objects
-    pub(crate) fn n_events_per_basket(&self) -> Vec<usize> {
-        // basketentry is index of first element in each basket, e.g. [0, 2, 4]
-        self.fbasketentry
-            .iter()
-            // the last event index is not in fbasketentry
-            .chain([self.fentries].iter())
-            .collect::<Vec<_>>()
-            .windows(2)
-            .map(|window| (window[1] - window[0]) as usize)
-            .collect()
-    }
-
     /// Create an iterator over the data of a column (`TBranch`) with a
     /// constant number of element per entry (or at least not a
     /// variable number of entries which depends on an external list of
@@ -104,6 +91,7 @@ impl TBranch {
     /// extern crate failure;
     /// extern crate nom;
     /// extern crate root_io;
+    /// use futures::StreamExt;
     ///
     /// use std::path::PathBuf;
     /// use nom::number::complete::be_i32;
@@ -111,41 +99,38 @@ impl TBranch {
     /// use root_io::tree_reader::Tree;
     /// use root_io::RootFile;
     ///
-    /// fn main() {
+    /// #[tokio::main]
+    /// async fn main() {
     ///     let path = PathBuf::from("./src/test_data/simple.root");
-    ///     let f = RootFile::new_from_file(&path).expect("Failed to open file");
-    ///     let tree = f.items()[0].as_tree().unwrap();
+    ///     let f = RootFile::new_from_file(&path).await.expect("Failed to open file");
+    ///     let tree = f.items()[0].as_tree().await.unwrap();
     ///     let numbers = tree
     ///         .branch_by_name("one").unwrap()
     ///         // Must pass parser as closure
-    ///         .as_fixed_size_iterator(|i| be_i32(i)).unwrap();
-    ///     for n in numbers {
+    ///         .as_fixed_size_iterator(|i| be_i32(i));
+    ///     numbers.for_each(|n| async move {
     ///         println!("All the numbers of this branch{:?}", n);
-    ///     }
+    ///     }).await;
     /// }
     /// ```
     pub fn as_fixed_size_iterator<T, P>(
         &self,
         p: P,
-    ) -> Result<impl Iterator<Item = T>, Error>
+    ) -> impl Stream<Item=T>
     where
         P: Fn(&[u8]) -> IResult<&[u8], T>,
-        T: 'static + Clone,
     {
-        let containers = self
-            .containers()
-            .to_owned()
-            .into_iter()
-            // Read and decompress data into a vec
-            .flat_map(|c| c.raw_data())
-            .flat_map(move |(n_entries, raw_slice)| {
-                let s: &[u8] = raw_slice.as_slice();
-                match count(&p, n_entries as usize)(s) {
-                    Ok((_, o)) => o,
-                    _ => panic!("Parser failed unexpectedly!"),
-                }
-            });
-        Ok(containers)
+        stream::iter(self.containers().to_owned())
+            .then(|basket| async move {basket.raw_data().await.unwrap()})
+            .map(move |(n_events_in_basket, buffer)| {
+                // Parse the entire basket buffer; if something is left over its just junk
+                let events = match count(&p, n_events_in_basket as usize)(&buffer) {
+                    Ok((_rest, output)) => output,
+                    Err(e) => panic!(format!("Parser failed unexpectedly {:?}", e)),
+                };
+                stream::iter(events)
+            })
+            .flatten()
     }
 
     /// Iterator over the data of a column (`TBranch`) with a variable
@@ -156,44 +141,30 @@ impl TBranch {
         &self,
         p: P,
         el_counter: &[u32],
-    ) -> Result<impl Iterator<Item = Vec<T>> + 'static, Error>
+    ) -> impl Stream<Item = Vec<T>>
     where
-        P: 'static + Fn(&[u8]) -> IResult<&[u8], T>,
-        T: 'static,
+        P: Fn(&[u8]) -> IResult<&[u8], T>,
     {
-        let mut n_elems_per_event = el_counter.iter();
-        let n_elems_per_basket: Vec<u32> = self
-            .n_events_per_basket()
-            .into_iter()
-            .map(|nevts_this_bskt| {
-                (0..nevts_this_bskt)
-                    .map(|_i_evt_this_bskt| *n_elems_per_event.next().unwrap())
-                    .sum()
-            })
-            .collect();
-        let elements = self
-            .containers()
-            .to_owned()
-            .into_iter()
-            // Read and decompress data into a vec
-            .flat_map(|c| c.raw_data())
-            .zip(n_elems_per_basket.into_iter())
-            .flat_map(move |((n_entries_in_buf, raw_slice), n_elems)| {
-                let s: &[u8] = raw_slice.as_slice();
-                match count!(s, &p, n_elems as usize) {
-                    Ok((_, o)) => o,
-                    _ => panic!(
-                        "Parser failed unexpectedly! {}, {}",
-                        n_entries_in_buf,
-                        s.len()
-                    ),
+        let mut elems_per_event = el_counter.to_owned().into_iter();
+        stream::iter(self.containers().to_owned())
+            .then(|basket| async move {basket.raw_data().await.unwrap()})
+            .map(move |(n_events_in_basket, buffer)| {
+                let mut buffer = buffer.as_slice();
+                let mut events = Vec::with_capacity(n_events_in_basket as usize);
+                for _ in 0..n_events_in_basket {
+                    if let Some(n_elems_in_event) = elems_per_event.next() {
+                        match count(&p, n_elems_in_event as usize)(&buffer) {
+                            Ok((rest, output)) => {
+                                buffer = rest;
+                                events.push(output)
+                            },
+                            Err(e) => panic!(format!("Parser failed unexpectedly {:?}", e)),
+                        }
+                    }
                 }
-            });
-
-        Ok(VarChunkIter::new(
-            el_counter.to_owned().into_iter(),
-            elements,
-        ))
+                stream::iter(events)
+            })
+            .flatten()
     }
 }
 
@@ -294,40 +265,58 @@ fn tbranch<'s>(input: &'s [u8], context: &Context<'s>) -> IResult<&'s [u8], TBra
     )
 }
 
-/// Iterator over chunks of variable size. Instantiated with `into_fixed_size_iterator`.
-struct VarChunkIter<IChunkSizes: Iterator<Item = u32>, IElems: Iterator> {
-    /// Number of elements in each chunk
-    chunk_sizes: IChunkSizes,
-    /// Inner iterators over elements. This is wanted since we don't
-    /// want to read all baskets form file immediately
-    inner: IElems,
-}
+// /// Iterator over chunks of variable size. It solves the issue that we
+// /// get chunks of data from the underlying TBuckets, but then need to
+// /// chunk that data into smaller, variable sized chunks again. The
+// /// size of the smaller chunks is given by the `chunk_size`
+// /// iterator. The bigger chunks are produced by an inner stream of
+// /// `Vec<el>`s as read from file.
+// struct VarChunkIter<IChunkSizes: Iterator<Item = u32>, IBigChunks: Stream> {
+//     /// Number of elements in each chunk
+//     chunk_sizes: IChunkSizes,
+//     /// Inner iterators over elements. This is wanted since we don't
+//     /// want to read all baskets form file immediately
+//     inner: IBigChunks,
+//     /// The big chunk we are currently chopping up
+//     current_big_chunk: IBigChunks::Item
+// }
 
-impl<IChunkSizes: Iterator<Item = u32>, IElems: Iterator> VarChunkIter<IChunkSizes, IElems> {
-    fn new(chunk_sizes: IChunkSizes, elements: IElems) -> Self {
-        Self {
-            chunk_sizes,
-            inner: elements,
-        }
-    }
-}
+// impl<T, IChunkSizes: Iterator<Item = u32>, IBigChunks: Stream<Item=Vec<T>>> VarChunkIter<IChunkSizes, IBigChunks> {
+//     fn new(chunk_sizes: IChunkSizes, elements: IBigChunks) -> Self {
+//         Self {
+//             chunk_sizes,
+//             inner: elements,
+//             current_big_chunk: Vec::new(),
+//         }
+//     }
+// }
 
-impl<IChunkSizes: Iterator<Item = u32>, IElems: Iterator> Iterator
-    for VarChunkIter<IChunkSizes, IElems>
-{
-    type Item = Vec<<IElems as Iterator>::Item>;
+// impl<T, IChunkSizes, IBigChunks> Stream
+//     for VarChunkIter<IChunkSizes, IBigChunks>
+// where
+//     IChunkSizes: Iterator<Item = u32>,
+//     IBigChunks: Stream<Item=Vec<T>>,
+// {
+//     type Item = <IBigChunks as Stream>::Item;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(n_elem) = self.chunk_sizes.next() {
-            let mut chunk = Vec::with_capacity(n_elem as usize);
-            for _ in 0..n_elem {
-                chunk.push(self.inner.next().expect("Inner Iterator ended"));
-            }
-            Some(chunk)
-        } else {
-            // No more elements expected; TODO check if `inner` is also
-            // depleted
-            None
-        }
-    }
-}
+//     fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut futures::task::Context) -> futures::task::Poll<Option<Self::Item>> {
+//         // if self.current_big_chunk.is_empty() {
+//         //     match self.inner.poll_next(&mut cx) {
+//         //     }
+//         // }
+//         unimplemented!()
+//     }
+//     // fn next(&mut self) -> Option<Self::Item> {
+//     //     if let Some(n_elem) = self.chunk_sizes.next() {
+//     //         let mut chunk = Vec::with_capacity(n_elem as usize);
+//     //         for _ in 0..n_elem {
+//     //             chunk.push(self.inner.next().expect("Inner Iterator ended"));
+//     //         }
+//     //         Some(chunk)
+//     //     } else {
+//     //         // No more elements expected; TODO check if `inner` is also
+//     //         // depleted
+//     //         None
+//     //     }
+//     // }
+// }
