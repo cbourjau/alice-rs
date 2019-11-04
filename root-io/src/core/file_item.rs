@@ -3,13 +3,7 @@ use std::rc::Rc;
 use failure::Error;
 use nom::*;
 
-use crate::core::{
-    Context,
-    DataSource,
-    TKeyHeader,
-    checked_byte_count,
-    decompress
-};
+use crate::core::{checked_byte_count, decompress, Context, DataSource, TKeyHeader};
 use crate::tree_reader::{ttree, Tree};
 
 /// Describes a single item within this file (e.g. a `Tree`)
@@ -23,7 +17,7 @@ impl FileItem {
     /// New file item from the information in a TKeyHeader and the associated file
     pub(crate) fn new<S: DataSource + 'static>(tkey_hdr: &TKeyHeader, source: Rc<S>) -> FileItem {
         FileItem {
-            source: source,
+            source,
             tkey_hdr: tkey_hdr.to_owned(),
         }
     }
@@ -84,8 +78,8 @@ impl FileItem {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
     use crate::core::RootFile;
+    use std::path::PathBuf;
 
     #[tokio::test]
     async fn open_simple() {
@@ -96,14 +90,12 @@ mod tests {
         assert_eq!(f.items().len(), 1);
         assert_eq!(f.items()[0].tkey_hdr.obj_name, "tree");
         // Only streamers; not rules
-        assert_eq!(f.streamers()
-                   .await
-                   .unwrap().len(), 18);
+        assert_eq!(f.streamers().await.unwrap().len(), 18);
     }
 
     // Skip this test on MacOs since the downloaded file is not working on Travis
     #[tokio::test]
-    #[cfg(all(not(target_os="macos"), not(target_arch="wasm32")))]
+    #[cfg(all(not(target_os = "macos"), not(target_arch = "wasm32")))]
     async fn open_esd() {
         use alice_open_data;
         let path = alice_open_data::test_file().unwrap();

@@ -1,5 +1,5 @@
-use nom::*;
 use nom::number::complete::*;
+use nom::*;
 
 use quote::*;
 

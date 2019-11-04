@@ -1,6 +1,6 @@
-use nom::*;
-use nom::number::complete::*;
 use nom::combinator::map;
+use nom::number::complete::*;
+use nom::*;
 
 use crate::core::*;
 
@@ -58,7 +58,6 @@ TKey headers are stored for faster later `Seek`ing"#],
               })
     )
 );
-
 
 /// Parse a file-pointer based on the version of the file
 fn seek_point(input: &[u8], version: u16) -> nom::IResult<&[u8], u64> {

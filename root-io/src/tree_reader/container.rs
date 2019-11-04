@@ -1,9 +1,9 @@
 use std::rc::Rc;
 
 use failure::Error;
-use nom::*;
-use nom::number::complete::*;
 use nom::combinator::rest;
+use nom::number::complete::*;
+use nom::*;
 
 use crate::core::*;
 
@@ -20,9 +20,7 @@ impl Container {
     pub(crate) async fn raw_data(self) -> Result<(u32, Vec<u8>), Error> {
         let buf = match self {
             Container::InMemory(buf) => buf,
-            Container::OnDisk(source, seek, len) => {
-                source.fetch(seek, len).await?
-            }
+            Container::OnDisk(source, seek, len) => source.fetch(seek, len).await?,
         };
         match tbasket2vec(buf.as_slice()) {
             Ok((_, v)) => Ok(v),
@@ -68,10 +66,10 @@ fn tbasket2vec(input: &[u8]) -> IResult<&[u8], (u32, Vec<u8>)>
 
 #[cfg(test)]
 mod tests {
+    use crate::core::tkey_header;
+    use nom::*;
     use std::fs::File;
     use std::io::{BufReader, Read, Seek, SeekFrom};
-    use nom::*;
-    use crate::core::tkey_header;
 
     use super::tbasket2vec;
 

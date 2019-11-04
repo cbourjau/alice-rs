@@ -8,7 +8,6 @@ use nom::HexDisplay;
 /// Absolute point in file to seek data
 pub(crate) type SeekPointer = u64;
 
-
 bitflags! {
     pub(crate) struct Flags: u32 {
         const BYTE_COUNT_MASK = 0x4000_0000;

@@ -35,9 +35,9 @@ extern crate alice_open_data;
 // pub mod core_types;
 mod code_gen;
 pub mod core;
+pub mod test_utils;
 mod tests;
 pub mod tree_reader;
-pub mod test_utils;
 
 pub use crate::core::{FileItem, RootFile};
 

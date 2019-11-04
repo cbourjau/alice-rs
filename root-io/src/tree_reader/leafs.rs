@@ -1,13 +1,10 @@
 use std::fmt;
 
-use nom::*;
 use nom::number::complete::*;
+use nom::*;
 use quote::{Ident, Tokens};
 
-use crate::{
-    code_gen::rust::ToRustType,
-    core::*,
-};
+use crate::{code_gen::rust::ToRustType, core::*};
 
 #[derive(Debug, Clone)]
 pub struct TLeafBase {
@@ -58,19 +55,17 @@ impl fmt::Debug for TLeaf {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "Rust leaf type `{}`;", self.type_name())?;
         match *self {
-            TLeaf::Primitive(ref leaf_name, ref leaf) =>
-                writeln!(f, "`{}`: {:#?}", leaf_name, leaf),
-            TLeaf::String(ref leaf) =>
-                writeln!(f, "String: {:#?}", leaf),
-            TLeaf::Element(ref leaf) =>
-                writeln!(f, "Element: {:#?}", leaf),
-            TLeaf::Object(ref leaf_name, ref leaf) => 
-                writeln!(f, "`{}`: {:#?}", leaf_name, leaf),
+            TLeaf::Primitive(ref leaf_name, ref leaf) => {
+                writeln!(f, "`{}`: {:#?}", leaf_name, leaf)
+            }
+            TLeaf::String(ref leaf) => writeln!(f, "String: {:#?}", leaf),
+            TLeaf::Element(ref leaf) => writeln!(f, "Element: {:#?}", leaf),
+            TLeaf::Object(ref leaf_name, ref leaf) => writeln!(f, "`{}`: {:#?}", leaf_name, leaf),
         }
     }
 }
 
-impl ToRustType for  TLeaf {
+impl ToRustType for TLeaf {
     fn type_name(&self) -> Tokens {
         match *self {
             TLeaf::Primitive(ref leaf_name, ref leaf) => {

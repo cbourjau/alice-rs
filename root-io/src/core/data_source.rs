@@ -1,9 +1,12 @@
-use std::path::PathBuf;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
+use std::path::PathBuf;
 
 use failure::Error;
-use reqwest::{Client, Url, header::{RANGE, USER_AGENT}};
+use reqwest::{
+    header::{RANGE, USER_AGENT},
+    Client, Url,
+};
 
 #[cfg(target_arch = "wasm32")]
 use std::sync::mpsc::{sync_channel, SyncSender};
@@ -34,21 +37,21 @@ impl DataSource for LocalDataSource {
         f.seek(SeekFrom::Start(start))?;
         let mut buf = vec![0; len as usize];
         f.read_exact(&mut buf)?;
-        Ok(buf)        
+        Ok(buf)
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct RemoteDataSource {
     client: Client,
-    url: Url
+    url: Url,
 }
 
 impl RemoteDataSource {
     pub fn new(url: &str) -> Result<Self, Error> {
         Ok(Self {
             client: Client::new(),
-            url: url.parse()?
+            url: url.parse()?,
         })
     }
 }
@@ -67,11 +70,10 @@ impl DataSource for RemoteDataSource {
     }
 }
 
-
 #[cfg(target_arch = "wasm32")]
 fn wait_it_out<F>(future: F) -> Result<Vec<u8>, Error>
 where
-    F: 'static + Future<Output=Result<Response, reqwest::Error>>,
+    F: 'static + Future<Output = Result<Response, reqwest::Error>>,
 {
     let (tx, rx) = sync_channel(1);
 
@@ -79,17 +81,15 @@ where
     // Would have probably been cleaner to use `.map`...
     async fn await_and_send_back<F>(fut: F, tx: SyncSender<Result<Vec<u8>, Error>>) -> ()
     where
-         F: 'static + Future<Output=Result<Response, reqwest::Error>>,
+        F: 'static + Future<Output = Result<Response, reqwest::Error>>,
     {
         let res = {
             match fut.await {
-                Ok(rsp) => {
-                    match rsp.bytes().await {
-                        Ok(bytes) => Ok(bytes.as_ref().to_vec()),
-                        Err(e) => Err(e.into())
-                    }
+                Ok(rsp) => match rsp.bytes().await {
+                    Ok(bytes) => Ok(bytes.as_ref().to_vec()),
+                    Err(e) => Err(e.into()),
                 },
-                Err(e) => Err(e.into())
+                Err(e) => Err(e.into()),
             }
         };
         tx.send(res).expect("Failed to send back bytes");

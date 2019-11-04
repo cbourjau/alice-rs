@@ -1,11 +1,11 @@
 use std::fmt;
-use std::path::{Path};
+use std::path::Path;
 use std::rc::Rc;
 
 use failure::Error;
 use nom::{
     self,
-    number::complete::{be_i32, be_u32, be_u8, be_i64, be_i16, be_u64},
+    number::complete::{be_i16, be_i32, be_i64, be_u32, be_u64, be_u8},
 };
 
 use crate::{
@@ -13,7 +13,6 @@ use crate::{
     core::*,
     MAP_OFFSET,
 };
-
 
 /// Size of serialized `FileHeader` in bytes
 const FILE_HEADER_SIZE: u64 = 53;
@@ -126,33 +125,32 @@ impl RootFile {
     pub async fn new_from_file(path: &Path) -> Result<Self, Error> {
         let source = Rc::new(LocalDataSource::new(path.to_owned()));
         Self::new(source).await
-            
     }
 
     async fn new<S: DataSource + 'static>(source: Rc<S>) -> Result<Self, Error> {
-        let hdr = source
-            .fetch(0, FILE_HEADER_SIZE)
-            .await
-            .and_then(|buf| file_header(&buf)
-                      .map_err(|_| format_err!("Failed to parse file header"))
-                      .map(|(_i, o)| o)
-            )?;
+        let hdr = source.fetch(0, FILE_HEADER_SIZE).await.and_then(|buf| {
+            file_header(&buf)
+                .map_err(|_| format_err!("Failed to parse file header"))
+                .map(|(_i, o)| o)
+        })?;
 
         // Jump to the TDirectory and parse it
         let dir = source
             .fetch(hdr.seek_dir, TDIRECTORY_MAX_SIZE)
             .await
-            .and_then(|buf| directory(&buf)
-                      .map_err(|_| format_err!("Failed to parse TDirectory"))
-                      .map(|(_i, o)| o)
-            )?;
+            .and_then(|buf| {
+                directory(&buf)
+                    .map_err(|_| format_err!("Failed to parse TDirectory"))
+                    .map(|(_i, o)| o)
+            })?;
         let tkey_of_keys = source
             .fetch(dir.seek_keys, dir.n_bytes_keys as u64)
             .await
-            .and_then(|buf| tkey(&buf)
-                      .map_err(|_| format_err!("Failed to parse TKeys"))
-                      .map(|(_i, o)| o)
-            )?;
+            .and_then(|buf| {
+                tkey(&buf)
+                    .map_err(|_| format_err!("Failed to parse TKeys"))
+                    .map(|(_i, o)| o)
+            })?;
         let keys = match tkey_headers(&tkey_of_keys.obj) {
             Ok((_, hdrs)) => Ok(hdrs),
             _ => Err(format_err!("Expected TKeyHeaders")),
@@ -169,7 +167,8 @@ impl RootFile {
     pub async fn streamers(&self) -> Result<Vec<TStreamerInfo>, Error> {
         // Dunno why we are 4 bytes off with the size of the streamer info...
         let seek_info_len = (self.hdr.nbytes_info + 4) as u64;
-        let info_key = self.source
+        let info_key = self
+            .source
             .fetch(self.hdr.seek_info, seek_info_len)
             .await
             .and_then(|buf| Ok(tkey(&buf).unwrap().1))?;
@@ -275,20 +274,22 @@ mod test {
 
     #[tokio::test]
     async fn file_header_test() {
-        let local = Rc::new(LocalDataSource::new("./src/test_data/simple.root".parse().unwrap()));
-        let remote = Rc::new(
-            RemoteDataSource::new(
-                "http://cirrocumuli.com/test_data/simple.root"
-            ).unwrap());
+        let local = Rc::new(LocalDataSource::new(
+            "./src/test_data/simple.root".parse().unwrap(),
+        ));
+        let remote =
+            Rc::new(RemoteDataSource::new("http://cirrocumuli.com/test_data/simple.root").unwrap());
         let sources: Vec<Rc<dyn DataSource>> = vec![local, remote];
         for source in &sources {
             let hdr = source
                 .fetch(0, FILE_HEADER_SIZE)
                 .await
-                .and_then(|buf| file_header(&buf)
-                          .map_err(|_| format_err!("Failed to parse file header"))
-                          .map(|(_i, o)| o)
-                ).unwrap();
+                .and_then(|buf| {
+                    file_header(&buf)
+                        .map_err(|_| format_err!("Failed to parse file header"))
+                        .map(|(_i, o)| o)
+                })
+                .unwrap();
 
             let should = FileHeader {
                 version: 60600,
@@ -311,28 +312,32 @@ mod test {
 
     #[tokio::test]
     async fn directory_test() {
-        let local = Rc::new(LocalDataSource::new("./src/test_data/simple.root".parse().unwrap()));
-        let remote = Rc::new(
-            RemoteDataSource::new(
-                "http://cirrocumuli.com/test_data/simple.root"
-            ).unwrap());
+        let local = Rc::new(LocalDataSource::new(
+            "./src/test_data/simple.root".parse().unwrap(),
+        ));
+        let remote =
+            Rc::new(RemoteDataSource::new("http://cirrocumuli.com/test_data/simple.root").unwrap());
         let sources: Vec<Rc<dyn DataSource>> = vec![local, remote];
         for source in &sources {
             let hdr = source
                 .fetch(0, FILE_HEADER_SIZE)
                 .await
-                .and_then(|buf| file_header(&buf)
-                          .map_err(|_| format_err!("Failed to parse file header"))
-                          .map(|(_i, o)| o)
-                ).unwrap();
+                .and_then(|buf| {
+                    file_header(&buf)
+                        .map_err(|_| format_err!("Failed to parse file header"))
+                        .map(|(_i, o)| o)
+                })
+                .unwrap();
 
             let dir = source
                 .fetch(hdr.seek_dir, TDIRECTORY_MAX_SIZE)
                 .await
-                .and_then(|buf| directory(&buf)
-                          .map_err(|_| format_err!("Failed to parse file header"))
-                          .map(|(_i, o)| o)
-                ).unwrap();
+                .and_then(|buf| {
+                    directory(&buf)
+                        .map_err(|_| format_err!("Failed to parse file header"))
+                        .map(|(_i, o)| o)
+                })
+                .unwrap();
             assert_eq!(
                 dir,
                 Directory {
@@ -352,21 +357,24 @@ mod test {
 
     #[tokio::test]
     async fn streamerinfo_test() {
-        let local = Rc::new(LocalDataSource::new("./src/test_data/simple.root".parse().unwrap()));
+        let local = Rc::new(LocalDataSource::new(
+            "./src/test_data/simple.root".parse().unwrap(),
+        ));
         let remote = Rc::new(
             RemoteDataSource::new(
                 "https://github.com/cbourjau/alice-rs/blob/master/root-io/src/test_data/simple.root?raw=true"
             ).unwrap());
         let sources: Vec<Rc<dyn DataSource>> = vec![local, remote];
         for source in &sources {
-
             let key = source
                 .fetch(1117, 4446)
                 .await
-                .and_then(|buf| tkey(&buf)
-                          .map_err(|_| format_err!("Failed to parse file header"))
-                          .map(|(_i, o)| o)
-                ).unwrap();
+                .and_then(|buf| {
+                    tkey(&buf)
+                        .map_err(|_| format_err!("Failed to parse file header"))
+                        .map(|(_i, o)| o)
+                })
+                .unwrap();
             assert_eq!(key.hdr.obj_name, "StreamerInfo");
 
             let key_len = key.hdr.key_len;

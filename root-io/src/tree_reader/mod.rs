@@ -20,11 +20,12 @@ mod tests {
     use super::ttree;
     use crate::core::RootFile;
 
-
     #[tokio::test]
     async fn simple_tree() {
         let path = PathBuf::from("./src/test_data/simple.root");
-        let f = RootFile::new_from_file(&path).await.expect("Failed to open file");
+        let f = RootFile::new_from_file(&path)
+            .await
+            .expect("Failed to open file");
         f.items()[0].parse_with(ttree).await.unwrap();
     }
 

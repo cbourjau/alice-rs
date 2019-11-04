@@ -2,7 +2,7 @@
 
 pub use cfg_gated::log;
 
-#[cfg(target_arch="wasm32")]
+#[cfg(target_arch = "wasm32")]
 mod cfg_gated {
     use wasm_bindgen::JsValue;
     use web_sys;
@@ -14,7 +14,7 @@ mod cfg_gated {
     }
 }
 
-#[cfg(not(target_arch="wasm32"))]
+#[cfg(not(target_arch = "wasm32"))]
 mod cfg_gated {
     pub fn log<D: std::fmt::Debug>(thing: D) {
         std::dbg!(thing);

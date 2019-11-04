@@ -1,15 +1,11 @@
 use futures::prelude::*;
-use nom::*;
-use nom::number::complete::*;
 use nom::multi::count;
+use nom::number::complete::*;
+use nom::*;
 
 use crate::{
-    code_gen::rust::ToRustType,
-    core::parsers::*,
-    core::types::*,
-    tree_reader::container::Container,
-    tree_reader::leafs::tleaf,
-    tree_reader::leafs::TLeaf,
+    code_gen::rust::ToRustType, core::parsers::*, core::types::*,
+    tree_reader::container::Container, tree_reader::leafs::tleaf, tree_reader::leafs::TLeaf,
 };
 
 /// A `TBranch` describes one "Column" of a `TTree`
@@ -113,15 +109,12 @@ impl TBranch {
     ///     }).await;
     /// }
     /// ```
-    pub fn as_fixed_size_iterator<T, P>(
-        &self,
-        p: P,
-    ) -> impl Stream<Item=T>
+    pub fn as_fixed_size_iterator<T, P>(&self, p: P) -> impl Stream<Item = T>
     where
         P: Fn(&[u8]) -> IResult<&[u8], T>,
     {
         stream::iter(self.containers().to_owned())
-            .then(|basket| async move {basket.raw_data().await.unwrap()})
+            .then(|basket| async move { basket.raw_data().await.unwrap() })
             .map(move |(n_events_in_basket, buffer)| {
                 // Parse the entire basket buffer; if something is left over its just junk
                 let events = match count(&p, n_events_in_basket as usize)(&buffer) {
@@ -137,17 +130,13 @@ impl TBranch {
     /// number of elements per entry.  See the file
     /// [`read_esd.rs`](https://github.com/cbourjau/root-io/blob/master/src/tests/read_esd.rs)
     /// in the repository for a comprehensive example
-    pub fn as_var_size_iterator<T, P>(
-        &self,
-        p: P,
-        el_counter: &[u32],
-    ) -> impl Stream<Item = Vec<T>>
+    pub fn as_var_size_iterator<T, P>(&self, p: P, el_counter: &[u32]) -> impl Stream<Item = Vec<T>>
     where
         P: Fn(&[u8]) -> IResult<&[u8], T>,
     {
         let mut elems_per_event = el_counter.to_owned().into_iter();
         stream::iter(self.containers().to_owned())
-            .then(|basket| async move {basket.raw_data().await.unwrap()})
+            .then(|basket| async move { basket.raw_data().await.unwrap() })
             .map(move |(n_events_in_basket, buffer)| {
                 let mut buffer = buffer.as_slice();
                 let mut events = Vec::with_capacity(n_events_in_basket as usize);
@@ -157,7 +146,7 @@ impl TBranch {
                             Ok((rest, output)) => {
                                 buffer = rest;
                                 events.push(output)
-                            },
+                            }
                             Err(e) => panic!(format!("Parser failed unexpectedly {:?}", e)),
                         }
                     }

@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::io::Read;
 /// Parsers of the ROOT core types. Note that objects in ROOT files
 /// are often, but not always, preceeded by their size. The parsers in
@@ -9,19 +10,18 @@ use std::io::Read;
 // from streamerinfo.txt which is included in the official ROOT source
 // code for (old) layout
 use std::str;
-use std::convert::TryFrom;
 
 use failure::Error;
 use flate2::bufread::ZlibDecoder;
+use lzma_rs::xz_decompress;
 use nom::{
     self,
     bytes::complete::{take, take_until},
+    combinator::{map_res, rest},
+    multi::{count, length_data, length_value},
     number::complete::{be_f64, be_i32, be_u16, be_u32, be_u8},
     sequence::tuple,
-    multi::{count, length_value, length_data},
-    combinator::{rest, map_res},
 };
-use lzma_rs::xz_decompress;
 
 use crate::core::*;
 
@@ -84,17 +84,20 @@ where
             let (i, _) = length_data(be_u8)(i)?;
             Ok((i, obj))
         },
-        len as usize
+        len as usize,
     )(input)?;
 
     let (input, _) = rest(input)?;
-    Ok((input, TList{
-        ver: ver,
-        tobj: tobj,
-        name: name,
-        len: len as usize,
-        objs: objs
-    }))
+    Ok((
+        input,
+        TList {
+            ver,
+            tobj,
+            name,
+            len: len as usize,
+            objs,
+        },
+    ))
 }
 
 // /// Parse a `TList`
@@ -215,8 +218,10 @@ fn decode_reader(bytes: &[u8], magic: &str) -> Result<Vec<u8>, Error> {
 
 /// Decompress the given buffer. Figures out the compression algorithm from the preceeding \"magic\" bytes
 pub fn decompress(input: &[u8]) -> nom::IResult<&[u8], Vec<u8>> {
-    map_res(tuple((|i| take_str!(i, 2usize), take(7usize), rest)),
-            |(magic, _header, comp_buf)| decode_reader(comp_buf, magic))(input)
+    map_res(
+        tuple((|i| take_str!(i, 2usize), take(7usize), rest)),
+        |(magic, _header, comp_buf)| decode_reader(comp_buf, magic),
+    )(input)
 }
 
 /// Parse a null terminated string
