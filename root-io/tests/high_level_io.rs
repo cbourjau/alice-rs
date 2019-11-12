@@ -1,4 +1,4 @@
-#![cfg(test)]
+#![cfg(all(test, not(target_arch = "wasm32")))]
 use std::path::PathBuf;
 
 use root_io::*;

@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use failure::Error;
 use nom::combinator::rest;
@@ -12,7 +12,7 @@ pub(crate) enum Container {
     /// Decompressed content of a `TBasket`
     InMemory(Vec<u8>),
     /// Filename, start byte, and len of a `TBasket` on disk
-    OnDisk(Rc<dyn DataSource>, u64, u64),
+    OnDisk(Arc<dyn DataSource + Send + Sync>, u64, u64),
 }
 
 impl Container {

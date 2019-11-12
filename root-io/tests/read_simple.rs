@@ -57,11 +57,11 @@ mod wasm {
     use wasm_bindgen_test::*;
     wasm_bindgen_test_configure!(run_in_browser);
 
-    #[wasm_bindgen_test]
-    fn read_simple_remote() {
+    #[wasm_bindgen_test(async)]
+    async fn read_simple_remote() {
         let url = "http://cirrocumuli.com/test_data/simple.root";
-        let f = RootFile::new_from_url(url).expect("Failed to open remote file");
-        read_simple(f);
+        let f = RootFile::new_from_url(url).await.expect("Failed to open remote file");
+        read_simple(f).await;
     }
 }
 

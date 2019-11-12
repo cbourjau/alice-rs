@@ -1,6 +1,6 @@
 use std::fmt;
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use failure::Error;
 use nom::{
@@ -24,7 +24,7 @@ const TDIRECTORY_MAX_SIZE: u64 = 42;
 /// `RootFile` wraps the most basic information of a ROOT file.
 #[derive(Debug)]
 pub struct RootFile {
-    source: Rc<dyn DataSource>,
+    source: Arc<dyn DataSource + Send + Sync>,
     hdr: FileHeader,
     items: Vec<FileItem>,
 }
@@ -117,17 +117,17 @@ named!(
 impl RootFile {
     /// Open a ROOT file and read in the necessary meta information
     pub async fn new_from_url(url: &str) -> Result<Self, Error> {
-        let source = Rc::new(RemoteDataSource::new(url)?);
+        let source = Arc::new(RemoteDataSource::new(url)?);
         Self::new(source).await
     }
 
     /// Open a ROOT file and read in the necessary meta information
     pub async fn new_from_file(path: &Path) -> Result<Self, Error> {
-        let source = Rc::new(LocalDataSource::new(path.to_owned()));
+        let source = Arc::new(LocalDataSource::new(path.to_owned()));
         Self::new(source).await
     }
 
-    async fn new<S: DataSource + 'static>(source: Rc<S>) -> Result<Self, Error> {
+    async fn new<S: DataSource + Send + Sync + 'static>(source: Arc<S>) -> Result<Self, Error> {
         let hdr = source.fetch(0, FILE_HEADER_SIZE).await.and_then(|buf| {
             file_header(&buf)
                 .map_err(|_| format_err!("Failed to parse file header"))
@@ -267,19 +267,19 @@ impl RootFile {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(target_arch = "wasm32")))]
 mod test {
     use super::*;
     use tokio;
 
     #[tokio::test]
     async fn file_header_test() {
-        let local = Rc::new(LocalDataSource::new(
+        let local = Arc::new(LocalDataSource::new(
             "./src/test_data/simple.root".parse().unwrap(),
         ));
         let remote =
-            Rc::new(RemoteDataSource::new("http://cirrocumuli.com/test_data/simple.root").unwrap());
-        let sources: Vec<Rc<dyn DataSource>> = vec![local, remote];
+            Arc::new(RemoteDataSource::new("http://cirrocumuli.com/test_data/simple.root").unwrap());
+        let sources: Vec<Arc<dyn DataSource>> = vec![local, remote];
         for source in &sources {
             let hdr = source
                 .fetch(0, FILE_HEADER_SIZE)
@@ -312,12 +312,12 @@ mod test {
 
     #[tokio::test]
     async fn directory_test() {
-        let local = Rc::new(LocalDataSource::new(
+        let local = Arc::new(LocalDataSource::new(
             "./src/test_data/simple.root".parse().unwrap(),
         ));
         let remote =
-            Rc::new(RemoteDataSource::new("http://cirrocumuli.com/test_data/simple.root").unwrap());
-        let sources: Vec<Rc<dyn DataSource>> = vec![local, remote];
+            Arc::new(RemoteDataSource::new("http://cirrocumuli.com/test_data/simple.root").unwrap());
+        let sources: Vec<Arc<dyn DataSource>> = vec![local, remote];
         for source in &sources {
             let hdr = source
                 .fetch(0, FILE_HEADER_SIZE)
@@ -357,14 +357,14 @@ mod test {
 
     #[tokio::test]
     async fn streamerinfo_test() {
-        let local = Rc::new(LocalDataSource::new(
+        let local = Arc::new(LocalDataSource::new(
             "./src/test_data/simple.root".parse().unwrap(),
         ));
-        let remote = Rc::new(
+        let remote = Arc::new(
             RemoteDataSource::new(
                 "https://github.com/cbourjau/alice-rs/blob/master/root-io/src/test_data/simple.root?raw=true"
             ).unwrap());
-        let sources: Vec<Rc<dyn DataSource>> = vec![local, remote];
+        let sources: Vec<Arc<dyn DataSource + Send + Sync>> = vec![local, remote];
         for source in &sources {
             let key = source
                 .fetch(1117, 4446)

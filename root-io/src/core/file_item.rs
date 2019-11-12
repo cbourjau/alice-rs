@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use failure::Error;
 use nom::*;
@@ -9,13 +9,13 @@ use crate::tree_reader::{ttree, Tree};
 /// Describes a single item within this file (e.g. a `Tree`)
 #[derive(Debug)]
 pub struct FileItem {
-    source: Rc<dyn DataSource>,
+    source: Arc<dyn DataSource + Send + Sync>,
     tkey_hdr: TKeyHeader,
 }
 
 impl FileItem {
     /// New file item from the information in a TKeyHeader and the associated file
-    pub(crate) fn new<S: DataSource + 'static>(tkey_hdr: &TKeyHeader, source: Rc<S>) -> FileItem {
+    pub(crate) fn new<S: DataSource + Send + Sync + 'static>(tkey_hdr: &TKeyHeader, source: Arc<S>) -> FileItem {
         FileItem {
             source,
             tkey_hdr: tkey_hdr.to_owned(),
@@ -76,7 +76,7 @@ impl FileItem {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use crate::core::RootFile;
     use std::path::PathBuf;

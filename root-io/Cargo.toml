@@ -22,12 +22,10 @@ reqwest = {"path"="../../reqwest"}
 lzma-rs = "0.1.1"
 async-trait = "0.1.17"
 futures-preview = "=0.3.0-alpha.19"
+wasm-bindgen = "0.2.53"
 
 [dependencies.nom]
 version = "^5"
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-tokio = "0.2.0-alpha.6"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4.3"

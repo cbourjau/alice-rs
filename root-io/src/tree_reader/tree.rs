@@ -1,6 +1,7 @@
 use failure::Error;
 use nom::number::complete::*;
 use nom::*;
+use wasm_bindgen::prelude::*;
 
 use std::fmt;
 use std::ops::Deref;
@@ -32,6 +33,7 @@ impl fmt::Debug for Pointer {
 /// data is oranized in so-called branches. This type is exposed only
 /// for the purpose of creating `ColumnFixedIntoIter` and
 /// `ColumnVarIntoIter` objects from it.
+#[wasm_bindgen]
 #[derive(Debug)]
 pub struct Tree {
     /// Version of the read layout

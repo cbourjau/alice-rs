@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::core::*;
 
@@ -27,7 +27,7 @@ fn list_of_rules() {
     ];
     // Should not be needed; just some dummy
     let context = Context {
-        source: Rc::new(LocalDataSource::new("".parse().unwrap())),
+        source: Arc::new(LocalDataSource::new("".parse().unwrap())),
         offset: 0,
         s: &[],
     };

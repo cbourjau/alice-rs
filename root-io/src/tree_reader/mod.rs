@@ -12,7 +12,7 @@ mod tree;
 
 pub use self::tree::{ttree, Tree};
 
-#[cfg(test)]
+#[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use std::path::PathBuf;
     use tokio;

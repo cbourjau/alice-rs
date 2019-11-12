@@ -132,18 +132,18 @@ mod wasm {
     use wasm_bindgen_test::*;
     wasm_bindgen_test_configure!(run_in_browser);
 
-    #[wasm_bindgen_test]
-    fn read_esd_wasm() {
+    #[wasm_bindgen_test(async)]
+    async fn read_esd_wasm() {
         let files = [
             // There is an issue on MacOs with opening the ESD test files
             RootFile::new_from_url(
                 // "http://opendata.cern.ch/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root"
                 "http://cirrocumuli.com/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root"
-            ).expect("Failed to open file"),
+            ).await.expect("Failed to open file"),
         ];
         for f in &files {
-            let t = f.items()[0].as_tree().unwrap();
-            test_branch_iterators(&t);
+            let t = f.items()[0].as_tree().await.unwrap();
+            test_branch_iterators(&t).await;
         }
     }
 }
