@@ -8,8 +8,10 @@ use std::path::PathBuf;
 use clap::{crate_version, value_t, App, AppSettings, Arg, ArgMatches, SubCommand};
 use failure::{format_err, Error};
 use root_io::RootFile;
+use tokio;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let matches = App::new("Inspect root files")
         .version(crate_version!())
         .arg(
@@ -40,25 +42,25 @@ fn main() {
         )
         .get_matches();
     let in_path = PathBuf::from(matches.value_of("INPUT").unwrap());
-    let f = root_io::RootFile::new_from_file(&in_path).expect("Failed to open file");
+    let f = root_io::RootFile::new_from_file(&in_path).await.expect("Failed to open file");
 
     if let Some(matches) = matches.subcommand_matches("inspect") {
-        inspect_file(&f, matches);
+        inspect_file(&f, matches).await;
     } else if matches.subcommand_matches("to-yaml").is_some() {
-        sinfo_to_yaml(&f);
+        sinfo_to_yaml(&f).await;
     } else if let Some(matches) = matches.subcommand_matches("to-rust") {
-        to_rust(&f, matches).unwrap();
+        to_rust(&f, matches).await.unwrap();
     } else {
         // Write help if no sub command is given
         println!("{}", matches.usage());
     }
 }
 
-fn inspect_file(f: &RootFile, sub_matches: &ArgMatches) {
+async fn inspect_file<'a>(f: &RootFile, sub_matches: &ArgMatches<'a>) {
     if sub_matches.is_present("item-pos") {
         let idx = value_t!(sub_matches.value_of("item-pos"), usize).unwrap();
         // FIXME: This should not be specific for TTrees!
-        let tree = f.items()[idx].as_tree().unwrap();
+        let tree = f.items()[idx].as_tree().await.unwrap();
         if sub_matches.is_present("v") {
             println!("{:#?}", tree);
         } else {
@@ -78,17 +80,17 @@ fn inspect_file(f: &RootFile, sub_matches: &ArgMatches) {
     }
 }
 
-fn sinfo_to_yaml(f: &RootFile) {
+async fn sinfo_to_yaml(f: &RootFile) {
     let mut s = String::new();
-    match f.streamer_info_as_yaml(&mut s) {
+    match f.streamer_info_as_yaml(&mut s).await {
         Ok(_) => println!("{}", s),
         Err(e) => println!("Failed to create yaml. Error: {:?}", e),
     }
 }
 
-fn to_rust(f: &RootFile, sub_matches: &ArgMatches) -> Result<(), Error> {
+async fn to_rust<'a>(f: &RootFile, sub_matches: &ArgMatches<'a>) -> Result<(), Error> {
     let mut s = String::new();
-    f.streamer_info_as_rust(&mut s)?;
+    f.streamer_info_as_rust(&mut s).await?;
     if sub_matches.is_present("rustfmt") {
         let mut path = env::temp_dir();
         path.push("root2rust.rs");
