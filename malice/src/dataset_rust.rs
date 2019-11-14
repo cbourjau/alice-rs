@@ -180,18 +180,22 @@ mod tests {
     use root_io::RootFile;
     #[test]
     fn read_rust() {
-        let max_chi2 = alice_open_data::all_files_10h()
-            .unwrap()
+        // just testing the branches with custom mantissa
+        let sums = [alice_open_data::test_file().unwrap()]
             .into_iter()
-            .take(100)
             .map(|path| RootFile::new_from_file(&path).expect("Failed to open file"))
             .map(|rf| rf.items()[0].as_tree().unwrap())
             .flat_map(|tree| match DatasetIntoIter::new(&tree) {
                 Ok(s) => s,
                 Err(err) => panic!("An error occured! Message: {}", err),
             })
-            .flat_map(|m| m.tracks_fitschi2.into_iter())
-            .fold(0.0, |max, chi2| if chi2 > max { chi2 } else { max });
-        println!("Rust max(chi2): {}", max_chi2);
+            .flat_map(|m| {
+                m.tracks_fitschi2.into_iter()
+                    .zip(m.tracks_ftpcchi2.into_iter())
+            })
+            .fold((0.0, 0.0), |acc, (its, tpc)| {
+                (acc.0 + its, acc.1 + tpc)
+            });
+        assert_eq!(sums, (376158.6, 2352277.0));
     }
 }
