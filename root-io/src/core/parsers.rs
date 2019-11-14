@@ -20,7 +20,7 @@ use nom::{
     combinator::{map_res, rest},
     multi::{count, length_data, length_value},
     number::complete::{be_f64, be_i32, be_u16, be_u32, be_u8},
-    sequence::tuple,
+    sequence::{pair, tuple},
 };
 
 use crate::core::*;
@@ -164,7 +164,7 @@ where
 }
 
 /// Parse a `TObjArray` which does not have references pointing outside of the input buffer
-pub fn tobjarray_no_context(input: &[u8]) -> nom::IResult<&[u8], Vec<(ClassInfo, Vec<u8>)>>
+pub fn tobjarray_no_context(input: &[u8]) -> nom::IResult<&[u8], Vec<(ClassInfo, &[u8])>>
 {
     do_parse!(input,
               _ver: be_u16 >>
@@ -173,7 +173,7 @@ pub fn tobjarray_no_context(input: &[u8]) -> nom::IResult<&[u8], Vec<(ClassInfo,
               _size: be_i32 >>
               _low: be_i32 >>
               objs: map!(count!(raw_no_context, _size as usize),
-                         |v| v.into_iter().map(|(ci, s)| (ci, s.to_vec())).collect()) >>
+                         |v| v.into_iter().map(|(ci, s)| (ci, s)).collect()) >>
               (objs)
     )
 }
@@ -328,6 +328,45 @@ pub fn raw_no_context(input: &[u8]) -> nom::IResult<&[u8], (ClassInfo, &[u8])> {
     };
     obj.map(|(i, o)| (i, (ci, o)))
 }
+
+/// ESD trigger classes are strings describing a particular
+/// Trigger. Each event (but in reality every run) might have a
+/// different "menu" of available triggers. The trigger menu is saved
+/// as an `TObjArray` of `TNamed` objects for each event. This breaks
+/// it down to a simple vector
+pub fn parse_tobjarray_of_tnameds(input: &[u8]) -> nom::IResult<&[u8], Vec<String>> {
+    // each element of the tobjarray has a Vec<u8>
+    let (input, vals) = length_value!(input, checked_byte_count, tobjarray_no_context)?;
+    let strings = vals
+        .into_iter()
+        .map(|(ci, el)| {
+            if let ClassInfo::References(0) = ci {
+                Ok("".to_string())
+            } else {
+                tnamed(&el)
+                    .map(|(_input, tn)| tn.name)
+            }
+        })
+        .collect::<Result<Vec<String>, _>>();
+    strings.map(|ss| (input, ss))
+}
+
+/// Some Double_* values are saved with a custom mantissa... The
+/// number of bytes can be found in the comment string of the
+/// generated YAML code (for ALICE ESD files at least).  This function
+/// reconstructs a float from the exponent and mantissa 
+pub fn parse_custom_mantissa(input: &[u8], nbits: usize) -> nom::IResult<&[u8], f32> {
+    // TODO: Use ByteOrder crate to be cross-platform?
+    pair(be_u8, be_u16)(input)
+        .map(|(input, (exp, man))| {
+            let mut s = u32::from(exp);
+            // Move the exponent into the last 23 bits
+            s <<= 23;
+            s |= (u32::from(man) & ((1 << (nbits + 1)) - 1)) << (23 - nbits);
+            (input, f32::from_bits(s))
+        })
+}
+
 
 #[cfg(test)]
 mod classinfo_test {

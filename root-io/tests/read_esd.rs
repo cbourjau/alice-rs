@@ -2,16 +2,14 @@
 
 use failure::Error;
 use futures::prelude::*;
-use nom::*;
 use nom::number::complete::*;
-use nom::sequence::{pair, tuple};
+use nom::sequence::tuple;
 
 use root_io::{
-    core::parsers::{checked_byte_count, tnamed, tobjarray_no_context},
-    core::types::ClassInfo,
+    core::parsers::{parse_custom_mantissa, parse_tobjarray_of_tnameds},
     stream_zip,
     tree_reader::Tree,
-    RootFile
+    RootFile,
 };
 
 /// A model for the / a subset of the ESD data
@@ -40,7 +38,7 @@ impl Model {
             .await;
         let s = stream_zip!(
             t.branch_by_name("AliESDRun.fRunNumber")?.as_fixed_size_iterator(|i| be_i32(i)),
-            t.branch_by_name("AliESDRun.fTriggerClasses")?.as_fixed_size_iterator(parse_trigger_classes),
+            t.branch_by_name("AliESDRun.fTriggerClasses")?.as_fixed_size_iterator(parse_tobjarray_of_tnameds),
             t.branch_by_name("AliESDHeader.fTriggerMask")?.as_fixed_size_iterator(|i| be_u64(i)),
             t.branch_by_name("PrimaryVertex.AliVertex.fPosition[3]")?.as_fixed_size_iterator(|i| tuple((be_f32, be_f32, be_f32))(i)),
             t.branch_by_name("PrimaryVertex.AliVertex.fNContributors")?.as_fixed_size_iterator(|i| be_i32(i)),
@@ -48,7 +46,7 @@ impl Model {
             t.branch_by_name("Tracks.fP[5]")?.as_var_size_iterator(|i| tuple((be_f32, be_f32, be_f32, be_f32, be_f32))(i), &track_counter),
             t.branch_by_name("Tracks.fAlpha")?.as_var_size_iterator(|i| be_f32(i), &track_counter),
             t.branch_by_name("Tracks.fFlags")?.as_var_size_iterator(|i| be_u64(i), &track_counter),
-            t.branch_by_name("Tracks.fITSchi2")?.as_var_size_iterator(parse_its_chi2, &track_counter),
+            t.branch_by_name("Tracks.fITSchi2")?.as_var_size_iterator(|i| parse_custom_mantissa(i, 8), &track_counter),
             t.branch_by_name("Tracks.fITSncls")?.as_var_size_iterator(|i| be_i8(i), &track_counter),
             t.branch_by_name("Tracks.fITSClusterMap")?.as_var_size_iterator(|i| be_u8(i), &track_counter)
         )
@@ -80,42 +78,6 @@ impl Model {
             });
         Ok(s)
     }
-}
-
-/// ESD trigger classes are strings describing a particular
-/// Trigger. Each event (but in reality every run) might have a
-/// different "menu" of available triggers. The trigger menu is saved
-/// as an `TObjArray` of `TNamed` objects for each event. This breaks
-/// it down to a simple vector
-fn parse_trigger_classes(input: &[u8]) -> IResult<&[u8], Vec<String>> {
-    // each element of the tobjarray has a Vec<u8>
-    let (input, vals) = length_value!(input, checked_byte_count, tobjarray_no_context)?;
-    let strings = vals
-        .iter()
-        .map(|&(ref ci, ref el)| match *ci {
-            ClassInfo::References(0) => "".to_string(),
-            _ => match tnamed(el.as_slice()) {
-                Ok((_, tn)) => tn.name,
-                _ => panic!(),
-            },
-        })
-        .collect::<Vec<String>>();
-    Ok((input, strings))
-}
-
-/// Some Double_32 values are saved with a custom mantissa... The
-/// number of bytes can be found in the comment string of the filed
-/// (check the YAML code for ALIESD)
-/// This function reconstructs a float from the exponent and mantissa
-/// TODO: Use ByteOrder crate to be cross-platform!
-fn parse_its_chi2(input: &[u8]) -> IResult<&[u8], f32> {
-    let (input, (exp, man)) = pair(be_u8, be_u16)(input)?;
-    let nbits = 8;
-    let mut s = exp as u32;
-    // Move the exponent into the last 23 bits
-    s <<= 23;
-    s |= (man as u32 & ((1 << (nbits + 1)) - 1)) << (23 - nbits);
-    Ok((input, f32::from_bits(s)))
 }
 
 #[cfg(target_arch="wasm32")]
