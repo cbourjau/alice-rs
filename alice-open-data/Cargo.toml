@@ -13,7 +13,7 @@ edition="2018"
 [dependencies]
 glob = "^0.2.11"
 failure = "0.1.1"
-reqwest = {"path"="../../reqwest" }
+reqwest = "0.10.0-alpha.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 dirs = "1.0"
