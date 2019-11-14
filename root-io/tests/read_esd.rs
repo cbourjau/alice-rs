@@ -9,6 +9,7 @@ use nom::sequence::{pair, tuple};
 use root_io::{
     core::parsers::{checked_byte_count, tnamed, tobjarray_no_context},
     core::types::ClassInfo,
+    stream_zip,
     tree_reader::Tree,
     RootFile
 };
@@ -37,40 +38,32 @@ impl Model {
             .as_fixed_size_iterator(|i| be_u32(i))
             .collect::<Vec<_>>()
             .await;
-        let s = t.branch_by_name("AliESDRun.fRunNumber")?.as_fixed_size_iterator(|i| be_i32(i))
-            .zip(t.branch_by_name("AliESDRun.fTriggerClasses")?
-                 .as_fixed_size_iterator(parse_trigger_classes))
-            .zip(t.branch_by_name("AliESDHeader.fTriggerMask")?
-                 .as_fixed_size_iterator(|i| be_u64(i)))
-            .zip(t.branch_by_name("PrimaryVertex.AliVertex.fPosition[3]")?
-                 .as_fixed_size_iterator(|i| tuple((be_f32, be_f32, be_f32))(i)))
-            .zip(t.branch_by_name("PrimaryVertex.AliVertex.fNContributors")?
-                 .as_fixed_size_iterator(|i| be_i32(i)))
-            .zip(t.branch_by_name("Tracks.fX")?
-                 .as_var_size_iterator(|i| be_f32(i), &track_counter))
-            .zip(t.branch_by_name("Tracks.fP[5]")?
-                 .as_var_size_iterator(|i| tuple((be_f32, be_f32, be_f32, be_f32, be_f32))(i), &track_counter))
-            .zip(t.branch_by_name("Tracks.fAlpha")?
-                 .as_var_size_iterator(|i| be_f32(i), &track_counter))
-            .zip(t.branch_by_name("Tracks.fFlags")?
-                 .as_var_size_iterator(|i| be_u64(i), &track_counter))
-            .zip(t.branch_by_name("Tracks.fITSchi2")?
-                 .as_var_size_iterator(parse_its_chi2, &track_counter))
-            .zip(t.branch_by_name("Tracks.fITSncls")?
-                 .as_var_size_iterator(|i| be_i8(i), &track_counter))
-            .zip(t.branch_by_name("Tracks.fITSClusterMap")?
-                 .as_var_size_iterator(|i| be_u8(i), &track_counter))
-            .map(|(((((((((((aliesdrun_frunnumber, aliesdrun_ftriggerclasses),
-                            aliesdheader_ftriggermask),
-                           primaryvertex_alivertex_fposition),
-                          primaryvertex_alivertex_fncontributors),
-                         tracks_fx),
-                        tracks_fp),
-                       tracks_falpha),
-                      tracks_fflags),
-                     tracks_fitschi2),
-                    tracks_fitsncls),
-                   tracks_fitsclustermap)| {
+        let s = stream_zip!(
+            t.branch_by_name("AliESDRun.fRunNumber")?.as_fixed_size_iterator(|i| be_i32(i)),
+            t.branch_by_name("AliESDRun.fTriggerClasses")?.as_fixed_size_iterator(parse_trigger_classes),
+            t.branch_by_name("AliESDHeader.fTriggerMask")?.as_fixed_size_iterator(|i| be_u64(i)),
+            t.branch_by_name("PrimaryVertex.AliVertex.fPosition[3]")?.as_fixed_size_iterator(|i| tuple((be_f32, be_f32, be_f32))(i)),
+            t.branch_by_name("PrimaryVertex.AliVertex.fNContributors")?.as_fixed_size_iterator(|i| be_i32(i)),
+            t.branch_by_name("Tracks.fX")?.as_var_size_iterator(|i| be_f32(i), &track_counter),
+            t.branch_by_name("Tracks.fP[5]")?.as_var_size_iterator(|i| tuple((be_f32, be_f32, be_f32, be_f32, be_f32))(i), &track_counter),
+            t.branch_by_name("Tracks.fAlpha")?.as_var_size_iterator(|i| be_f32(i), &track_counter),
+            t.branch_by_name("Tracks.fFlags")?.as_var_size_iterator(|i| be_u64(i), &track_counter),
+            t.branch_by_name("Tracks.fITSchi2")?.as_var_size_iterator(parse_its_chi2, &track_counter),
+            t.branch_by_name("Tracks.fITSncls")?.as_var_size_iterator(|i| be_i8(i), &track_counter),
+            t.branch_by_name("Tracks.fITSClusterMap")?.as_var_size_iterator(|i| be_u8(i), &track_counter)
+        )
+            .map(|(aliesdrun_frunnumber,
+                   aliesdrun_ftriggerclasses,
+                   aliesdheader_ftriggermask,
+                   primaryvertex_alivertex_fposition,
+                   primaryvertex_alivertex_fncontributors,
+                   tracks_fx,
+                   tracks_fp,
+                   tracks_falpha,
+                   tracks_fflags,
+                   tracks_fitschi2,
+                   tracks_fitsncls,
+                   tracks_fitsclustermap)|{
                 Self { aliesdrun_frunnumber,
                        aliesdrun_ftriggerclasses,
                        aliesdheader_ftriggermask,

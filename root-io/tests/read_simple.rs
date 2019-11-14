@@ -7,6 +7,7 @@ use futures::{Stream, StreamExt};
 use root_io::{
     core::parsers::string,
     tree_reader::Tree,
+    stream_zip,
     RootFile,
 };
 
@@ -21,10 +22,14 @@ struct Model {
 
 impl Model {
     fn stream_from_tree(t: Tree) -> Result<impl Stream<Item=Self>, Error> {
-        Ok(t.branch_by_name("one")?.as_fixed_size_iterator(|i| be_i32(i))
-            .zip(t.branch_by_name("two")?.as_fixed_size_iterator(|i| be_f32(i)))
-            .zip(t.branch_by_name("three")?.as_fixed_size_iterator(string))
-            .map(|((one, two), three)| Self {one, two, three}))
+        Ok(
+            stream_zip!(
+                t.branch_by_name("one")?.as_fixed_size_iterator(|i| be_i32(i)),
+                t.branch_by_name("two")?.as_fixed_size_iterator(|i| be_f32(i)),
+                t.branch_by_name("three")?.as_fixed_size_iterator(string)
+            )
+                .map(|(one, two, three)| Self {one, two, three})
+        )
     }
 }
 
