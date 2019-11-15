@@ -24,6 +24,7 @@ root-io = { "path"="../root-io/" }  # "0.1.2"
 
 # Optional dependencies
 alice-sys = { version="0.1.1", optional = true }
+itertools = "0.8.1"
 
 [dev-dependencies]
 alice-open-data = "0.2.1"

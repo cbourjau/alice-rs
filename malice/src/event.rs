@@ -1,9 +1,8 @@
 //! Structs and `bitflags` related to a given event
 
-use std::slice::Iter;
-
 use failure::Error;
 use futures::prelude::*;
+use itertools::izip;
 use nom;
 use nom::combinator::map;
 use nom::number::complete::*;
@@ -30,51 +29,59 @@ bitflags! {
 #[derive(Debug, PartialEq)]
 pub struct Event {
     primaryvertex_alivertex_fposition: (f32, f32, f32),
-    pub(crate) primaryvertex_alivertex_fncontributors: i32,
-    pub(crate) aliesdrun_frunnumber: i32,
-    pub(crate) aliesdrun_ftriggerclasses: Vec<String>,
-    pub(crate) aliesdheader_ftriggermask: u64,
-    pub(crate) tracks_fx: Vec<f32>,
-    pub(crate) tracks_fp: Vec<TrackParameters>,
-    pub(crate) tracks_falpha: Vec<f32>,
-    pub(crate) tracks_fflags: Vec<Flags>,
-    pub(crate) tracks_fitschi2: Vec<f32>,
-    pub(crate) tracks_fitsncls: Vec<i8>,
-    pub(crate) tracks_fitsclustermap: Vec<ItsClusters>,
-    pub(crate) tracks_ftpcchi2: Vec<f32>,
-    pub(crate) tracks_ftpcncls: Vec<u16>,
-}
-
-/// Iterator over [`Track`](struct.Track.html)s
-pub struct TracksIter<'e> {
-    pub(crate) x: Iter<'e, f32>,
-    pub(crate) p: Iter<'e, TrackParameters>, // fn(&[f32; 5]) -> TrackParameters>,
-    pub(crate) alpha: Iter<'e, f32>,
-    pub(crate) flags: Iter<'e, Flags>,
-    pub(crate) its_chi2: Iter<'e, f32>,
-    pub(crate) its_ncls: Iter<'e, i8>,
-    pub(crate) its_clustermap: Iter<'e, ItsClusters>,
-
-    pub(crate) tpc_chi2: Iter<'e, f32>,
-    pub(crate) tpc_ncls: Iter<'e, u16>,
+    primaryvertex_alivertex_fncontributors: i32,
+    aliesdrun_frunnumber: i32,
+    aliesdrun_ftriggerclasses: Vec<String>,
+    aliesdheader_ftriggermask: u64,
+    tracks_fx: Vec<f32>,
+    tracks_fp: Vec<TrackParameters>,
+    tracks_falpha: Vec<f32>,
+    tracks_fflags: Vec<Flags>,
+    tracks_fitschi2: Vec<f32>,
+    tracks_fitsncls: Vec<i8>,
+    tracks_fitsclustermap: Vec<ItsClusters>,
+    tracks_ftpcchi2: Vec<f32>,
+    tracks_ftpcncls: Vec<u16>,
 }
 
 impl Event {
     /// Iterator over **all** `Track`s in this event
-    pub fn tracks(&self) -> TracksIter {
-        TracksIter {
-            x: self.tracks_fx.iter(),
-            p: self.tracks_fp.iter(),
-            alpha: self.tracks_falpha.iter(),
-            flags: self.tracks_fflags.iter(),
-            its_chi2: self.tracks_fitschi2.iter(),
-            its_ncls: self.tracks_fitsncls.iter(),
-            its_clustermap: self.tracks_fitsclustermap.iter(),
-
-            tpc_chi2: self.tracks_ftpcchi2.iter(),
-            tpc_ncls: self.tracks_ftpcncls.iter(),
-        }
+    pub fn tracks<'a>(&'a self) -> impl Iterator<Item=Track> + 'a{
+	izip!(
+            self.tracks_fx.iter(),
+            self.tracks_fp.iter(),
+            self.tracks_falpha.iter(),
+            self.tracks_fflags.iter(),
+            self.tracks_fitschi2.iter(),
+            self.tracks_fitsncls.iter(),
+            self.tracks_fitsclustermap.iter(),
+            self.tracks_ftpcchi2.iter(),
+            self.tracks_ftpcncls.iter(),
+	).map(|(
+	    x,
+            parameters,
+            alpha,
+            flags,
+            its_chi2,
+            its_ncls,
+            its_clustermap,
+            tpc_chi2,
+            tpc_ncls,
+	)| {
+	    Track {
+		x: *x,
+		parameters: *parameters,
+		alpha: *alpha,
+		flags: *flags,
+		its_chi2: *its_chi2,
+		its_ncls: *its_ncls,
+		its_clustermap: *its_clustermap,
+		tpc_chi2: *tpc_chi2,
+		tpc_ncls: *tpc_ncls,
+	    }
+	})
     }
+
     /// The primary vertex of this event, if it exists. Else `None`
     pub fn primary_vertex(&self) -> Option<PrimaryVertex> {
         // 0 contributors means that there is no primar vertex
@@ -111,52 +118,53 @@ impl Event {
             .map(|name| string_to_mask(name, self.aliesdrun_frunnumber))
             .collect()
     }
+}
 
-    pub async fn stream_from_tree(t: &Tree) -> Result<impl Stream<Item = Self>, Error> {
-        let track_counter: Vec<_> = t
-            .branch_by_name("Tracks")?
-            .as_fixed_size_iterator(|i| be_u32(i))
-            .collect::<Vec<_>>()
-            .await;
-        let s = stream_zip!(
-            t.branch_by_name("AliESDRun.fRunNumber")?
-                .as_fixed_size_iterator(|i| be_i32(i)),
-            t.branch_by_name("AliESDRun.fTriggerClasses")?
-                .as_fixed_size_iterator(parse_tobjarray_of_tnameds),
-            t.branch_by_name("AliESDHeader.fTriggerMask")?
-                .as_fixed_size_iterator(|i| be_u64(i)),
-            t.branch_by_name("PrimaryVertex.AliVertex.fPosition[3]")?
-                .as_fixed_size_iterator(|i| tuple((be_f32, be_f32, be_f32))(i)),
-            t.branch_by_name("PrimaryVertex.AliVertex.fNContributors")?
-                .as_fixed_size_iterator(|i| be_i32(i)),
-            t.branch_by_name("Tracks.fX")?
-                .as_var_size_iterator(|i| be_f32(i), &track_counter),
-            t.branch_by_name("Tracks.fP[5]")?.as_var_size_iterator(
-                |i| map(tuple((be_f32, be_f32, be_f32, be_f32, be_f32)), |p| {
-                    TrackParameters::new(&p)
-                })(i),
+pub async fn event_stream_from_tree(t: &Tree) -> Result<impl Stream<Item = Event>, Error> {
+    let track_counter: Vec<_> = t
+        .branch_by_name("Tracks")?
+        .as_fixed_size_iterator(|i| be_u32(i))
+        .collect::<Vec<_>>()
+        .await;
+    let s = stream_zip!(
+        t.branch_by_name("AliESDRun.fRunNumber")?
+            .as_fixed_size_iterator(|i| be_i32(i)),
+        t.branch_by_name("AliESDRun.fTriggerClasses")?
+            .as_fixed_size_iterator(parse_tobjarray_of_tnameds),
+        t.branch_by_name("AliESDHeader.fTriggerMask")?
+            .as_fixed_size_iterator(|i| be_u64(i)),
+        t.branch_by_name("PrimaryVertex.AliVertex.fPosition[3]")?
+            .as_fixed_size_iterator(|i| tuple((be_f32, be_f32, be_f32))(i)),
+        t.branch_by_name("PrimaryVertex.AliVertex.fNContributors")?
+            .as_fixed_size_iterator(|i| be_i32(i)),
+        t.branch_by_name("Tracks.fX")?
+            .as_var_size_iterator(|i| be_f32(i), &track_counter),
+        t.branch_by_name("Tracks.fP[5]")?.as_var_size_iterator(
+            |i| map(tuple((be_f32, be_f32, be_f32, be_f32, be_f32)), |p| {
+                TrackParameters::new(&p)
+            })(i),
+            &track_counter
+        ),
+        t.branch_by_name("Tracks.fAlpha")?
+            .as_var_size_iterator(|i| be_f32(i), &track_counter),
+        t.branch_by_name("Tracks.fFlags")?.as_var_size_iterator(
+            |i| map(be_u64, |uint| Flags::from_bits(uint).unwrap())(i),
+            &track_counter
+        ),
+        t.branch_by_name("Tracks.fITSchi2")?
+            .as_var_size_iterator(|i| parse_custom_mantissa(i, 8), &track_counter),
+        t.branch_by_name("Tracks.fITSncls")?
+            .as_var_size_iterator(|i| be_i8(i), &track_counter),
+        t.branch_by_name("Tracks.fITSClusterMap")?
+            .as_var_size_iterator(
+                |i| map(be_u8, |uint| ItsClusters::from_bits(uint).unwrap())(i),
                 &track_counter
             ),
-            t.branch_by_name("Tracks.fAlpha")?
-                .as_var_size_iterator(|i| be_f32(i), &track_counter),
-            t.branch_by_name("Tracks.fFlags")?.as_var_size_iterator(
-                |i| map(be_u64, |uint| Flags::from_bits(uint).unwrap())(i),
-                &track_counter
-            ),
-            t.branch_by_name("Tracks.fITSchi2")?
-                .as_var_size_iterator(|i| parse_custom_mantissa(i, 8), &track_counter),
-            t.branch_by_name("Tracks.fITSncls")?
-                .as_var_size_iterator(|i| be_i8(i), &track_counter),
-            t.branch_by_name("Tracks.fITSClusterMap")?
-                .as_var_size_iterator(
-                    |i| map(be_u8, |uint| ItsClusters::from_bits(uint).unwrap())(i),
-                    &track_counter
-                ),
-            t.branch_by_name("Tracks.fTPCncls")?
-                .as_var_size_iterator(|i| be_u16(i), &track_counter),
-            t.branch_by_name("Tracks.fTPCchi2")?
-                .as_var_size_iterator(|i| parse_custom_mantissa(i, 8), &track_counter),
-        )
+        t.branch_by_name("Tracks.fTPCncls")?
+            .as_var_size_iterator(|i| be_u16(i), &track_counter),
+        t.branch_by_name("Tracks.fTPCchi2")?
+            .as_var_size_iterator(|i| parse_custom_mantissa(i, 8), &track_counter),
+    )
         .map(
             |(
                 aliesdrun_frunnumber,
@@ -174,7 +182,7 @@ impl Event {
                 tracks_ftpcncls,
                 tracks_ftpcchi2,
             )| {
-                Self {
+                Event {
                     aliesdrun_frunnumber,
                     aliesdrun_ftriggerclasses,
                     aliesdheader_ftriggermask,
@@ -192,27 +200,7 @@ impl Event {
                 }
             },
         );
-        Ok(s)
-    }
-}
-
-impl<'e> Iterator for TracksIter<'e> {
-    type Item = Track;
-
-    fn next(&mut self) -> Option<Track> {
-        Some(Track {
-            x: *self.x.next()?,
-            parameters: *self.p.next()?,
-            alpha: *self.alpha.next()?,
-            flags: *self.flags.next()?,
-            its_chi2: *self.its_chi2.next()?,
-            its_ncls: *self.its_ncls.next()?,
-            its_clustermap: *self.its_clustermap.next()?,
-
-            tpc_chi2: *self.tpc_chi2.next()?,
-            tpc_ncls: *self.tpc_ncls.next()?,
-        })
-    }
+    Ok(s)
 }
 
 /// Convert a given trigger description to a `TriggerMask`. This
