@@ -58,7 +58,7 @@ pub struct Track {
     pub(crate) parameters: TrackParameters,
     pub(crate) alpha: f32,
     pub flags: Flags,
-    pub(crate) its_chi2: f32,
+    pub its_chi2: f32,
     pub its_ncls: i8,
     pub its_clustermap: ItsClusters,
     pub(crate) tpc_chi2: f32,
