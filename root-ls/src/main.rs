@@ -42,7 +42,9 @@ async fn main() {
         )
         .get_matches();
     let in_path = PathBuf::from(matches.value_of("INPUT").unwrap());
-    let f = root_io::RootFile::new_from_file(&in_path).await.expect("Failed to open file");
+    let f = root_io::RootFile::new_from_file(&in_path)
+        .await
+        .expect("Failed to open file");
 
     if let Some(matches) = matches.subcommand_matches("inspect") {
         inspect_file(&f, matches).await;

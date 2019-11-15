@@ -5,7 +5,7 @@ use std::{
     path::PathBuf,
 };
 
-use failure::{Error, format_err};
+use failure::{format_err, Error};
 use reqwest::{Client, Url};
 
 fn root_url() -> Url {
@@ -13,7 +13,9 @@ fn root_url() -> Url {
         "http://opendata.cern.ch/"
     } else {
         "http://cirrocumuli.com/"
-    }.parse().unwrap()
+    }
+    .parse()
+    .unwrap()
 }
 
 /// Download the given file to the local collection
@@ -69,21 +71,22 @@ pub fn all_files_10h() -> Result<Vec<PathBuf>, Error> {
 
 pub async fn get_file_list(run: u32) -> Result<Vec<Url>, Error> {
     // Do to CORS we have to get change the urls based on the target for now
-    
-    let uri = "http://opendata.cern.ch/".parse::<Url>()?.join(
-        if !cfg!(target_arch = "wasm32") {
-            match run {
-                139_038 => "record/1102/files/ALICE_LHC10h_PbPb_ESD_139038_file_index.txt",
-                139_173 => "record/1103/files/ALICE_LHC10h_PbPb_ESD_139173_file_index.txt",
-                139_437 => "record/1104/files/ALICE_LHC10h_PbPb_ESD_139437_file_index.txt",
-                139_438 => "record/1105/files/ALICE_LHC10h_PbPb_ESD_139438_file_index.txt",
-                139_465 => "record/1106/files/ALICE_LHC10h_PbPb_ESD_139465_file_index.txt",
-                _ => return Err(format_err!("Invalid run number")),
-            }
-        } else {
-            "http://cirrocumuli.com/ALICE_LHC10h_PbPb_ESD_139038_file_index.txt"
-        }
-    )?;
+
+    let uri =
+        "http://opendata.cern.ch/"
+            .parse::<Url>()?
+            .join(if !cfg!(target_arch = "wasm32") {
+                match run {
+                    139_038 => "record/1102/files/ALICE_LHC10h_PbPb_ESD_139038_file_index.txt",
+                    139_173 => "record/1103/files/ALICE_LHC10h_PbPb_ESD_139173_file_index.txt",
+                    139_437 => "record/1104/files/ALICE_LHC10h_PbPb_ESD_139437_file_index.txt",
+                    139_438 => "record/1105/files/ALICE_LHC10h_PbPb_ESD_139438_file_index.txt",
+                    139_465 => "record/1106/files/ALICE_LHC10h_PbPb_ESD_139465_file_index.txt",
+                    _ => return Err(format_err!("Invalid run number")),
+                }
+            } else {
+                "http://cirrocumuli.com/ALICE_LHC10h_PbPb_ESD_139038_file_index.txt"
+            })?;
 
     let req = Client::new().get(uri);
     let resp = req.send().await?;
@@ -91,10 +94,7 @@ pub async fn get_file_list(run: u32) -> Result<Vec<Url>, Error> {
         let content = resp.text().await?;
         content
             .lines()
-            .map(|l| root_url()
-                 .join(&l[26..])
-                 .map_err(Into::into)
-            )
+            .map(|l| root_url().join(&l[26..]).map_err(Into::into))
             .collect()
     } else {
         Err(format_err!("Could not download list of files"))
@@ -104,23 +104,25 @@ pub async fn get_file_list(run: u32) -> Result<Vec<Url>, Error> {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests_x84 {
-    use std::{env, fs};
     use super::*;
+    use std::{env, fs};
     use tokio;
 
     #[tokio::test]
     async fn download_partial() {
         use reqwest::header::RANGE;
-        let client = Client::builder()
-            .build()
+        let client = Client::builder().build().unwrap();
+        let url = root_url()
+            .join("/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root")
             .unwrap();
-        let url = root_url().join("/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root").unwrap();
         let (start, len) = (13993603, 68936);
         let rsp = client
             .get(url)
             .header("User-Agent", "alice-rs")
-            .header(RANGE, &format!("bytes={}-{}", start, start + len -1))
-            .send().await.unwrap();
+            .header(RANGE, &format!("bytes={}-{}", start, start + len - 1))
+            .send()
+            .await
+            .unwrap();
         dbg!(&rsp);
 
         let partial = rsp.bytes().await.unwrap();
@@ -128,12 +130,11 @@ mod tests_x84 {
         #[cfg(not(target_arch = "wasm32"))]
         {
             let from_disc = std::fs::read(test_file().unwrap()).unwrap();
-            assert!(
-                partial.iter()
-                    .skip(start)
-                    .zip(from_disc.iter())
-                    .all(|(el1, el2)| el1 == el2)
-            );
+            assert!(partial
+                .iter()
+                .skip(start)
+                .zip(from_disc.iter())
+                .all(|(el1, el2)| el1 == el2));
         }
     }
 
@@ -167,10 +168,17 @@ mod tests_x84 {
         let base_dir = env::temp_dir();
         // Download if file does not exist
         assert_eq!(
-            super::download(base_dir.clone(), uri.clone()).await.unwrap(),
+            super::download(base_dir.clone(), uri.clone())
+                .await
+                .unwrap(),
             14283265
         );
         // Don't download twice
-        assert_eq!(super::download(base_dir.clone(), uri.clone()).await.unwrap(), 0);
+        assert_eq!(
+            super::download(base_dir.clone(), uri.clone())
+                .await
+                .unwrap(),
+            0
+        );
     }
 }
