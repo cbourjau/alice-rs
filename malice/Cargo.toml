@@ -9,6 +9,7 @@ readme = "README.md"
 keywords = ["root", "cern", "alice", "lhc", "physics"]
 categories = ["science", "data-structures"]
 license = "MPL-2.0"
+edition = "2018"
 
 [features]
 default = []

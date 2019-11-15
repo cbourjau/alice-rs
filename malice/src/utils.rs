@@ -1,6 +1,6 @@
-use event::{Event, TriggerMask};
-use primary_vertex::PrimaryVertex;
-use track::{Flags, ItsClusters, Track};
+use crate::event::{Event, TriggerMask};
+use crate::primary_vertex::PrimaryVertex;
+use crate::track::{Flags, ItsClusters, Track};
 
 /// A simple but reasonable default event selection
 /// Returns true if the given event passes the recommended selection criterion

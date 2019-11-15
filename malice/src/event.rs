@@ -1,8 +1,8 @@
 //! Structs and `bitflags` related to a given event
 
-use primary_vertex::PrimaryVertex;
+use crate::primary_vertex::PrimaryVertex;
 use std::slice::Iter;
-use track::{Flags, ItsClusters, Track, TrackParameters};
+use crate::track::{Flags, ItsClusters, Track, TrackParameters};
 
 bitflags! {
     /// Triggers are low level qualifier of an event. One event may "fire" several triggers.

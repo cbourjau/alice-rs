@@ -80,10 +80,6 @@
 
 #[macro_use]
 extern crate nom;
-#[cfg(feature = "cpp")]
-extern crate alice_sys;
-extern crate failure;
-extern crate root_io;
 #[macro_use]
 extern crate bitflags;
 
@@ -98,11 +94,11 @@ mod track;
 mod utils;
 
 // re-exports
-pub use dataset_rust::DatasetIntoIter;
-pub use event::{Event, TracksIter, TriggerMask};
-pub use primary_vertex::PrimaryVertex;
-pub use track::{Flags, ItsClusters, Track};
-pub use utils::{default_event_filter, default_track_filter, is_hybrid_track};
+pub use crate::dataset_rust::DatasetIntoIter;
+pub use crate::event::{Event, TracksIter, TriggerMask};
+pub use crate::primary_vertex::PrimaryVertex;
+pub use crate::track::{Flags, ItsClusters, Track};
+pub use crate::utils::{default_event_filter, default_track_filter, is_hybrid_track};
 
 #[cfg(test)]
 mod tests {
