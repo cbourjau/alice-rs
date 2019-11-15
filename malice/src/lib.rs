@@ -79,13 +79,10 @@
 //! ```
 
 #[macro_use]
-extern crate nom;
-#[macro_use]
 extern crate bitflags;
 
 #[cfg(feature = "cpp")]
 pub mod dataset_cpp;
-mod dataset_rust;
 #[cfg(feature = "cpp")]
 mod esd;
 mod event;
@@ -94,7 +91,6 @@ mod track;
 mod utils;
 
 // re-exports
-pub use crate::dataset_rust::DatasetIntoIter;
 pub use crate::event::{Event, TracksIter, TriggerMask};
 pub use crate::primary_vertex::PrimaryVertex;
 pub use crate::track::{Flags, ItsClusters, Track};
@@ -102,8 +98,38 @@ pub use crate::utils::{default_event_filter, default_track_filter, is_hybrid_tra
 
 #[cfg(test)]
 mod tests {
-    extern crate alice_open_data;
+    use alice_open_data;
+    use async_std;
+    use futures::{future, StreamExt};
     use root_io::RootFile;
+
+    use super::{default_event_filter, default_track_filter, Event};
+
+    #[async_std::test]
+    async fn test_filters() {
+        let f = alice_open_data::test_file().unwrap();
+        let rf = RootFile::new_from_file(&f).await.unwrap();
+        let t = rf.items()[0].as_tree().await.unwrap();
+        let events = Event::stream_from_tree(&t).await.unwrap();
+        let mut cnt_evts = 0;
+        let mut cnt_tracks = 0;
+        let mut cnt_tracks_valid = 0;
+        events
+            .filter(|ev| future::ready(default_event_filter(ev)))
+            .for_each(|ev| {
+                cnt_evts += 1;
+                cnt_tracks += ev.tracks().count();
+                if let Some(pv) = ev.primary_vertex() {
+                    cnt_tracks_valid +=
+                        ev.tracks().filter(|t| default_track_filter(t, &pv)).count();
+                }
+                future::ready(())
+            })
+            .await;
+        assert_eq!(cnt_evts, 2);
+        assert_eq!(cnt_tracks, 11958);
+        assert_eq!(cnt_tracks_valid, 2773);
+    }
 
     #[test]
     #[cfg(feature = "cpp")]
@@ -239,24 +265,6 @@ mod tests {
         //     println!("{}", i);
         //     assert_eq!(rust_ev, cpp_ev);
         // }
-    }
-
-    #[test]
-    fn bench_rust() {
-        let n_files = 50;
-        use super::dataset_rust::DatasetIntoIter;
-        let _max_chi2 = alice_open_data::all_files_10h()
-            .unwrap()
-            .into_iter()
-            .take(n_files)
-            .map(|path| RootFile::new_from_file(&path).expect("Failed to open file"))
-            .map(|rf| rf.items()[0].as_tree().unwrap())
-            .flat_map(|tree| match DatasetIntoIter::new(&tree) {
-                Ok(s) => s,
-                Err(err) => panic!("An error occured! Message: {}", err),
-            })
-            .flat_map(|event| event.tracks().map(|tr| tr.its_chi2).collect::<Vec<_>>())
-            .fold(0.0, |max, chi2| if chi2 > max { chi2 } else { max });
     }
 
     #[test]

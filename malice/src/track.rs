@@ -79,13 +79,13 @@ pub(crate) struct TrackParameters {
 
 impl TrackParameters {
     /// In AliESD files, these parameters are saved in "Tracks.fP[5]"
-    pub fn new(paras: &[f32; 5usize]) -> TrackParameters {
+    pub(crate) fn new(paras: &(f32, f32, f32, f32, f32)) -> TrackParameters {
         TrackParameters {
-            loc_y: paras[0],
-            loc_z: paras[1],
-            loc_sin: paras[2],
-            tang: paras[3],
-            one_over_pt: paras[4],
+            loc_y: paras.0,
+            loc_z: paras.1,
+            loc_sin: paras.2,
+            tang: paras.3,
+            one_over_pt: paras.4,
         }
     }
 }

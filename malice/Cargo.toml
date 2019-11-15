@@ -16,16 +16,18 @@ default = []
 cpp = ["alice-sys"]
 
 [dependencies]
-nom = "3.2.1"
-root-io = "0.1.2"
-failure = "0.1.5"
 bitflags = "1.0.1"
+failure = "0.1.5"
+futures-preview = "=0.3.0-alpha.19"
+nom = "^5"
+root-io = { "path"="../root-io/" }  # "0.1.2"
 
 # Optional dependencies
 alice-sys = { version="0.1.1", optional = true }
 
 [dev-dependencies]
 alice-open-data = "0.2.1"
+async-std = { "version"="1.0.1", "features"=["attributes"] }
 criterion = "0.3"
 
 [[bench]]
