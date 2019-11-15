@@ -46,8 +46,8 @@ pub struct Event {
 
 impl Event {
     /// Iterator over **all** `Track`s in this event
-    pub fn tracks<'a>(&'a self) -> impl Iterator<Item=Track> + 'a{
-	izip!(
+    pub fn tracks<'a>(&'a self) -> impl Iterator<Item = Track> + 'a {
+        izip!(
             self.tracks_fx.iter(),
             self.tracks_fp.iter(),
             self.tracks_falpha.iter(),
@@ -57,29 +57,32 @@ impl Event {
             self.tracks_fitsclustermap.iter(),
             self.tracks_ftpcchi2.iter(),
             self.tracks_ftpcncls.iter(),
-	).map(|(
-	    x,
-            parameters,
-            alpha,
-            flags,
-            its_chi2,
-            its_ncls,
-            its_clustermap,
-            tpc_chi2,
-            tpc_ncls,
-	)| {
-	    Track {
-		x: *x,
-		parameters: *parameters,
-		alpha: *alpha,
-		flags: *flags,
-		its_chi2: *its_chi2,
-		its_ncls: *its_ncls,
-		its_clustermap: *its_clustermap,
-		tpc_chi2: *tpc_chi2,
-		tpc_ncls: *tpc_ncls,
-	    }
-	})
+        )
+        .map(
+            |(
+                x,
+                parameters,
+                alpha,
+                flags,
+                its_chi2,
+                its_ncls,
+                its_clustermap,
+                tpc_chi2,
+                tpc_ncls,
+            )| {
+                Track {
+                    x: *x,
+                    parameters: *parameters,
+                    alpha: *alpha,
+                    flags: *flags,
+                    its_chi2: *its_chi2,
+                    its_ncls: *its_ncls,
+                    its_clustermap: *its_clustermap,
+                    tpc_chi2: *tpc_chi2,
+                    tpc_ncls: *tpc_ncls,
+                }
+            },
+        )
     }
 
     /// The primary vertex of this event, if it exists. Else `None`
@@ -165,8 +168,24 @@ pub async fn event_stream_from_tree(t: &Tree) -> Result<impl Stream<Item = Event
         t.branch_by_name("Tracks.fTPCchi2")?
             .as_var_size_iterator(|i| parse_custom_mantissa(i, 8), &track_counter),
     )
-        .map(
-            |(
+    .map(
+        |(
+            aliesdrun_frunnumber,
+            aliesdrun_ftriggerclasses,
+            aliesdheader_ftriggermask,
+            primaryvertex_alivertex_fposition,
+            primaryvertex_alivertex_fncontributors,
+            tracks_fx,
+            tracks_fp,
+            tracks_falpha,
+            tracks_fflags,
+            tracks_fitschi2,
+            tracks_fitsncls,
+            tracks_fitsclustermap,
+            tracks_ftpcncls,
+            tracks_ftpcchi2,
+        )| {
+            Event {
                 aliesdrun_frunnumber,
                 aliesdrun_ftriggerclasses,
                 aliesdheader_ftriggermask,
@@ -179,27 +198,11 @@ pub async fn event_stream_from_tree(t: &Tree) -> Result<impl Stream<Item = Event
                 tracks_fitschi2,
                 tracks_fitsncls,
                 tracks_fitsclustermap,
-                tracks_ftpcncls,
                 tracks_ftpcchi2,
-            )| {
-                Event {
-                    aliesdrun_frunnumber,
-                    aliesdrun_ftriggerclasses,
-                    aliesdheader_ftriggermask,
-                    primaryvertex_alivertex_fposition,
-                    primaryvertex_alivertex_fncontributors,
-                    tracks_fx,
-                    tracks_fp,
-                    tracks_falpha,
-                    tracks_fflags,
-                    tracks_fitschi2,
-                    tracks_fitsncls,
-                    tracks_fitsclustermap,
-                    tracks_ftpcchi2,
-                    tracks_ftpcncls,
-                }
-            },
-        );
+                tracks_ftpcncls,
+            }
+        },
+    );
     Ok(s)
 }
 

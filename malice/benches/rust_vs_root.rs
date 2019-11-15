@@ -49,18 +49,18 @@ fn bench_cpp(b: &mut Bencher, n_files: &usize) {
 
 fn criterion_benchmark(c: &mut Criterion) {
     let funs = vec![
-	Fun::new("Rust", bench_rust),
-	#[cfg(feature = "cpp")]
-	Fun::new("cpp", bench_cpp)
+        Fun::new("Rust", bench_rust),
+        #[cfg(feature = "cpp")]
+        Fun::new("cpp", bench_cpp),
     ];
     let n_files = 1usize;
     c.bench_functions("Rust", funs, n_files);
 }
 
-criterion_group!{
+criterion_group! {
     name = benches;
     config = Criterion::default()
-	.sample_size(5)
+    .sample_size(5)
         .warm_up_time(::std::time::Duration::from_secs(10))
         .measurement_time(::std::time::Duration::from_secs(200))
         .with_plots();

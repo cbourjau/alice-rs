@@ -91,7 +91,7 @@ mod track;
 mod utils;
 
 // re-exports
-pub use crate::event::{Event, event_stream_from_tree, TriggerMask};
+pub use crate::event::{event_stream_from_tree, Event, TriggerMask};
 pub use crate::primary_vertex::PrimaryVertex;
 pub use crate::track::{Flags, ItsClusters, Track};
 pub use crate::utils::{default_event_filter, default_track_filter, is_hybrid_track};
@@ -103,7 +103,7 @@ mod tests {
     use futures::{future, StreamExt};
     use root_io::RootFile;
 
-    use super::{default_event_filter, default_track_filter, event_stream_from_tree, Event};
+    use super::{default_event_filter, default_track_filter, event_stream_from_tree};
 
     #[async_std::test]
     async fn test_filters() {
