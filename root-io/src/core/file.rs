@@ -1,12 +1,13 @@
 use std::fmt;
-use std::path::Path;
-use std::sync::Arc;
+
+
 
 use failure::Error;
 use nom::{
     self,
     number::complete::{be_i16, be_i32, be_i64, be_u32, be_u64, be_u8},
 };
+
 
 use crate::{
     code_gen::rust::{ToNamedRustParser, ToRustStruct},
@@ -24,7 +25,7 @@ const TDIRECTORY_MAX_SIZE: u64 = 42;
 /// `RootFile` wraps the most basic information of a ROOT file.
 #[derive(Debug)]
 pub struct RootFile {
-    source: Arc<dyn DataSource + Send + Sync>,
+    source: Source,
     hdr: FileHeader,
     items: Vec<FileItem>,
 }
@@ -115,19 +116,10 @@ named!(
 );
 
 impl RootFile {
-    /// Open a ROOT file and read in the necessary meta information
-    pub async fn new_from_url(url: &str) -> Result<Self, Error> {
-        let source = Arc::new(RemoteDataSource::new(url)?);
-        Self::new(source).await
-    }
-
-    /// Open a ROOT file and read in the necessary meta information
-    pub async fn new_from_file(path: &Path) -> Result<Self, Error> {
-        let source = Arc::new(LocalDataSource::new(path.to_owned()));
-        Self::new(source).await
-    }
-
-    async fn new<S: DataSource + Send + Sync + 'static>(source: Arc<S>) -> Result<Self, Error> {
+    /// Open a new ROOT file either from a `Url`, or from a `Path`
+    /// (not available on `wasm32`).
+    pub async fn new<S: Into::<Source>>(source: S) -> Result<Self, Error> {
+	let source = source.into();
         let hdr = source.fetch(0, FILE_HEADER_SIZE).await.and_then(|buf| {
             file_header(&buf)
                 .map_err(|_| format_err!("Failed to parse file header"))
@@ -270,16 +262,19 @@ impl RootFile {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod test {
     use super::*;
+    use std::path::Path;
+
+    use reqwest::Url;
     use tokio;
 
     #[tokio::test]
     async fn file_header_test() {
-        let local = Arc::new(LocalDataSource::new(
-            "./src/test_data/simple.root".parse().unwrap(),
-        ));
+        let local = Source::new(
+            Path::new("./src/test_data/simple.root")
+        );
         let remote =
-            Arc::new(RemoteDataSource::new("http://cirrocumuli.com/test_data/simple.root").unwrap());
-        let sources: Vec<Arc<dyn DataSource>> = vec![local, remote];
+            Source::new(Url::parse("http://cirrocumuli.com/test_data/simple.root").unwrap());
+        let sources: Vec<Source> = vec![local, remote];
         for source in &sources {
             let hdr = source
                 .fetch(0, FILE_HEADER_SIZE)
@@ -312,12 +307,9 @@ mod test {
 
     #[tokio::test]
     async fn directory_test() {
-        let local = Arc::new(LocalDataSource::new(
-            "./src/test_data/simple.root".parse().unwrap(),
-        ));
-        let remote =
-            Arc::new(RemoteDataSource::new("http://cirrocumuli.com/test_data/simple.root").unwrap());
-        let sources: Vec<Arc<dyn DataSource>> = vec![local, remote];
+        let local = Path::new("./src/test_data/simple.root").into();
+        let remote = Source::new(Url::parse("http://cirrocumuli.com/test_data/simple.root").unwrap());
+        let sources: Vec<Source> = vec![local, remote];
         for source in &sources {
             let hdr = source
                 .fetch(0, FILE_HEADER_SIZE)
@@ -357,14 +349,12 @@ mod test {
 
     #[tokio::test]
     async fn streamerinfo_test() {
-        let local = Arc::new(LocalDataSource::new(
-            "./src/test_data/simple.root".parse().unwrap(),
-        ));
-        let remote = Arc::new(
-            RemoteDataSource::new(
-                "https://github.com/cbourjau/alice-rs/blob/master/root-io/src/test_data/simple.root?raw=true"
-            ).unwrap());
-        let sources: Vec<Arc<dyn DataSource + Send + Sync>> = vec![local, remote];
+        let local = Path::new("./src/test_data/simple.root").into();
+        let remote = Url::parse(
+	    "https://github.com/cbourjau/alice-rs/blob/master/root-io/src/test_data/simple.root?raw=true")
+	    .unwrap()
+	    .into();
+        let sources: Vec<Source> = vec![local, remote];
         for source in &sources {
             let key = source
                 .fetch(1117, 4446)

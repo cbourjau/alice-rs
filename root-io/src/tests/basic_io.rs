@@ -1,6 +1,5 @@
-use std::sync::Arc;
-
 use crate::core::*;
+use std::path::Path;
 
 #[test]
 fn list_of_rules() {
@@ -27,7 +26,7 @@ fn list_of_rules() {
     ];
     // Should not be needed; just some dummy
     let context = Context {
-        source: Arc::new(LocalDataSource::new("".parse().unwrap())),
+        source: Path::new("").into(),
         offset: 0,
         s: &[],
     };

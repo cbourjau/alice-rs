@@ -89,7 +89,7 @@ impl TBranch {
     /// extern crate root_io;
     /// use futures::StreamExt;
     ///
-    /// use std::path::PathBuf;
+    /// use std::path::Path;
     /// use nom::number::complete::be_i32;
     ///
     /// use root_io::tree_reader::Tree;
@@ -97,8 +97,8 @@ impl TBranch {
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let path = PathBuf::from("./src/test_data/simple.root");
-    ///     let f = RootFile::new_from_file(&path).await.expect("Failed to open file");
+    ///     let path = Path::new("./src/test_data/simple.root");
+    ///     let f = RootFile::new(path).await.expect("Failed to open file");
     ///     let tree = f.items()[0].as_tree().await.unwrap();
     ///     let numbers = tree
     ///         .branch_by_name("one").unwrap()

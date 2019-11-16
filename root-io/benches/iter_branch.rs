@@ -15,7 +15,7 @@ fn fixed_size_branch() {
     let path = alice_open_data::test_file().unwrap();
 
     let fut = async {
-        let f = RootFile::new_from_file(&path).await.expect("Failed to open file");
+        let f = RootFile::new(path.as_path()).await.expect("Failed to open file");
         let t = f.items()[0].as_tree().await.unwrap();
         let iter = t
             .branch_by_name("PrimaryVertex.AliVertex.fNContributors").unwrap()
@@ -29,7 +29,7 @@ fn fixed_size_branch() {
 fn var_size_branch() {
     let fut = async {
         let path = alice_open_data::test_file().unwrap();
-        let f = RootFile::new_from_file(&path).await.expect("Failed to open file");
+        let f = RootFile::new(path.as_path()).await.expect("Failed to open file");
         let t = f.items()[0].as_tree().await.unwrap();
 
         let track_counter: Vec<_> = t

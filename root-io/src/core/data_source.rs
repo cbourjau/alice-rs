@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use failure::Error;
 use reqwest::{
@@ -10,17 +11,60 @@ use reqwest::{
 
 use async_trait::async_trait;
 
+/// The source from where the Root file is read. Construct it using
+/// `.into()` on a `Url` or `Path`. The latter is not availible for
+/// the `wasm32` target.
+#[derive(Debug, Clone)]
+pub struct Source {
+    inner: Arc<dyn DataSource + Send + Sync>,
+}
+
+impl Source {
+    pub fn new<T: Into::<Self>>(thing: T) -> Self {
+	thing.into()
+    }
+    
+    pub async fn fetch(&self, start: u64, len: u64) -> Result<Vec<u8>, Error> {
+	self.inner.fetch(start, len).await
+    }
+}
+
 #[async_trait(?Send)]
-pub trait DataSource: std::fmt::Debug {
+trait DataSource: std::fmt::Debug {
     async fn fetch(&self, start: u64, len: u64) -> Result<Vec<u8>, Error>;
 }
 
+/// A local source, i.e. a file on disc.
 #[derive(Debug, Clone)]
-pub struct LocalDataSource(PathBuf);
+struct LocalDataSource(PathBuf);
 
-impl LocalDataSource {
-    pub fn new(path: PathBuf) -> Self {
-        Self(path)
+/// A remote source, i.e a file which is fetched with a http request
+#[derive(Debug)]
+struct RemoteDataSource {
+    client: Client,
+    url: Url,
+}
+
+impl From<Url> for Source {
+    fn from(url: Url) -> Self {
+	Self {
+	    inner: Arc::new(
+		RemoteDataSource {
+		    client: Client::new(),
+		    url: url,
+	    })
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl From<&Path> for Source {
+    fn from(path: &Path) -> Self {
+	Self {
+	    inner: Arc::new(
+		LocalDataSource(path.to_path_buf())
+	    )
+        }
     }
 }
 
@@ -32,21 +76,6 @@ impl DataSource for LocalDataSource {
         let mut buf = vec![0; len as usize];
         f.read_exact(&mut buf)?;
         Ok(buf)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct RemoteDataSource {
-    client: Client,
-    url: Url,
-}
-
-impl RemoteDataSource {
-    pub fn new(url: &str) -> Result<Self, Error> {
-        Ok(Self {
-            client: Client::new(),
-            url: url.parse()?,
-        })
     }
 }
 

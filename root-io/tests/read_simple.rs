@@ -1,5 +1,5 @@
 #![cfg(test)]
-
+use std::pin::Pin;
 use failure::Error;
 use nom::number::complete::*;
 use futures::{Stream, StreamExt};
@@ -21,7 +21,7 @@ struct Model {
 }
 
 impl Model {
-    fn stream_from_tree(t: Tree) -> Result<impl Stream<Item=Self>, Error> {
+    fn stream_from_tree(t: Tree) -> Result<Pin<Box<dyn Stream<Item=Self>>>, Error> {
         Ok(
             stream_zip!(
                 t.branch_by_name("one")?.as_fixed_size_iterator(|i| be_i32(i)),
@@ -29,6 +29,7 @@ impl Model {
                 t.branch_by_name("three")?.as_fixed_size_iterator(string)
             )
                 .map(|(one, two, three)| Self {one, two, three})
+		.boxed_local()
         )
     }
 }
@@ -44,13 +45,13 @@ async fn read_simple(f: RootFile) {
 #[cfg(not(target_arch="wasm32"))]
 mod x64 {
     use super::*;
-    use std::path::PathBuf;
+    use std::path::Path;
     use tokio;
 
     #[tokio::test]
     async fn read_simple_local() {
-        let path = PathBuf::from("./src/test_data/simple.root");
-        let f = RootFile::new_from_file(&path).await.expect("Failed to open file");
+        let path = Path::new("./src/test_data/simple.root");
+        let f = RootFile::new(path).await.expect("Failed to open file");
         read_simple(f).await;
     }
 }
@@ -58,13 +59,13 @@ mod x64 {
 #[cfg(target_arch="wasm32")]
 mod wasm {
     use super::*;
-
+    use reqwest::Url;
     use wasm_bindgen_test::*;
     wasm_bindgen_test_configure!(run_in_browser);
 
     #[wasm_bindgen_test(async)]
     async fn read_simple_remote() {
-        let url = "http://cirrocumuli.com/test_data/simple.root";
+        let url = Url::parse("http://cirrocumuli.com/test_data/simple.root").unwrap();
         let f = RootFile::new_from_url(url).await.expect("Failed to open remote file");
         read_simple(f).await;
     }

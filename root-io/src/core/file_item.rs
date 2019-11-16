@@ -1,21 +1,21 @@
-use std::sync::Arc;
+
 
 use failure::Error;
 use nom::*;
 
-use crate::core::{checked_byte_count, decompress, Context, DataSource, TKeyHeader};
+use crate::core::{checked_byte_count, decompress, Context, Source, TKeyHeader};
 use crate::tree_reader::{ttree, Tree};
 
 /// Describes a single item within this file (e.g. a `Tree`)
 #[derive(Debug)]
 pub struct FileItem {
-    source: Arc<dyn DataSource + Send + Sync>,
+    source: Source,
     tkey_hdr: TKeyHeader,
 }
 
 impl FileItem {
     /// New file item from the information in a TKeyHeader and the associated file
-    pub(crate) fn new<S: DataSource + Send + Sync + 'static>(tkey_hdr: &TKeyHeader, source: Arc<S>) -> FileItem {
+    pub(crate) fn new(tkey_hdr: &TKeyHeader, source: Source) -> FileItem {
         FileItem {
             source,
             tkey_hdr: tkey_hdr.to_owned(),
@@ -79,12 +79,12 @@ impl FileItem {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use crate::core::RootFile;
-    use std::path::PathBuf;
+    use std::path::Path;
 
     #[tokio::test]
     async fn open_simple() {
-        let path = PathBuf::from("./src/test_data/simple.root");
-        let f = RootFile::new_from_file(&path)
+        let path = Path::new("./src/test_data/simple.root");
+        let f = RootFile::new(path)
             .await
             .expect("Failed to open file");
         assert_eq!(f.items().len(), 1);
@@ -100,7 +100,7 @@ mod tests {
         use alice_open_data;
         let path = alice_open_data::test_file().unwrap();
 
-        let f = RootFile::new_from_file(&path)
+        let f = RootFile::new(path.as_path())
             .await
             .expect("Failed to open file");
 

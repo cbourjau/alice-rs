@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use failure::Error;
 use nom::combinator::rest;
 use nom::number::complete::*;
@@ -12,7 +10,7 @@ pub(crate) enum Container {
     /// Decompressed content of a `TBasket`
     InMemory(Vec<u8>),
     /// Filename, start byte, and len of a `TBasket` on disk
-    OnDisk(Arc<dyn DataSource + Send + Sync>, u64, u64),
+    OnDisk(Source, u64, u64),
 }
 
 impl Container {

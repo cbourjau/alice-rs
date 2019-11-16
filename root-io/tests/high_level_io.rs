@@ -66,7 +66,7 @@ mod local {
         let paths = local_paths();
         for p in paths {
             println!("{:?}", p);
-            let f = RootFile::new_from_file(&p).await.expect("Failed to open file");
+            let f = RootFile::new(p.as_path()).await.expect("Failed to open file");
             let mut s = String::new();
             f.streamer_info_as_yaml(&mut s).await.unwrap();
             f.streamer_info_as_rust(&mut s).await.unwrap();
@@ -84,7 +84,7 @@ mod local {
         let paths = [alice_open_data::test_file().unwrap()];
         for p in &paths {
             println!("{:?}", p);
-            let f = RootFile::new_from_file(&p).await.expect("Failed to open file");
+            let f = RootFile::new(p.as_path()).await.expect("Failed to open file");
             let mut s = String::new();
             f.streamer_info_as_yaml(&mut s).await.unwrap();
             f.streamer_info_as_rust(&mut s).await.unwrap();
