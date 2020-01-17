@@ -1,6 +1,8 @@
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
-use std::path::{Path, PathBuf};
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use failure::Error;
@@ -51,7 +53,7 @@ impl From<Url> for Source {
 	    inner: Arc::new(
 		RemoteDataSource {
 		    client: Client::new(),
-		    url: url,
+		    url,
 	    })
         }
     }

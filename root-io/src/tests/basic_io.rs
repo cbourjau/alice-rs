@@ -1,5 +1,7 @@
+#![cfg(not(target_arch = "wasm32"))]
+
 use crate::core::*;
-use std::path::Path;
+use std::path::PathBuf;
 
 #[test]
 fn list_of_rules() {
@@ -26,7 +28,7 @@ fn list_of_rules() {
     ];
     // Should not be needed; just some dummy
     let context = Context {
-        source: Path::new("").into(),
+        source: PathBuf::from("").into(),
         offset: 0,
         s: &[],
     };

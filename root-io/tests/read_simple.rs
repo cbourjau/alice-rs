@@ -65,8 +65,9 @@ mod wasm {
 
     #[wasm_bindgen_test(async)]
     async fn read_simple_remote() {
+	// Can't use official servers due to CORS
         let url = Url::parse("http://cirrocumuli.com/test_data/simple.root").unwrap();
-        let f = RootFile::new_from_url(url).await.expect("Failed to open remote file");
+        let f = RootFile::new(url).await.expect("Failed to open remote file");
         read_simple(f).await;
     }
 }

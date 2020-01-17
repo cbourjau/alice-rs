@@ -4,7 +4,7 @@
 
 
 ## Documentation
-https://docs.rs/root-io/0.1.1/root_io/
+https://docs.rs/root-io
 
 `root-io` provides basic support for reading data stored in binary `.root` files commonly used in particle physics experiments. This crates provides:
 

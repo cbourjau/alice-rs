@@ -3,6 +3,8 @@ use clap::{crate_version, value_t, App, Arg};
 use failure;
 use indicatif::{ProgressBar, ProgressStyle};
 
+use tokio::runtime::Runtime;
+
 fn main() {
     ::std::process::exit(match do_thing() {
         Ok(()) => 0,
@@ -49,9 +51,10 @@ fn do_thing() -> Result<(), failure::Error> {
     if total >= max_vol {
         return Ok(());
     }
+    let mut rt = Runtime::new()?;
     let urls = runs
         .iter()
-        .map(|r| get_file_list(*r))
+        .map(|r| rt.block_on(get_file_list(*r)))
         .collect::<Result<Vec<_>, _>>()?;
     let pbar = ProgressBar::new(max_vol as u64);
     pbar.set_style(
@@ -60,7 +63,7 @@ fn do_thing() -> Result<(), failure::Error> {
     pbar.inc(total);
     for url in urls.iter().flat_map(|r| r.iter()) {
         if total < max_vol {
-            let size = download(base_dir.clone(), url.clone())?;
+            let size = rt.block_on(download(base_dir.clone(), url.clone()))? as u64;
             pbar.inc(size);
             total += size;
         } else {

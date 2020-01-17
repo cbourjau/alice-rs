@@ -12,7 +12,6 @@ use alice_open_data::get_file_list;
 wasm_bindgen_test_configure!(run_in_browser);
 
 fn log(x: &str) {
-    use web_sys;
     web_sys::console::log_1(&JsValue::from_str(x));
 }
 
