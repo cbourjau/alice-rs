@@ -1,27 +1,32 @@
+//! Benchmarks which were used to compare an earlier version with the
+//! official c++ ROOT version. Note that these benchmarks are not
+//! ported to the async code, yet!
+
 #[macro_use]
 extern crate criterion;
 extern crate malice;
 extern crate root_io;
 
 use criterion::{Bencher, Criterion, Fun};
+use futures::stream::{self, StreamExt};
 
 extern crate alice_open_data;
-use root_io::RootFile;
+use malice::event_stream_from_esd_file;
 
-fn read_rust(n_files: usize) {
-    use malice::DatasetIntoIter;
-    let _max_chi2 = alice_open_data::all_files_10h()
+async fn read_rust(n_files: usize) {
+    let files = alice_open_data::all_files_10h()
         .unwrap()
-        .into_iter()
-        .take(n_files)
-        .map(|path| RootFile::new_from_file(&path).expect("Failed to open file"))
-        .map(|rf| rf.items()[0].as_tree().unwrap())
-        .flat_map(|tree| match DatasetIntoIter::new(&tree) {
-            Ok(s) => s,
-            Err(err) => panic!("An error occured! Message: {}", err),
-        })
-        .flat_map(|event| event.tracks().map(|tr| tr.its_chi2).collect::<Vec<_>>())
-        .fold(0.0, |max, chi2| if chi2 > max { chi2 } else { max });
+        .into_iter();
+    let _max_chi2 = stream::iter(files)
+        .take(n_files as u64)
+	.then(|f| event_stream_from_esd_file(f))
+	.map(|res_event_stream| res_event_stream.unwrap())
+	.flatten()
+        .map(|event| event.tracks()
+	     .map(|tr| tr.its_chi2)
+	     .fold(0.0, |max, chi2| if chi2 > max { chi2 } else { max })
+	)
+        .fold(0.0, |max, chi2| async move {if chi2 > max { chi2 } else { max }});
 }
 
 #[cfg(feature = "cpp")]
