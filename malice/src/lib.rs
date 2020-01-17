@@ -96,6 +96,19 @@ pub use crate::primary_vertex::PrimaryVertex;
 pub use crate::track::{Flags, ItsClusters, Track};
 pub use crate::utils::{default_event_filter, default_track_filter, is_hybrid_track};
 
+use failure::Error;
+use futures::prelude::*;
+use root_io::{Source, RootFile};
+
+/// A helper function which turns a path to an ALICE ESD file into a
+/// stream over the `Events` of that file.
+pub async fn event_stream_from_esd_file<T: Into<Source>>(p: T) -> Result<impl Stream<Item=Event>, Error> {
+    let rf = RootFile::new(p).await?;
+    let tree = rf.items()[0].as_tree().await?;
+    event_stream_from_tree(&tree).await
+}
+
+
 #[cfg(test)]
 mod tests {
     use alice_open_data;
@@ -108,7 +121,7 @@ mod tests {
     #[async_std::test]
     async fn test_filters() {
         let f = alice_open_data::test_file().unwrap();
-        let rf = RootFile::new_from_file(&f).await.unwrap();
+        let rf = RootFile::new(f).await.unwrap();
         let t = rf.items()[0].as_tree().await.unwrap();
         let events = event_stream_from_tree(&t).await.unwrap();
         let mut cnt_evts = 0;
@@ -142,7 +155,7 @@ mod tests {
             .unwrap()
             .into_iter()
             .take(n_files)
-            .map(|path| RootFile::new_from_file(&path).expect("Failed to open file"))
+            .map(|path| RootFile::new(path).expect("Failed to open file"))
             .map(|rf| rf.items()[0].as_tree().unwrap())
             .flat_map(|tree| match DsIntoIter_rust::new(&tree) {
                 Ok(s) => s,
@@ -179,7 +192,7 @@ mod tests {
             })
             .expect("Funky file not found");
         let rust_iter = {
-            let tree = RootFile::new_from_file(&file)
+            let tree = RootFile::new(file)
                 .expect("Failed to open file")
                 .items()[0]
                 .as_tree()
@@ -215,7 +228,7 @@ mod tests {
                 .find(|p| p.to_str().unwrap().contains(funky))
                 .expect("Funky file not found");
             let mut rust_iter = {
-                let tree = RootFile::new_from_file(&file)
+                let tree = RootFile::new(file)
                     .expect("Failed to open file")
                     .items()[0]
                     .as_tree()
@@ -238,7 +251,7 @@ mod tests {
                 .find(|p| p.to_str().unwrap().contains(funky))
                 .expect("Funky file not found");
             let mut rust_iter = {
-                let tree = RootFile::new_from_file(&file)
+                let tree = RootFile::new(file)
                     .expect("Failed to open file")
                     .items()[0]
                     .as_tree()

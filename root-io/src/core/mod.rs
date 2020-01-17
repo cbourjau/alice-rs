@@ -12,7 +12,6 @@ mod tstreamerinfo;
 mod typeid;
 pub mod types;
 
-pub(crate) use self::data_source::{Source};
 pub(crate) use self::parsers::*;
 pub(crate) use self::tkey::*;
 pub(crate) use self::tstreamer::{tstreamer, TStreamer};
@@ -20,5 +19,6 @@ pub(crate) use self::tstreamerinfo::{tstreamerinfo, TStreamerInfo};
 pub(crate) use self::typeid::*;
 pub(crate) use self::types::*;
 
+pub use self::data_source::Source;
 pub use self::file::RootFile;
 pub use self::file_item::FileItem;

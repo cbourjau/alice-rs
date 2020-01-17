@@ -3,7 +3,7 @@ extern crate rustfmt as rustfmt_crate;
 use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
-use std::path::PathBuf;
+use std::path::Path;
 
 use clap::{crate_version, value_t, App, AppSettings, Arg, ArgMatches, SubCommand};
 use failure::{format_err, Error};
@@ -41,8 +41,8 @@ async fn main() {
                 ),
         )
         .get_matches();
-    let in_path = PathBuf::from(matches.value_of("INPUT").unwrap());
-    let f = root_io::RootFile::new_from_file(&in_path)
+    let in_path = Path::new(matches.value_of("INPUT").unwrap());
+    let f = root_io::RootFile::new(in_path)
         .await
         .expect("Failed to open file");
 

@@ -68,6 +68,17 @@ impl From<&Path> for Source {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+impl From<PathBuf> for Source {
+    fn from(path_buf: PathBuf) -> Self {
+	Self {
+	    inner: Arc::new(
+		LocalDataSource(path_buf)
+	    )
+        }
+    }
+}
+
 #[async_trait(?Send)]
 impl DataSource for LocalDataSource {
     async fn fetch(&self, start: u64, len: u64) -> Result<Vec<u8>, Error> {

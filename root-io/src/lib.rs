@@ -39,7 +39,7 @@ pub mod tree_reader;
 // Contains the stream_zip macro
 pub mod utils;
 
-pub use crate::core::{FileItem, RootFile};
+pub use crate::core::{FileItem, RootFile, Source};
 
 /// Offset when using Context; should be in `Context`, maybe?
 const MAP_OFFSET: u64 = 2;
