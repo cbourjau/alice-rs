@@ -9,11 +9,7 @@ use failure::{format_err, Error};
 use reqwest::{Client, Url};
 
 fn root_url() -> Url {
-    if !cfg!(target_arch = "wasm32") {
-        "http://opendata.cern.ch/"
-    } else {
-        "http://cirrocumuli.com/"
-    }
+    "http://opendata.cern.ch/"
     .parse()
     .unwrap()
 }
