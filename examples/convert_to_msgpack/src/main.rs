@@ -5,9 +5,8 @@ use std::io::Write;
 use rmp_serde::Serializer;
 use serde::Serialize;
 
-use malice::{default_event_filter, default_track_filter};
-use malice::{DatasetIntoIter as DsIntoIter, Event};
-use root_io::RootFile;
+use malice::event_iterator_from_files;
+use malice::{default_event_filter, default_track_filter, Event};
 
 /// Struct holding all the information we want to dump to a new json
 /// file.
@@ -51,17 +50,7 @@ fn main() {
         .expect("No data files found. Did you download with alice-open-data?");
 
     // Create an iterator over `malice::event::Event`s
-    let events = files.iter().flat_map(|path| {
-        let events_in_file = RootFile::new_from_file(&path)
-            .and_then(|rf| rf.items()[0].as_tree())
-            .and_then(|tree| DsIntoIter::new(&tree));
-        // Check if an error occurred. If so, we skip this file
-        if let Err(ref e) = events_in_file {
-            println!("Error occured while processing {:?}: {:?}", path, e);
-        }
-        // A little magic to flatten a Result<impl Iterator>
-        events_in_file.into_iter().flatten()
-    });
+    let events = event_iterator_from_files(files.into_iter());
 
     // Setup the output file
     let mut f = File::create("events.bin").expect("Could not create file!");

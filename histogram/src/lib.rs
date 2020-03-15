@@ -322,7 +322,7 @@ mod tests {
         let mut h = HistogramBuilder::<[usize; 2]>::new()
             .add_equal_width_axis(2, 0., 2.)
             .add_equal_width_axis(2, 0., 2.)
-            .build()
+            .build::<f32>()
             .unwrap();
         // underflow both bins
         h.fill(&[-5., -5.]);
