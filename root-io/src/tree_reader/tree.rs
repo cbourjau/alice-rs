@@ -84,7 +84,7 @@ pub struct Tree {
 
 impl<'s> Tree {
     /// Get all branches of a tree (including nested ones)
-    pub(crate) fn branches(&self) -> Vec<(&TBranch)> {
+    pub(crate) fn branches(&self) -> Vec<&TBranch> {
         self.fbranches
             .iter()
             .flat_map(|b| vec![b].into_iter().chain(b.branches().into_iter()))

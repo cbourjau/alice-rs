@@ -267,13 +267,16 @@ mod test {
     use reqwest::Url;
     use tokio;
 
+    const SIMPLE_FILE_REMOTE: &str =
+	"https://github.com/cbourjau/alice-rs/blob/master/root-io/src/test_data/simple.root?raw=true";
+
     #[tokio::test]
     async fn file_header_test() {
         let local = Source::new(
             Path::new("./src/test_data/simple.root")
         );
         let remote =
-            Source::new(Url::parse("http://cirrocumuli.com/test_data/simple.root").unwrap());
+            Source::new(Url::parse(SIMPLE_FILE_REMOTE).unwrap());
         let sources: Vec<Source> = vec![local, remote];
         for source in &sources {
             let hdr = source
@@ -308,7 +311,8 @@ mod test {
     #[tokio::test]
     async fn directory_test() {
         let local = Path::new("./src/test_data/simple.root").into();
-        let remote = Source::new(Url::parse("http://cirrocumuli.com/test_data/simple.root").unwrap());
+        let remote = Source::new(
+	    Url::parse(SIMPLE_FILE_REMOTE).unwrap());
         let sources: Vec<Source> = vec![local, remote];
         for source in &sources {
             let hdr = source

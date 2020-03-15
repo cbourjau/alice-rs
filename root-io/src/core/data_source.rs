@@ -3,7 +3,6 @@ use std::io::{Read, Seek, SeekFrom};
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use failure::Error;
 use reqwest::{
@@ -11,14 +10,22 @@ use reqwest::{
     Client, Url,
 };
 
-use async_trait::async_trait;
-
 /// The source from where the Root file is read. Construct it using
 /// `.into()` on a `Url` or `Path`. The latter is not availible for
 /// the `wasm32` target.
 #[derive(Debug, Clone)]
-pub struct Source {
-    inner: Arc<dyn DataSource + Send + Sync>,
+pub struct Source(SourceInner);
+
+// This inner enum hides the differentiation between the local and
+// remote files from the public API
+#[derive(Debug, Clone)]
+enum SourceInner {
+    /// A local source, i.e. a file on disc.
+    Local(PathBuf),
+    Remote {
+	client: Client,
+	url: Url,
+    }
 }
 
 impl Source {
@@ -27,81 +34,51 @@ impl Source {
     }
     
     pub async fn fetch(&self, start: u64, len: u64) -> Result<Vec<u8>, Error> {
-	self.inner.fetch(start, len).await
+	match &self.0 {
+	    SourceInner::Local(path) => {
+		let mut f = File::open(&path)?;
+		f.seek(SeekFrom::Start(start))?;
+		let mut buf = vec![0; len as usize];
+		f.read_exact(&mut buf)?;
+		Ok(buf)
+	    },
+	    SourceInner::Remote{client, url} => {
+		let rsp = client
+		    .get(url.clone())
+		    .header(USER_AGENT, "alice-rs")
+		    .header(RANGE, format!("bytes={}-{}", start, start + len - 1))
+		    .send()
+		    .await?;
+		let bytes = rsp.bytes().await?;
+		Ok(bytes.as_ref().to_vec())
+	    }
+	}
     }
-}
-
-#[async_trait(?Send)]
-trait DataSource: std::fmt::Debug {
-    async fn fetch(&self, start: u64, len: u64) -> Result<Vec<u8>, Error>;
-}
-
-/// A local source, i.e. a file on disc.
-#[derive(Debug, Clone)]
-struct LocalDataSource(PathBuf);
-
-/// A remote source, i.e a file which is fetched with a http request
-#[derive(Debug)]
-struct RemoteDataSource {
-    client: Client,
-    url: Url,
 }
 
 impl From<Url> for Source {
     fn from(url: Url) -> Self {
-	Self {
-	    inner: Arc::new(
-		RemoteDataSource {
-		    client: Client::new(),
-		    url,
-	    })
-        }
+	Self(
+	    SourceInner::Remote {
+		client: Client::new(),
+		url,
+	    }
+	)
     }
 }
 
+// Disallow the construction of a local source object on wasm since
+// wasm does not have a (proper) file system.
 #[cfg(not(target_arch = "wasm32"))]
 impl From<&Path> for Source {
     fn from(path: &Path) -> Self {
-	Self {
-	    inner: Arc::new(
-		LocalDataSource(path.to_path_buf())
-	    )
-        }
+	path.to_path_buf().into()
     }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 impl From<PathBuf> for Source {
     fn from(path_buf: PathBuf) -> Self {
-	Self {
-	    inner: Arc::new(
-		LocalDataSource(path_buf)
-	    )
-        }
-    }
-}
-
-#[async_trait(?Send)]
-impl DataSource for LocalDataSource {
-    async fn fetch(&self, start: u64, len: u64) -> Result<Vec<u8>, Error> {
-        let mut f = File::open(&self.0)?;
-        f.seek(SeekFrom::Start(start))?;
-        let mut buf = vec![0; len as usize];
-        f.read_exact(&mut buf)?;
-        Ok(buf)
-    }
-}
-
-#[async_trait(?Send)]
-impl DataSource for RemoteDataSource {
-    async fn fetch(&self, start: u64, len: u64) -> Result<Vec<u8>, Error> {
-        let rsp = Client::new()
-            .get(self.url.clone())
-            .header(USER_AGENT, "alice-rs")
-            .header(RANGE, format!("bytes={}-{}", start, start + len - 1))
-            .send()
-            .await?;
-        let bytes = rsp.bytes().await?;
-        Ok(bytes.as_ref().to_vec())
+	Self(SourceInner::Local(path_buf))
     }
 }

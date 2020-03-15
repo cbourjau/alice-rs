@@ -25,6 +25,7 @@ use nom::{
 
 use crate::core::*;
 
+#[allow(clippy::trivially_copy_pass_by_ref)]
 fn is_byte_count(v: &u32) -> bool {
     Flags::from_bits_truncate(*v).intersects(Flags::BYTE_COUNT_MASK)
 }

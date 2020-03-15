@@ -96,7 +96,9 @@ impl TBranch {
     /// use root_io::RootFile;
     ///
     /// #[tokio::main]
-    /// async fn main() {
+    ///# async fn main
+    ///
+    ///# () {
     ///     let path = Path::new("./src/test_data/simple.root");
     ///     let f = RootFile::new(path).await.expect("Failed to open file");
     ///     let tree = f.items()[0].as_tree().await.unwrap();
@@ -107,7 +109,7 @@ impl TBranch {
     ///     numbers.for_each(|n| async move {
     ///         println!("All the numbers of this branch{:?}", n);
     ///     }).await;
-    /// }
+    ///# }
     /// ```
     pub fn as_fixed_size_iterator<T, P>(&self, p: P) -> impl Stream<Item = T>
     where

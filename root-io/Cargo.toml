@@ -1,6 +1,6 @@
 [package]
 name = "root-io"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["cbourjau <c.bourjau@posteo.de>"]
 exclude = ["*test_data/", "*.root"]
 description = "Reading of `.root` binary files which are commonly used in particle physics"
@@ -14,7 +14,6 @@ edition = "2018"
 
 [dependencies]
 alice-open-data = "0.3"
-async-trait = "0.1.17"
 bitflags = "1.0.0"
 failure = "0.1.5"
 flate2 = "^1"
