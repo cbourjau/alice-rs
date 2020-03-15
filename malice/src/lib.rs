@@ -1,79 +1,33 @@
 //! # malice
 //! "milli ALICE" aka `malice` is a tiny framework defining some sensible defaults to analyze the ALICE open data.
 //! # Features
-//! `malice` supports twp IO backends. The first and recommended one is the pure Rust `root-io` crate. The second one is behind the `cpp` feature gate and depends on the c++ ROOT framework.
+//! `malice` supports two IO back-ends. The first and recommended one is the pure Rust `root-io` crate. The second one is behind the `cpp` feature gate and depends on the c++ ROOT framework.
 //! # Example
-//! Here is a very simple example analysis using `malice` and other crates from the [alice-rs](https://github.com/cbourjau/alice-rs) repository.
-//! It measures the pseudorapidity distribution of the reconstructed tracks.
-//! For a more comprehensive, but still small, example (including concurrency) check out [simple-analysis](https://github.com/cbourjau/alice-rs/tree/master/simple-analysis).
+//! Here is a very simple example "analysis" using `malice` which
+//! counts the number of tracks in an event.  For a more
+//! comprehensive, but still small, example check out
+//! [simple-analysis](https://github.com/cbourjau/alice-rs/tree/master/simple-analysis).
 //!
-//! ``` rust,ignore
-//! extern crate alice_open_data;
-//! extern crate histogram;
-//! extern crate malice;
-//! extern crate root_io;
+//! ``` rust
+//! use alice_open_data;
+//! use malice::{default_event_filter, default_track_filter};
+//! use malice::event_iterator_from_files;
 //!
-//! use histogram::*;
-//! use root_io::RootFile;
+//! let file = alice_open_data::test_file()
+//!     .expect("No data files found. Did you download with alice-open-data?");
 //!
-//! use malice::{Event, DatasetIntoIter as DsIntoIter};
-//! use malice::{default_track_filter, default_event_filter};
+//! // Create an iterator over all the events in all the given files
+//! let events = event_iterator_from_files(vec![file].into_iter());
 //!
-//! fn main() {
-//!     // Iterator over files of the Open Data set
-//!     let files: Vec<_> = alice_open_data::all_files_10h()
-//!         .expect("No data files found. Did you download with alice-open-data?")
-//!         .into_iter()
-//!         .collect();
-//!
-//!     // Create an iterator over `malice::event::Event`s
-//!     let events = files
-//!         .iter()
-//!         .map(|path| RootFile::new_from_file(&path).expect("Failed to open file"))
-//!         .map(|rf| rf.items()[0].as_tree().unwrap())
-//!         .flat_map(|tree| match DsIntoIter::new(&tree) {
-//!             Ok(s) => s,
-//!             Err(err) => panic!("An error occured! Message: {}", err),
-//!         });
-//!
-//!     // Fold the `malice::event::Events` with the analysis
-//!     let _analysis_result: SimpleAnalysis = events
-//!         // Apply a sensible default event filter
-//!         .filter(default_event_filter)
-//!         .fold(SimpleAnalysis::new(), |analysis, ev| { analysis.process_event(&ev) });
-//!     // Do something with the result...
-//! }
-//!
-//! pub struct SimpleAnalysis {
-//!     // Histogram of the pseudorapidity (eta) distribution of valid tracks
-//!     pub eta_distribution: Histogram<i32, [usize; 1]>,
-//! }
-//!
-//! impl SimpleAnalysis {
-//!     fn new() -> SimpleAnalysis {
-//! 	// 50 bins from -0.9 to 0.9
-//! 	let (neta, eta_min, eta_max) = (50, -0.9, 0.9);
-//!         SimpleAnalysis {
-//! 	    eta_distribution: HistogramBuilder::<[usize; 1]>::new()
-//!                 .add_equal_width_axis(neta, eta_min, eta_max)
-//!                 .build()
-//!                 .expect("Error building histogram"),
-//!         }
-//!     }
-//!
-//!     // Update the histogram with the given event
-//!     fn process_event(mut self, event: &Event) -> Self
-//!     {
-//!         // Fill only if we have a valid primary vertex
-//!         if let Some(prime_vtx) = event.primary_vertex() {
-//!             self.eta_distribution
-//!                 .extend(
-//!                     event.tracks()
-//! 		    // Apply a sensible default "cut" on the valid tracks
-//! 			.filter(|tr| default_track_filter(&tr, &prime_vtx))
-//!                         .map(|tr| [tr.eta() as f64]));
-//! 	};
-//!         self
+//! for event in events.filter(default_event_filter) {
+//!      // Fill only if we have a valid primary vertex
+//!      if let Some(prime_vtx) = event.primary_vertex() {
+//!          let n_tracks = event
+//!          .tracks()
+//!          // Apply a sensible default "cut" on the valid tracks
+//!          .filter(|tr| default_track_filter(&tr, &prime_vtx))
+//!          .count();
+//!          println!("This event had {} valid tracks", n_tracks);
 //!     }
 //! }
 //! ```
@@ -98,16 +52,80 @@ pub use crate::utils::{default_event_filter, default_track_filter, is_hybrid_tra
 
 use failure::Error;
 use futures::prelude::*;
-use root_io::{Source, RootFile};
+use futures::stream::{iter, StreamExt};
+use root_io::{RootFile, Source};
+
+use std::pin::Pin;
+
+type EventStream = Pin<Box<dyn Stream<Item = Result<Event, Error>> + Send>>;
 
 /// A helper function which turns a path to an ALICE ESD file into a
 /// stream over the `Events` of that file.
-pub async fn event_stream_from_esd_file<T: Into<Source>>(p: T) -> Result<impl Stream<Item=Event>, Error> {
-    let rf = RootFile::new(p).await?;
-    let tree = rf.items()[0].as_tree().await?;
-    event_stream_from_tree(&tree).await
+pub async fn event_stream_from_esd_file<T>(p: T) -> EventStream
+where
+    T: Into<Source>,
+{
+    let tmp = {
+        move || async {
+            let rf = RootFile::new(p).await?;
+            let tree = rf.items()[0].as_tree().await?;
+            event_stream_from_tree(&tree).await
+        }
+    }();
+    // Turn Result<Stream> into a Stream of Results
+    match tmp.await {
+        Ok(s) => s.map(move |ev| Ok(ev)).boxed(),
+        Err(err) => stream::iter(vec![Err(err)]).boxed(),
+    }
 }
 
+/// Main entry point for analyses running over ALICE's open
+/// data. Produces an iterator over events from an iterator over files
+/// (either local or remote).
+///
+/// The necessary IO is done on a separate thread such that IO bound
+/// tasks do not interfere with the CPU bound tasks of the analysis
+/// itself. If an IO error is encountered the respective file will be
+/// skipped.
+///
+/// This function is not available on the wasm32 target and must not
+/// be called from an asynchronous context itself.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn event_iterator_from_files<I, S>(sources: I) -> impl Iterator<Item = Event>
+where
+    I: IntoIterator<Item = S> + Send + 'static,
+    S: Into<Source> + Send,
+{
+    use std::sync::mpsc::sync_channel;
+    use std::thread::spawn;
+    const BUFFERED_EVENTS: usize = 10;
+    let (sender, receiver) = sync_channel(BUFFERED_EVENTS);
+    spawn(|| {
+        let mut rt = tokio::runtime::Runtime::new().expect("Failed to start IO runtime");
+        rt.block_on(async move {
+            iter(sources)
+                .then(event_stream_from_esd_file)
+                .flatten()
+                .try_for_each(|event| async {
+                    // Errors if the receiving end has hung up
+                    sender.send(event).map_err(Into::into)
+                })
+                .await
+        })
+        .expect("Failed to start IO processing.");
+    });
+    receiver.into_iter()
+}
+
+/// Create a stream of events found in the given files (local or
+/// remote). You probably want to use `event_iterator_from_files`
+/// instead unless you are a on the `wasm32` target.
+pub fn event_stream_from_files<S>(sources: S) -> impl Stream<Item = Result<Event, Error>>
+where
+    S: Stream<Item = Source> + std::marker::Unpin,
+{
+    sources.then(event_stream_from_esd_file).flatten()
+}
 
 #[cfg(test)]
 mod tests {
@@ -192,9 +210,7 @@ mod tests {
             })
             .expect("Funky file not found");
         let rust_iter = {
-            let tree = RootFile::new(file)
-                .expect("Failed to open file")
-                .items()[0]
+            let tree = RootFile::new(file).expect("Failed to open file").items()[0]
                 .as_tree()
                 .unwrap();
             match DsIntoIter_rust::new(&tree) {
@@ -228,9 +244,7 @@ mod tests {
                 .find(|p| p.to_str().unwrap().contains(funky))
                 .expect("Funky file not found");
             let mut rust_iter = {
-                let tree = RootFile::new(file)
-                    .expect("Failed to open file")
-                    .items()[0]
+                let tree = RootFile::new(file).expect("Failed to open file").items()[0]
                     .as_tree()
                     .unwrap();
                 match DsIntoIter_rust::new(&tree) {
@@ -251,9 +265,7 @@ mod tests {
                 .find(|p| p.to_str().unwrap().contains(funky))
                 .expect("Funky file not found");
             let mut rust_iter = {
-                let tree = RootFile::new(file)
-                    .expect("Failed to open file")
-                    .items()[0]
+                let tree = RootFile::new(file).expect("Failed to open file").items()[0]
                     .as_tree()
                     .unwrap();
                 match DsIntoIter_rust::new(&tree) {
