@@ -1,6 +1,6 @@
 [package]
 name = "malice"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["cbourjau <c.bourjau@posteo.de>"]
 exclude = ["benches/*"]
 description = "A small framwork providing sensible defaults to analyse ALICE's open data"
@@ -20,7 +20,8 @@ bitflags = "1.0.1"
 failure = "0.1.5"
 futures = "=0.3.1"
 nom = "^5"
-root-io = "0.2"
+root-io = "0.2.1"
+tokio = { version = "0.2", features = ["macros"] }
 
 # Optional dependencies
 alice-sys = { version="0.1.1", optional = true }

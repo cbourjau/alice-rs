@@ -14,19 +14,25 @@ extern crate alice_open_data;
 use malice::event_stream_from_esd_file;
 
 async fn read_rust(n_files: usize) {
-    let files = alice_open_data::all_files_10h()
-        .unwrap()
-        .into_iter();
+    let files = alice_open_data::all_files_10h().unwrap().into_iter();
     let _max_chi2 = stream::iter(files)
         .take(n_files as u64)
-	.then(|f| event_stream_from_esd_file(f))
-	.map(|res_event_stream| res_event_stream.unwrap())
-	.flatten()
-        .map(|event| event.tracks()
-	     .map(|tr| tr.its_chi2)
-	     .fold(0.0, |max, chi2| if chi2 > max { chi2 } else { max })
-	)
-        .fold(0.0, |max, chi2| async move {if chi2 > max { chi2 } else { max }});
+        .then(|f| event_stream_from_esd_file(f))
+        .map(|res_event_stream| res_event_stream.unwrap())
+        .flatten()
+        .map(|event| {
+            event
+                .tracks()
+                .map(|tr| tr.its_chi2)
+                .fold(0.0, |max, chi2| if chi2 > max { chi2 } else { max })
+        })
+        .fold(0.0, |max, chi2| async move {
+            if chi2 > max {
+                chi2
+            } else {
+                max
+            }
+        });
 }
 
 #[cfg(feature = "cpp")]

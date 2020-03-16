@@ -53,9 +53,12 @@ pub use crate::utils::{default_event_filter, default_track_filter, is_hybrid_tra
 use failure::Error;
 use futures::prelude::*;
 use futures::stream::{iter, StreamExt};
+
 use root_io::{RootFile, Source};
 
 use std::pin::Pin;
+use std::sync::mpsc::sync_channel;
+use std::thread::spawn;
 
 type EventStream = Pin<Box<dyn Stream<Item = Result<Event, Error>> + Send>>;
 
@@ -74,7 +77,7 @@ where
     }();
     // Turn Result<Stream> into a Stream of Results
     match tmp.await {
-        Ok(s) => s.map(move |ev| Ok(ev)).boxed(),
+        Ok(s) => s.map(Ok).boxed(),
         Err(err) => stream::iter(vec![Err(err)]).boxed(),
     }
 }
@@ -96,8 +99,6 @@ where
     I: IntoIterator<Item = S> + Send + 'static,
     S: Into<Source> + Send,
 {
-    use std::sync::mpsc::sync_channel;
-    use std::thread::spawn;
     const BUFFERED_EVENTS: usize = 10;
     let (sender, receiver) = sync_channel(BUFFERED_EVENTS);
     spawn(|| {
