@@ -58,7 +58,7 @@ async fn main() {
     }
 }
 
-async fn inspect_file<'a>(f: &RootFile, sub_matches: &ArgMatches<'a>) {
+async fn inspect_file(f: &RootFile, sub_matches: &ArgMatches<'_>) {
     if sub_matches.is_present("item-pos") {
         let idx = value_t!(sub_matches.value_of("item-pos"), usize).unwrap();
         // FIXME: This should not be specific for TTrees!
@@ -90,7 +90,7 @@ async fn sinfo_to_yaml(f: &RootFile) {
     }
 }
 
-async fn to_rust<'a>(f: &RootFile, sub_matches: &ArgMatches<'a>) -> Result<(), Error> {
+async fn to_rust(f: &RootFile, sub_matches: &ArgMatches<'_>) -> Result<(), Error> {
     let mut s = String::new();
     f.streamer_info_as_rust(&mut s).await?;
     if sub_matches.is_present("rustfmt") {

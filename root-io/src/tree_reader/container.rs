@@ -50,7 +50,7 @@ fn tbasket2vec(input: &[u8]) -> IResult<&[u8], (u32, Vec<u8>)>
               buf: rest >>
               ({
                   let buf = if hdr.uncomp_len as usize > buf.len() {
-                      (decompress(buf).unwrap().1)
+                      decompress(buf).unwrap().1
                   } else {
                       buf.to_vec()
                   };

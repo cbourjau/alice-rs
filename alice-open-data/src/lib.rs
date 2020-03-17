@@ -9,9 +9,7 @@ use failure::{format_err, Error};
 use reqwest::{Client, Url};
 
 fn root_url() -> Url {
-    "http://opendata.cern.ch/"
-    .parse()
-    .unwrap()
+    "http://opendata.cern.ch/".parse().unwrap()
 }
 
 /// Download the given file to the local collection

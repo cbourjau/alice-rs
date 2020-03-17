@@ -75,7 +75,7 @@ named!(
               obj: take!(hdr.total_size - hdr.key_len as u32) >>
               ({
                   let obj = if hdr.uncomp_len as usize > obj.len() {
-                      (decompress(obj).unwrap().1)
+                      decompress(obj).unwrap().1
                   } else {
                       obj.to_vec()
                   };
