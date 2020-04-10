@@ -1,6 +1,6 @@
 [package]
 name = "alice-open-data"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["cbourjau <c.bourjau@posteo.de>"]
 description = "Tools to download and manage the publicly released ALICE open data"
 repository = "https://github.com/cbourjau/alice-rs"
