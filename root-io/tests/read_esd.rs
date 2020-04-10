@@ -141,7 +141,7 @@ mod x64 {
     use reqwest::Url;
 
     const REMOTE_FILE: &str =
-	"http://opendata.cern.ch/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root";
+	"http://opendata-dev.web.cern.ch/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root";
 
     #[tokio::test]
     async fn read_esd_local_and_remote() {

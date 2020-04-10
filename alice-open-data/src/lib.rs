@@ -9,7 +9,7 @@ use failure::{format_err, Error};
 use reqwest::{Client, Url};
 
 fn root_url() -> Url {
-    "http://opendata.cern.ch/".parse().unwrap()
+    "http://opendata-dev.web.cern.ch".parse().unwrap()
 }
 
 /// Download the given file to the local collection
@@ -29,7 +29,12 @@ pub async fn download(base_dir: PathBuf, url: Url) -> Result<usize, Error> {
         DirBuilder::new().recursive(true).create(dir)?;
     }
     let resp = Client::new().get(url).send().await?;
-    let bytes: Vec<_> = resp.bytes().await?.into_iter().collect();
+    let bytes: Vec<_> = resp
+	.error_for_status()?
+	.bytes()
+	.await?
+	.into_iter()
+	.collect();
     let mut f = File::create(dest)?;
     Ok(f.write(&bytes)?)
 }
@@ -118,8 +123,7 @@ mod tests_x84 {
             .await
             .unwrap();
         dbg!(&rsp);
-
-        let partial = rsp.bytes().await.unwrap();
+        let partial = rsp.error_for_status().unwrap().bytes().await.unwrap();
         assert_eq!(partial.len(), len);
         #[cfg(not(target_arch = "wasm32"))]
         {
