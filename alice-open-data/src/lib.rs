@@ -30,11 +30,11 @@ pub async fn download(base_dir: PathBuf, url: Url) -> Result<usize, Error> {
     }
     let resp = Client::new().get(url).send().await?;
     let bytes: Vec<_> = resp
-	.error_for_status()?
-	.bytes()
-	.await?
-	.into_iter()
-	.collect();
+        .error_for_status()?
+        .bytes()
+        .await?
+        .into_iter()
+        .collect();
     let mut f = File::create(dest)?;
     Ok(f.write(&bytes)?)
 }
