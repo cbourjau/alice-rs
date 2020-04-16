@@ -1,18 +1,17 @@
 language: rust
 cache: cargo
 os:
-  - osx
   - linux
+  - osx
+  - windows
 rust:
   - stable
   - beta
 
-script:
-  - cargo install alice-download --force
-  - alice-download 1
-  - cargo clean
+before_install:
   - rustup component add rustfmt clippy
-  - cargo +$TRAVIS_RUST_VERSION clippy
+
+script:
   - cargo +$TRAVIS_RUST_VERSION fmt  -p alice-download -- --check
   - cargo +$TRAVIS_RUST_VERSION fmt  -p alice-open-data -- --check
   - cargo +$TRAVIS_RUST_VERSION fmt  -p malice -- --check
@@ -20,5 +19,8 @@ script:
   - cargo +$TRAVIS_RUST_VERSION fmt  -p histogram -- --check
   - cargo +$TRAVIS_RUST_VERSION fmt  -p simple-analysis -- --check
   - cargo +$TRAVIS_RUST_VERSION fmt  -p convert_to_msgpack -- --check
-  - cargo build --verbose --all --release
-  - cargo test --verbose --all --release
+  - cargo +$TRAVIS_RUST_VERSION clippy
+  - cargo build --verbose --all
+  # We need to download some files before we can run the tests.
+  - cd alice-download && cargo run -- 1 && cd ..  
+  - cargo test --verbose --all
