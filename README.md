@@ -1,8 +1,8 @@
 # ALICE-rs #
 
-|Linux/OS X|Windows|
-|:--------:|:-----:|
-|[![Build Status](https://travis-ci.org/cbourjau/alice-rs.svg)](https://travis-ci.org/cbourjau/alice-rs)|[![Build status](https://ci.appveyor.com/api/projects/status/u7xxhg4x7h9mgpam?svg=true)](https://ci.appveyor.com/project/cbourjau/alice-rs)|
+|Linux/OS X/Windows|
+|:----------------:|
+|[![Build Status](https://travis-ci.org/cbourjau/alice-rs.svg)](https://travis-ci.org/cbourjau/alice-rs)|
 
 **This is not an official ALICE or CERN project**
 
