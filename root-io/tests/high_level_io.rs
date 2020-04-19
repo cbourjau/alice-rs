@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use root_io::*;
 
-const TEST_FILES: &[&str]= &[
+const TEST_FILES: &[&str] = &[
     "./src/test_data/simple.root",
     "./src/test_data/HZZ.root",
     "./src/test_data/HZZ-lz4.root",
@@ -51,12 +51,10 @@ const TEST_FILES: &[&str]= &[
 ];
 
 fn local_paths() -> Vec<PathBuf> {
-    TEST_FILES.iter()
-        .map(PathBuf::from)
-        .collect()
+    TEST_FILES.iter().map(PathBuf::from).collect()
 }
 
-#[cfg(not(target_arch="wasm32"))]
+#[cfg(not(target_arch = "wasm32"))]
 mod local {
     use super::*;
     use tokio;
@@ -66,7 +64,9 @@ mod local {
         let paths = local_paths();
         for p in paths {
             println!("{:?}", p);
-            let f = RootFile::new(p.as_path()).await.expect("Failed to open file");
+            let f = RootFile::new(p.as_path())
+                .await
+                .expect("Failed to open file");
             let mut s = String::new();
             f.streamer_info_as_yaml(&mut s).await.unwrap();
             f.streamer_info_as_rust(&mut s).await.unwrap();
@@ -77,14 +77,16 @@ mod local {
         }
     }
 
-    #[cfg(not(target_os="macos"))]
+    #[cfg(not(target_os = "macos"))]
     #[tokio::test]
     async fn root_file_methods_esd() {
         use alice_open_data;
         let paths = [alice_open_data::test_file().unwrap()];
         for p in &paths {
             println!("{:?}", p);
-            let f = RootFile::new(p.as_path()).await.expect("Failed to open file");
+            let f = RootFile::new(p.as_path())
+                .await
+                .expect("Failed to open file");
             let mut s = String::new();
             f.streamer_info_as_yaml(&mut s).await.unwrap();
             f.streamer_info_as_rust(&mut s).await.unwrap();

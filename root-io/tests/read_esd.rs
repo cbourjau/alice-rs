@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use failure::Error;
 use futures::prelude::*;
 use nom::number::complete::*;
@@ -122,8 +120,7 @@ mod wasm {
         let files = [
             // There is an issue on MacOs with opening the ESD test files
             RootFile::new(
-                // "http://opendata.cern.ch/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root"
-                Url::parse("http://cirrocumuli.com/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root").unwrap()
+                Url::parse("http://127.0.0.1:3030/opendata/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root").unwrap()
             ).await.expect("Failed to open file"),
         ];
         for f in &files {
@@ -137,8 +134,8 @@ mod wasm {
 mod x64 {
     use super::*;
     use alice_open_data;
-    use tokio;
     use reqwest::Url;
+    use tokio;
 
     const REMOTE_FILE: &str =
 	"http://opendata-dev.web.cern.ch/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root";
@@ -148,10 +145,11 @@ mod x64 {
         let path = alice_open_data::test_file().unwrap();
         let files = [
             // There is an issue on MacOs with opening the ESD test files
-            #[cfg(not(target_os="macos"))]
+            #[cfg(not(target_os = "macos"))]
             RootFile::new(path).await.expect("Failed to open file"),
-            RootFile::new(Url::parse(REMOTE_FILE).unwrap()
-            ).await.expect("Failed to open file"),
+            RootFile::new(Url::parse(REMOTE_FILE).unwrap())
+                .await
+                .expect("Failed to open file"),
         ];
         for f in &files {
             let t = f.items()[0].as_tree().await.unwrap();
