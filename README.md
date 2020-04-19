@@ -91,6 +91,14 @@ I realized that this project might be of interest to a wider group of people who
 
 Perhaps not surprisingly, removing so much code and indirection from the analysis improved the performance significantly. 
 
+## Running tests
+This projects uses `cargo` as a build tool. Running wasm tests requires a CORS proxy for the time being. If the proxy is set up with a route at `127.0.0.1:3030/opendata` (standard in the not yet released CERN CORS proxy) one may run:
+
+``` bash
+cd ./alice-open-data/
+wasm-pack test --firefox --headless
+```
+
 ## How to cite this project in a publication
 
 ```
