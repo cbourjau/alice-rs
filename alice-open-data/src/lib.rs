@@ -8,8 +8,16 @@ use std::{
 use failure::{format_err, Error};
 use reqwest::{Client, Url};
 
+#[cfg(test)]
+mod tests;
+
 fn root_url() -> Url {
-    "http://opendata-dev.web.cern.ch".parse().unwrap()
+    if cfg!(target_arch = "wasm32") {
+	// Proxy with CORS properly set
+	"http://127.0.0.1:3030/opendata/".parse().unwrap()
+    } else {
+	"http://opendata-dev.web.cern.ch".parse().unwrap()
+    }
 }
 
 /// Download the given file to the local collection
@@ -69,12 +77,10 @@ pub fn all_files_10h() -> Result<Vec<PathBuf>, Error> {
 }
 
 pub async fn get_file_list(run: u32) -> Result<Vec<Url>, Error> {
-    // Do to CORS we have to get change the urls based on the target for now
-
+    // Due to CORS we have to change the urls based on the target for now
     let uri =
-        "http://opendata.cern.ch/"
-            .parse::<Url>()?
-            .join(if !cfg!(target_arch = "wasm32") {
+        root_url()
+            .join(
                 match run {
                     139_038 => "record/1102/files/ALICE_LHC10h_PbPb_ESD_139038_file_index.txt",
                     139_173 => "record/1103/files/ALICE_LHC10h_PbPb_ESD_139173_file_index.txt",
@@ -83,9 +89,7 @@ pub async fn get_file_list(run: u32) -> Result<Vec<Url>, Error> {
                     139_465 => "record/1106/files/ALICE_LHC10h_PbPb_ESD_139465_file_index.txt",
                     _ => return Err(format_err!("Invalid run number")),
                 }
-            } else {
-                "http://cirrocumuli.com/ALICE_LHC10h_PbPb_ESD_139038_file_index.txt"
-            })?;
+            )?;
 
     let req = Client::new().get(uri);
     let resp = req.send().await?;
@@ -97,86 +101,5 @@ pub async fn get_file_list(run: u32) -> Result<Vec<Url>, Error> {
             .collect()
     } else {
         Err(format_err!("Could not download list of files"))
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-#[cfg(test)]
-mod tests_x84 {
-    use super::*;
-    use std::{env, fs};
-    use tokio;
-
-    #[tokio::test]
-    async fn download_partial() {
-        use reqwest::header::RANGE;
-        let client = Client::builder().build().unwrap();
-        let url = root_url()
-            .join("/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root")
-            .unwrap();
-        let (start, len) = (13993603, 68936);
-        let rsp = client
-            .get(url)
-            .header("User-Agent", "alice-rs")
-            .header(RANGE, &format!("bytes={}-{}", start, start + len - 1))
-            .send()
-            .await
-            .unwrap();
-        dbg!(&rsp);
-        let partial = rsp.error_for_status().unwrap().bytes().await.unwrap();
-        assert_eq!(partial.len(), len);
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            let from_disc = std::fs::read(test_file().unwrap()).unwrap();
-            assert!(partial
-                .iter()
-                .skip(start)
-                .zip(from_disc.iter())
-                .all(|(el1, el2)| el1 == el2));
-        }
-    }
-
-    #[tokio::test]
-    async fn test_get_file_lists() {
-        let runs = [139_038, 139_173, 139_437, 139_438, 139_465];
-        for run in runs.iter() {
-            println!("Testing run {}", run);
-            super::get_file_list(*run).await.unwrap();
-        }
-    }
-
-    #[tokio::test]
-    async fn test_download_file() {
-        let uris = &super::get_file_list(139038).await.unwrap();
-        let resp = Client::new().get(uris[0].clone()).send().await.unwrap();
-        println!("{:?}", resp);
-        println!("{:?}", uris[0].path());
-    }
-    #[tokio::test]
-    async fn test_download_file_high_level() {
-        let uri = super::get_file_list(139038).await.unwrap()[0].clone();
-        {
-            // Remobe old stuff:
-            let mut dir = env::temp_dir();
-            dir.push("eos");
-            if dir.exists() {
-                fs::remove_dir_all(dir).unwrap();
-            }
-        }
-        let base_dir = env::temp_dir();
-        // Download if file does not exist
-        assert_eq!(
-            super::download(base_dir.clone(), uri.clone())
-                .await
-                .unwrap(),
-            14283265
-        );
-        // Don't download twice
-        assert_eq!(
-            super::download(base_dir.clone(), uri.clone())
-                .await
-                .unwrap(),
-            0
-        );
     }
 }
