@@ -52,15 +52,16 @@ pub use crate::utils::{default_event_filter, default_track_filter, is_hybrid_tra
 
 use failure::Error;
 use futures::prelude::*;
-use futures::stream::{iter, StreamExt};
+use futures::stream::StreamExt;
 
 use root_io::{RootFile, Source};
 
 use std::pin::Pin;
-use std::sync::mpsc::sync_channel;
-use std::thread::spawn;
 
+#[cfg(not(target_arch = "wasm32"))]
 type EventStream = Pin<Box<dyn Stream<Item = Result<Event, Error>> + Send>>;
+#[cfg(target_arch = "wasm32")]
+type EventStream = Pin<Box<dyn Stream<Item = Result<Event, Error>>>>;
 
 /// A helper function which turns a path to an ALICE ESD file into a
 /// stream over the `Events` of that file.
@@ -77,7 +78,10 @@ where
     }();
     // Turn Result<Stream> into a Stream of Results
     match tmp.await {
+	#[cfg(not(target_arch = "wasm32"))]
         Ok(s) => s.map(Ok).boxed(),
+	#[cfg(target_arch = "wasm32")]
+        Ok(s) => s.map(Ok).boxed_local(),	
         Err(err) => stream::iter(vec![Err(err)]).boxed(),
     }
 }
@@ -99,12 +103,15 @@ where
     I: IntoIterator<Item = S> + Send + 'static,
     S: Into<Source> + Send,
 {
+    use std::sync::mpsc::sync_channel;
+    use std::thread::spawn;
+
     const BUFFERED_EVENTS: usize = 10;
     let (sender, receiver) = sync_channel(BUFFERED_EVENTS);
     spawn(|| {
         let mut rt = tokio::runtime::Runtime::new().expect("Failed to start IO runtime");
         rt.block_on(async move {
-            iter(sources)
+            stream::iter(sources)
                 .then(event_stream_from_esd_file)
                 .flatten()
                 .try_for_each(|event| async {
