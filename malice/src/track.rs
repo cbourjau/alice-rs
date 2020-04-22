@@ -1,8 +1,11 @@
 use std::f32::consts::PI;
 
+use wasm_bindgen::prelude::*;
+
 bitflags! {
     /// Clusters in the ITS associated with the curren track
     /// See AliESDTrack::HasPointOnITSLayer
+    #[wasm_bindgen]
     pub struct ItsClusters: u8 {
         const SPD_INNER = 1;
         const SPD_OUTER = 1 << 1;
@@ -16,6 +19,7 @@ bitflags! {
 bitflags! {
     /// Various attributes of tracks.
     /// Flags are based on those found in AliRoot's AliVTrack.[h,cxx]
+    #[wasm_bindgen]
     pub struct Flags: u64 {
         const ITS_IN = 0x1;
         const ITS_OUT = 0x2;
@@ -53,6 +57,7 @@ bitflags! {
 }
 
 /// A `Track` is a reconstruction of the trajectory of a particle traversing the detector.
+#[wasm_bindgen]
 pub struct Track {
     pub(crate) x: f32,
     pub(crate) parameters: TrackParameters,
@@ -70,10 +75,15 @@ pub struct Track {
 /// analysis
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct TrackParameters {
+    // Tracks.fP[0]
     loc_y: f32,
+    // Tracks.fP[1]
     loc_z: f32,
+    // Tracks.fP[2]
     loc_sin: f32,
+    // Tracks.fP[3]
     tang: f32,
+    // Tracks.fP[4]
     one_over_pt: f32,
 }
 
@@ -90,6 +100,7 @@ impl TrackParameters {
     }
 }
 
+#[wasm_bindgen]
 impl Track {
     /// Longitudinal (not boosted) angle of the `Track`
     pub fn theta(&self) -> f32 {

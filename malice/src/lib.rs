@@ -128,11 +128,14 @@ where
 /// Create a stream of events found in the given files (local or
 /// remote). You probably want to use `event_iterator_from_files`
 /// instead unless you are a on the `wasm32` target.
-pub fn event_stream_from_files<S>(sources: S) -> impl Stream<Item = Result<Event, Error>>
+pub fn event_stream_from_files<SI, S>(sources: SI) -> impl Stream<Item = Result<Event, Error>>
 where
-    S: Stream<Item = Source> + std::marker::Unpin,
+    SI: IntoIterator<Item = S>,
+    S: Into<Source> + Send,
 {
-    sources.then(event_stream_from_esd_file).flatten()
+    futures::stream::iter(sources)
+	.map(Into::into)
+	.then(event_stream_from_esd_file).flatten()
 }
 
 #[cfg(test)]

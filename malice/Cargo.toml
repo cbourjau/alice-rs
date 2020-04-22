@@ -18,12 +18,13 @@ cpp = ["alice-sys"]
 [dependencies]
 bitflags = "1.0.1"
 failure = "0.1.5"
-futures = "=0.3.1"
+futures = "0.3"
 nom = "^5"
 root-io = "0.2.1"
 # Optional dependencies
 alice-sys = { version="0.1.1", optional = true }
 itertools = "0.8.1"
+wasm-bindgen = "0.2.60"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Tokio is used in the entry helper function to iterate over files
