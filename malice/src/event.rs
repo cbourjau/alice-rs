@@ -7,6 +7,7 @@ use nom;
 use nom::combinator::map;
 use nom::number::complete::*;
 use nom::sequence::tuple;
+use wasm_bindgen::prelude::*;
 
 use root_io::core::parsers::{parse_custom_mantissa, parse_tobjarray_of_tnameds};
 use root_io::stream_zip;
@@ -26,6 +27,7 @@ bitflags! {
 }
 
 /// A model for a subset of an event as stored in the published data
+#[wasm_bindgen]
 #[derive(Debug, PartialEq)]
 pub struct Event {
     primaryvertex_alivertex_fposition: (f32, f32, f32),
@@ -42,6 +44,20 @@ pub struct Event {
     tracks_fitsclustermap: Vec<ItsClusters>,
     tracks_ftpcchi2: Vec<f32>,
     tracks_ftpcncls: Vec<u16>,
+}
+
+#[wasm_bindgen]
+impl Event {
+    /// Return the number of reconstructed tracks. Not very
+    /// sophisticated, and probably not what what you want! Should
+    /// rather be the number of **valid** tracks. FIXME.
+    pub fn multiplicity(&self) -> f32 {
+        self.tracks_fx.len() as f32
+    }
+
+    pub fn track(&self, i: u32) -> Option<Track> {
+        self.tracks().nth(i as usize)
+    }
 }
 
 impl Event {
@@ -98,13 +114,6 @@ impl Event {
         } else {
             None
         }
-    }
-
-    /// Return the number of reconstructed tracks. Not very
-    /// sophisticated, and probably not what what you want! Should
-    /// rather be the number of **valid** tracks. FIXME.
-    pub fn multiplicity(&self) -> f32 {
-        self.tracks_fx.len() as f32
     }
 
     /// The `TriggerMask` of this event. Use this to select minimum bias events, for example
