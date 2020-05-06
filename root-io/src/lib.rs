@@ -8,7 +8,7 @@
 //! primarily to make the data [published](http://opendata.cern.ch/)
 //! by the ALICE collaboration accessible in pure Rust. An example of
 //! its usage for that purpose is demonstrated as an [example
-//! analysis](https://github.com/cbourjau/alice-rs/tree/master/simple-analysis).
+//! analysis](https://github.com/cbourjau/alice-rs/tree/master/examples/simple-analysis).
 //!
 //! The API surface is deliberately small to make the processing of said
 //! files as easy as possible. If you are looking for a particular

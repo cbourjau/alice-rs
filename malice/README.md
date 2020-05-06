@@ -8,8 +8,7 @@ https://docs.rs/malice/
 
 Here is a very simple example analysis using `malice` and other crates from this repository.
 It measures the pseudorapidity distribution of the reconstructed tracks.
-For a more comprehensive, but still small, example (including concurrency) check out [simple-analysis](https://github.com/cbourjau/alice-rs/tree/master/simple-analysis).
-
+For a more comprehensive, but still small, example (including concurrency) check out [simple-analysis](https://github.com/cbourjau/alice-rs/tree/master/examples/simple-analysis).
 
 ``` rust
 extern crate alice_open_data;
