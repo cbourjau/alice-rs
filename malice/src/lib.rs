@@ -6,7 +6,7 @@
 //! Here is a very simple example "analysis" using `malice` which
 //! counts the number of tracks in an event.  For a more
 //! comprehensive, but still small, example check out
-//! [simple-analysis](https://github.com/cbourjau/alice-rs/tree/master/simple-analysis).
+//! [simple-analysis](https://github.com/cbourjau/alice-rs/tree/master/examples/simple-analysis).
 //!
 //! ``` rust
 //! use alice_open_data;
