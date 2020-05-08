@@ -14,7 +14,7 @@ use root_io::stream_zip;
 use root_io::tree_reader::Tree;
 
 use crate::primary_vertex::PrimaryVertex;
-use crate::track::{Flags, ItsClusters, Track, TrackParameters};
+use crate::track::{Flags, ItsClusters, PidProbabilities, Track, TrackParameters};
 
 bitflags! {
     /// Triggers are low level qualifier of an event. One event may "fire" several triggers.
@@ -44,6 +44,8 @@ pub struct Event {
     tracks_fitsclustermap: Vec<ItsClusters>,
     tracks_ftpcchi2: Vec<f32>,
     tracks_ftpcncls: Vec<u16>,
+    /// Combined detector response (particle identification; aka PID) probability
+    tracks_fr: Vec<PidProbabilities>,
 }
 
 #[wasm_bindgen]
@@ -73,6 +75,7 @@ impl Event {
             self.tracks_fitsclustermap.iter(),
             self.tracks_ftpcchi2.iter(),
             self.tracks_ftpcncls.iter(),
+            self.tracks_fr.iter()
         )
         .map(
             |(
@@ -85,6 +88,7 @@ impl Event {
                 its_clustermap,
                 tpc_chi2,
                 tpc_ncls,
+                pid_probabilities,
             )| {
                 Track {
                     x: *x,
@@ -96,6 +100,7 @@ impl Event {
                     its_clustermap: *its_clustermap,
                     tpc_chi2: *tpc_chi2,
                     tpc_ncls: *tpc_ncls,
+                    pid_probabilities: *pid_probabilities,
                 }
             },
         )
@@ -176,6 +181,8 @@ pub async fn event_stream_from_tree(t: &Tree) -> Result<impl Stream<Item = Event
             .as_var_size_iterator(|i| be_u16(i), &track_counter),
         t.branch_by_name("Tracks.fTPCchi2")?
             .as_var_size_iterator(|i| parse_custom_mantissa(i, 8), &track_counter),
+        t.branch_by_name("Tracks.fR[5]")?
+            .as_var_size_iterator(parse_pid_probabilities, &track_counter),
     )
     .map(
         |(
@@ -193,6 +200,7 @@ pub async fn event_stream_from_tree(t: &Tree) -> Result<impl Stream<Item = Event
             tracks_fitsclustermap,
             tracks_ftpcncls,
             tracks_ftpcchi2,
+            tracks_fr,
         )| {
             Event {
                 aliesdrun_frunnumber,
@@ -209,6 +217,7 @@ pub async fn event_stream_from_tree(t: &Tree) -> Result<impl Stream<Item = Event
                 tracks_fitsclustermap,
                 tracks_ftpcchi2,
                 tracks_ftpcncls,
+                tracks_fr,
             }
         },
     );
@@ -232,4 +241,22 @@ fn string_to_mask(s: &str, run_number: i32) -> TriggerMask {
     } else {
         TriggerMask::empty()
     }
+}
+
+fn parse_pid_probabilities(input: &[u8]) -> nom::IResult<&[u8], PidProbabilities> {
+    let (input, electron) = parse_custom_mantissa(input, 8)?;
+    let (input, muon) = parse_custom_mantissa(input, 8)?;
+    let (input, pion) = parse_custom_mantissa(input, 8)?;
+    let (input, kaon) = parse_custom_mantissa(input, 8)?;
+    let (input, proton) = parse_custom_mantissa(input, 8)?;
+    Ok((
+        input,
+        PidProbabilities {
+            electron,
+            muon,
+            pion,
+            kaon,
+            proton,
+        },
+    ))
 }

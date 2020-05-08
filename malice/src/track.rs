@@ -56,6 +56,18 @@ bitflags! {
     }
 }
 
+/// Probabilities of this track being of various particle types. These
+/// numbers stem from the "combined detector response"
+#[wasm_bindgen]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PidProbabilities {
+    pub electron: f32,
+    pub muon: f32,
+    pub pion: f32,
+    pub kaon: f32,
+    pub proton: f32,
+}
+
 /// A `Track` is a reconstruction of the trajectory of a particle traversing the detector.
 #[wasm_bindgen]
 pub struct Track {
@@ -68,6 +80,7 @@ pub struct Track {
     pub its_clustermap: ItsClusters,
     pub(crate) tpc_chi2: f32,
     pub tpc_ncls: u16,
+    pub pid_probabilities: PidProbabilities
 }
 
 /// An obscure set of parameters which makes sense for the actual
