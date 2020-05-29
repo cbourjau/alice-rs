@@ -25,6 +25,7 @@ root-io = { version="0.3.0", path="../root-io" }
 alice-sys = { version="0.1.1", optional = true }
 itertools = "0.8.1"
 wasm-bindgen = "0.2.60"
+track-dca-sys = { "path"="../track-dca-sys" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Tokio is used in the entry helper function to iterate over files

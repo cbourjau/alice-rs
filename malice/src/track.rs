@@ -1,4 +1,5 @@
 use std::f32::consts::PI;
+use track_dca_sys::AliExternalTrackParam;
 
 use wasm_bindgen::prelude::*;
 
@@ -190,5 +191,27 @@ impl Track {
     /// of how well the reconstruction fit the observed clusters
     pub fn its_chi2_per_cluster(&self) -> f32 {
         self.its_chi2 / f32::from(self.its_ncls)
+    }
+
+    pub fn dca_to_other_track(&self, other: &Track, mag_field: f64) -> f64 {
+	dbg!(AliExternalTrackParam::from(self).get_dca(&other.into(), mag_field)).0
+    }
+}
+
+impl From<&Track> for AliExternalTrackParam {
+    fn from(track: &Track) -> AliExternalTrackParam{
+	unsafe {
+	    AliExternalTrackParam::new(
+		track.x as f64,
+		track.alpha as f64,
+		[
+		    track.parameters.loc_y as f64,
+		    track.parameters.loc_z as f64,
+		    track.parameters.loc_sin as f64,
+		    track.parameters.tang as f64,
+		    track.parameters.one_over_pt as f64
+		].as_ptr()
+	    )
+	}
     }
 }

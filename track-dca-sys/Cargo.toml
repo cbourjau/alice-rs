@@ -1,5 +1,5 @@
 [package]
-name = "track-param-sys"
+name = "track-dca-sys"
 version = "0.1.0"
 authors = ["cbourjau <cbourjau@posteo.de>"]
 edition = "2018"

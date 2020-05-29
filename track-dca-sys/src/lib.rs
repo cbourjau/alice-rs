@@ -4,6 +4,15 @@
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
+impl AliExternalTrackParam {
+    pub fn get_dca(&self, other: &AliExternalTrackParam, mag_field_b: f64) -> (f64, f64, f64) {
+	let mut xthis = 0.0;
+	let mut xp = 0.0;
+	let dca = unsafe {self.GetDCA(other, mag_field_b, &mut xthis, &mut xp) };
+	(dca, xthis, xp)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

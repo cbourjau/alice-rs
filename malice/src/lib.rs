@@ -174,6 +174,23 @@ mod tests {
         assert_eq!(cnt_tracks_valid, 2773);
     }
 
+    #[async_std::test]
+    async fn test_dca() {
+        let f = alice_open_data::test_file().unwrap();
+        let rf = RootFile::new(f).await.unwrap();
+        let t = rf.items()[0].as_tree().await.unwrap();
+        let events = event_stream_from_tree(&t).await.unwrap();
+        events
+            .filter(|ev| future::ready(default_event_filter(ev)))
+            .for_each(|ev| async move {
+                let tracks: Vec<_> = ev.tracks().collect();
+                if tracks.len() > 1 {
+                    assert_eq!(tracks[0].dca_to_other_track(&tracks[0], 0.0), 0.0);
+                }
+            })
+            .await;
+    }
+
     #[test]
     #[cfg(feature = "cpp")]
     fn rust_cpp_identical_many_files() {
