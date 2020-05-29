@@ -5,6 +5,7 @@ members = [
  "histogram",
  "root-io",
  "root-ls",
+ "track-dca-sys",
  "malice",
  "examples/simple-analysis",
  "examples/convert_to_msgpack",
