@@ -105,10 +105,15 @@ impl TrackParameters {
     /// In AliESD files, these parameters are saved in "Tracks.fP[5]"
     pub(crate) fn new(paras: &(f32, f32, f32, f32, f32)) -> TrackParameters {
         TrackParameters {
+            /// local Y-coordinate of a track (cm)
             loc_y: paras.0,
+            /// local Z-coordinate of a track (cm)
             loc_z: paras.1,
+            /// local sine of the track momentum azimuthal angle
             loc_sin: paras.2,
+            /// tangent of the track momentum dip angle
             tang: paras.3,
+            /// 1/pT where the sign denotes the charge (1/(GeV/c))
             one_over_pt: paras.4,
         }
     }
@@ -140,6 +145,14 @@ impl Track {
     /// Transverse momentum of the `Track`
     pub fn pt(&self) -> f32 {
         1.0 / self.parameters.one_over_pt.abs()
+    }
+
+    pub fn charge_sign(&self) -> i8 {
+        if self.parameters.one_over_pt > 0.0 {
+            1
+        } else {
+            -1
+        }
     }
 
     /// Three-momentum (px, py, pz). Results for straight tracks are meaningless.
