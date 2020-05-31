@@ -6,6 +6,9 @@ edition = "2018"
 
 [dependencies]
 bincode = "1.0.0"
-failure = "0.1.1"
 ndarray = {version="^0.13", features = ["serde-1"]}
+thiserror = "1.0.19"
 wasm-bindgen = "0.2.62"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = "0.3.40"
