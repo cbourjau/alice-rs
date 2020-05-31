@@ -184,10 +184,23 @@ mod tests {
             .filter(|ev| future::ready(default_event_filter(ev)))
             .for_each(|ev| async move {
                 let tracks: Vec<_> = ev.tracks().collect();
-                if tracks.len() > 1 {
-                    assert_eq!(tracks[0].dca_to_other_track(&tracks[0], 0.0), 0.0);
-                }
-            })
+		if tracks.len() > 1 {
+		    // min dca with itself is 0.0
+		    assert_eq!(tracks[0].dca_to_other_track(&tracks[0], 0.0), 0.0);
+		    // Distance is symmetric
+		    assert_eq!(
+			tracks[0].dca_to_other_track(&tracks[1], 0.0),
+			tracks[1].dca_to_other_track(&tracks[0], 0.0),
+		    );
+		    let mut max_dca = 0.0f64;
+		    for t0 in &tracks {
+			for t1 in &tracks {
+			    max_dca = max_dca.max(t0.dca_to_other_track(t1, 0.0));
+			}
+		    }
+		    dbg!(max_dca);
+		}
+	    })
             .await;
     }
 

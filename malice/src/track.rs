@@ -194,7 +194,7 @@ impl Track {
     }
 
     pub fn dca_to_other_track(&self, other: &Track, mag_field: f64) -> f64 {
-	dbg!(AliExternalTrackParam::from(self).get_dca(&other.into(), mag_field)).0
+	AliExternalTrackParam::from(self).get_dca(&other.into(), mag_field).0
     }
 }
 
