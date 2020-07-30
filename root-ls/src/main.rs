@@ -8,7 +8,6 @@ use std::path::Path;
 use clap::{crate_version, value_t, App, AppSettings, Arg, ArgMatches, SubCommand};
 use failure::{format_err, Error};
 use root_io::RootFile;
-use tokio;
 
 #[tokio::main]
 async fn main() {

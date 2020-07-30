@@ -93,7 +93,7 @@ impl SimpleAnalysis {
                     .sum_axis(1)
                     .mul(1.0 / self.z_vertex.values().iter().sum::<f64>() / eta_bin_width)
                     .values()
-                    .into_iter(),
+                    .iter(),
                 &plot_options,
             );
 
@@ -121,7 +121,7 @@ impl SimpleAnalysis {
                     .sum_axis(0)
                     .mul(1.0 / self.z_vertex.values().iter().sum::<f64>() / phi_bin_width)
                     .values()
-                    .into_iter(),
+                    .iter(),
                 &plot_options,
             );
 

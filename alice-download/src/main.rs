@@ -1,6 +1,5 @@
 use alice_open_data::*;
 use clap::{crate_version, value_t, App, Arg};
-use failure;
 use indicatif::{ProgressBar, ProgressStyle};
 
 use tokio::runtime::Runtime;

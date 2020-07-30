@@ -3,7 +3,6 @@
 use failure::Error;
 use futures::prelude::*;
 use itertools::izip;
-use nom;
 use nom::combinator::map;
 use nom::number::complete::*;
 use nom::sequence::tuple;

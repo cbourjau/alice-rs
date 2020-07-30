@@ -79,6 +79,7 @@ impl Histogram {
 
     /// Multiply the values inside this this histogram by a scalar
     /// value.
+    #[allow(clippy::should_implement_trait)]
     pub fn mul(self, factor: f64) -> Histogram {
         Histogram {
             bins: self.bins * factor,
@@ -131,7 +132,7 @@ impl HistogramBuilder {
             .iter()
             .map(|edges1d| edges_to_bins(edges1d))
             .collect();
-        if edges.len() == 0 {
+        if edges.is_empty() {
             return None;
         }
         let shape: Vec<_> = edges.iter().map(|edges| edges.len()).collect();
