@@ -176,9 +176,9 @@ double AliExternalTrackParam::GetDCA(const AliExternalTrackParam *p, double b,
         break;
       dt1 *= 0.5;
       dt2 *= 0.5;
-      // if (div>512) {
-      //   AliDebug(1," overshoot !"); break;
-      //}
+      if (div>512) {
+        break;
+      }
     }
     dm = dd;
 

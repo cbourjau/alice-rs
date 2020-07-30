@@ -2,6 +2,7 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
+#[warn(clippy::all)]
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 impl AliExternalTrackParam {
@@ -15,6 +16,8 @@ impl AliExternalTrackParam {
 
 #[cfg(test)]
 mod tests {
+    use std::f64::consts::PI;
+
     use super::*;
     use root_io::RootFile;
     use alice_open_data;
@@ -28,9 +31,88 @@ mod tests {
 	stream_zip,
 	tree_reader::Tree,
     };
-    
+
+    use assert_approx_eq::assert_approx_eq;
+
     const REMOTE_FILE: &str =
-	"http://opendata-dev.web.cern.ch/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root";
+	// "http://opendata-dev.web.cern.ch/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root";
+        "http://opendata.cern.ch/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root";
+
+    // x(t) = r1 * cos(t)
+    // y(t) = r1 * sin(t)
+    // z(t) = c*t
+
+    #[test]
+    fn test_dca() {
+        // Two helix with a 45 degree slope (i.e. tan = 1)
+        let b = 1.0;
+    	let helix_1 = unsafe {
+	    AliExternalTrackParam::new(
+                0.0,
+                0.0,
+                [ 0.0, 1.0, 0.0, 1.0, 1.0, ].as_ptr(),
+	    )
+        };
+    	let helix_45_deg_z_shift = unsafe {
+	    AliExternalTrackParam::new(
+                1.0,
+                0.0,
+                [ 0.0, 1.0, 0.0, 1.0, 1.0, ].as_ptr(),
+	    )
+        };
+    	let helix_negative_charge = unsafe {
+	    AliExternalTrackParam::new(
+                0.0,
+                0.0,
+                [ 0.0, 1.0, 0.0, 1.0, -1.0, ].as_ptr(),
+	    )
+        };
+	let mut xthis = 0.0;
+	let mut xp = 0.0 as f64;
+        // parallel with z-shift
+        let expected_distance_45_deg = (PI / 4.0).sin() / (PI / 2.0).sin();
+        let dca = unsafe {helix_1.GetDCA(&helix_45_deg_z_shift, b, &mut xthis, &mut xp)};
+        assert_approx_eq!(dca, expected_distance_45_deg, 1.0e-5);
+
+        // opposite chirality
+        let expected_distance = 0.0;
+        let dca = unsafe {helix_1.GetDCA(&helix_negative_charge, b, &mut xthis, &mut xp)};
+        assert_approx_eq!(dca, expected_distance, 1.0e-5);
+    }
+
+    #[test]
+    fn test_dca_deadlock() {
+        // Two helix with a 45 degree slope (i.e. tan = 1)
+        let b = 5.00668049;
+    	let helix_1 = unsafe {
+	    AliExternalTrackParam::new(
+                0.11572355031967163, // x
+                2.4826834201812744, // alpha
+                [
+                    -0.07366123795509338,
+                    6.936183452606201,
+                    0.000000000706358305180288,
+                    0.12432964891195297,
+                    4.714923858642578,
+                ].as_ptr(),
+	    )
+        };
+    	let helix_2 = unsafe {
+	    AliExternalTrackParam::new(
+                0.1059807538986206,
+                2.553640365600586,
+                [
+                    -0.13346174359321594,
+                    6.964710712432861,
+                    -0.0000000004830002509059739,
+                    0.25471046566963196,
+                    -1.5283981561660767,
+                ].as_ptr(),
+	    )
+        };
+        // This produces a dead-lock
+        unsafe {helix_1.GetDCA(&helix_2, b, &mut 0.0, &mut 0.0)};
+    }
 
     /// A model for the / a subset of the ESD data
     #[derive(Debug)]
@@ -73,7 +155,6 @@ mod tests {
             Ok(s)
 	}
     }
-
 
     #[tokio::test]
     async fn read_esd_local_and_remote() {

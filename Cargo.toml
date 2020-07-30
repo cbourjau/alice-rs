@@ -9,4 +9,5 @@ members = [
  "malice",
  "examples/simple-analysis",
  "examples/convert_to_msgpack",
+ "examples/invariant_mass",
 ]

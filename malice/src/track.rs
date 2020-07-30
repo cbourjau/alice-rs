@@ -71,8 +71,9 @@ pub struct PidProbabilities {
 
 /// A `Track` is a reconstruction of the trajectory of a particle traversing the detector.
 #[wasm_bindgen]
+#[derive(Debug)]
 pub struct Track {
-    pub(crate) x: f32,
+    pub x: f32,
     pub(crate) parameters: TrackParameters,
     pub(crate) alpha: f32,
     pub flags: Flags,
@@ -122,7 +123,7 @@ impl TrackParameters {
 #[wasm_bindgen]
 impl Track {
     /// Longitudinal (not boosted) angle of the `Track`
-    pub fn theta(&self) -> f32 {
+    fn theta(&self) -> f32 {
         0.5 * PI - self.parameters.tang.atan()
     }
 
