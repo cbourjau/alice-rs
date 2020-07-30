@@ -118,18 +118,21 @@ impl<'s> Tree {
 }
 
 /// Parse a `Tree` from the given buffer. Usually used through `FileItem::parse_with`.
-#[allow(unused_variables, clippy::unnecessary_unwrap)]
+#[allow(clippy::unnecessary_unwrap)]
+#[rustfmt::skip::macros(do_parse)]
 pub fn ttree<'s>(input: &'s [u8], context: &Context) -> IResult<&'s [u8], Tree> {
     let _curried_raw = |i| raw(i, context);
     let none_or_u8_buf = |i: &'s [u8]| {
         switch!(i, peek!(be_u32),
-                                            0 => map!(call!(be_u32), | _ | None) |
-                                            _ => map!(
-                                                map!(call!(_curried_raw), |r| r.obj.to_vec()),
-                                                Some))
+                0 => map!(call!(be_u32), | _ | None) |
+                _ => map!(
+                    map!(call!(_curried_raw), |r| r.obj.to_vec()),
+                    Some)
+        )
     };
     let grab_checked_byte_count = |i| length_data!(i, checked_byte_count);
-    let wrapped_tobjarray = |i: &'s[u8]| length_value!(i, checked_byte_count, call!(tobjarray, context));
+    let wrapped_tobjarray =
+        |i: &'s [u8]| length_value!(i, checked_byte_count, call!(tobjarray, context));
     do_parse!(input,
               ver: be_u16 >>
               tnamed: length_value!(checked_byte_count, tnamed) >>

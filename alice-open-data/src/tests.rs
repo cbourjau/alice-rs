@@ -11,18 +11,15 @@ use crate::*;
 async fn download_partial() {
     use reqwest::header::RANGE;
     let client = Client::builder().build().unwrap();
-    let url = get_file_list(139_038)
-	.await
-	.unwrap()[0]
-	.clone();
+    let url = get_file_list(139_038).await.unwrap()[0].clone();
     let (start, len) = (13993603, 68936);
     let rsp = dbg!(client
         .get(url)
         .header("User-Agent", "alice-rs")
         .header(RANGE, &format!("bytes={}-{}", start, start + len - 1)))
-        .send()
-        .await
-        .unwrap();
+    .send()
+    .await
+    .unwrap();
     dbg!(&rsp);
     let partial = rsp.error_for_status().unwrap().bytes().await.unwrap();
     assert_eq!(partial.len(), len);
@@ -30,10 +27,10 @@ async fn download_partial() {
     {
         let from_disc = std::fs::read(test_file().unwrap()).unwrap();
         assert!(partial
-                .iter()
-                .skip(start)
-                .zip(from_disc.iter())
-                .all(|(el1, el2)| el1 == el2));
+            .iter()
+            .skip(start)
+            .zip(from_disc.iter())
+            .all(|(el1, el2)| el1 == el2));
     }
 }
 
@@ -50,26 +47,25 @@ async fn test_download_file() {
     Client::new().get(uris[0].clone()).send().await.unwrap();
 }
 
-
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests_x86 {
-    use tokio;
     use std::{env, fs};
+    use tokio;
 
     #[tokio::test]
     async fn download_partial() {
-	super::download_partial().await;
+        super::download_partial().await;
     }
 
     #[tokio::test]
     async fn test_get_file_lists() {
-	super::test_get_file_lists().await;
+        super::test_get_file_lists().await;
     }
 
     #[tokio::test]
     async fn test_download_file() {
-	super::test_download_file().await;
+        super::test_download_file().await;
     }
 
     #[tokio::test]
@@ -98,29 +94,27 @@ mod tests_x86 {
                 .unwrap(),
             0
         );
-    }    
+    }
 }
-
 
 #[cfg(target_arch = "wasm32")]
 mod test_wasm {
     wasm_bindgen_test_configure!(run_in_browser);
 
-    use wasm_bindgen_test::{wasm_bindgen_test_configure, wasm_bindgen_test};
+    use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
 
     #[wasm_bindgen_test]
     async fn download_partial() {
-	super::download_partial().await;
+        super::download_partial().await;
     }
 
     #[wasm_bindgen_test]
     async fn test_get_file_lists() {
-	super::test_get_file_lists().await;
+        super::test_get_file_lists().await;
     }
 
     #[wasm_bindgen_test]
     async fn test_download_file() {
-	super::test_download_file().await;
-    }    
-
+        super::test_download_file().await;
+    }
 }

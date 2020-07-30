@@ -80,7 +80,7 @@ pub struct Track {
     pub its_clustermap: ItsClusters,
     pub(crate) tpc_chi2: f32,
     pub tpc_ncls: u16,
-    pub pid_probabilities: PidProbabilities
+    pub pid_probabilities: PidProbabilities,
 }
 
 /// An obscure set of parameters which makes sense for the actual
@@ -143,27 +143,26 @@ impl Track {
 
     /// Three-momentum (px, py, pz). Results for straight tracks are meaningless.
     fn pxpypz(&self) -> (f32, f32, f32) {
-	let pt = self.pt();
-	let cs = self.alpha.cos();
-	let sn = self.alpha.sin();
-	let r = ((1.0 - self.parameters.loc_sin) * (1.0 + self.parameters.loc_sin)).sqrt();
-	(
-	    pt * (r * cs - self.parameters.loc_sin * sn),
-	    pt * (self.parameters.loc_sin * cs + r * sn),
-	    pt * self.parameters.tang
-	)
+        let pt = self.pt();
+        let cs = self.alpha.cos();
+        let sn = self.alpha.sin();
+        let r = ((1.0 - self.parameters.loc_sin) * (1.0 + self.parameters.loc_sin)).sqrt();
+        (
+            pt * (r * cs - self.parameters.loc_sin * sn),
+            pt * (self.parameters.loc_sin * cs + r * sn),
+            pt * self.parameters.tang,
+        )
     }
 
     pub fn px(&self) -> f32 {
-	self.pxpypz().0
+        self.pxpypz().0
     }
     pub fn py(&self) -> f32 {
-	self.pxpypz().1
-	}
-    pub fn pz(&self) -> f32 {
-	self.pxpypz().2
+        self.pxpypz().1
     }
-
+    pub fn pz(&self) -> f32 {
+        self.pxpypz().2
+    }
 
     /// Estimate the distance of closest approach of this track to a given point
     /// neglecting the track curvature. This returns the closest approach in the xy plane

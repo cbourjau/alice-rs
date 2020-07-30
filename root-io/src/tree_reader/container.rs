@@ -37,8 +37,8 @@ impl Container {
 
 /// Return a tuple indicating the number of elements in this basket
 /// and the content as a Vec<u8>
-fn tbasket2vec(input: &[u8]) -> IResult<&[u8], (u32, Vec<u8>)>
-{
+#[rustfmt::skip::macros(do_parse)]
+fn tbasket2vec(input: &[u8]) -> IResult<&[u8], (u32, Vec<u8>)> {
     do_parse!(input,
               hdr: tkey_header >>
               _ver: be_u16 >>

@@ -78,10 +78,10 @@ where
     }();
     // Turn Result<Stream> into a Stream of Results
     match tmp.await {
-	#[cfg(not(target_arch = "wasm32"))]
+        #[cfg(not(target_arch = "wasm32"))]
         Ok(s) => s.map(Ok).boxed(),
-	#[cfg(target_arch = "wasm32")]
-        Ok(s) => s.map(Ok).boxed_local(),	
+        #[cfg(target_arch = "wasm32")]
+        Ok(s) => s.map(Ok).boxed_local(),
         Err(err) => stream::iter(vec![Err(err)]).boxed(),
     }
 }
@@ -134,8 +134,9 @@ where
     S: Into<Source> + Send,
 {
     futures::stream::iter(sources)
-	.map(Into::into)
-	.then(event_stream_from_esd_file).flatten()
+        .map(Into::into)
+        .then(event_stream_from_esd_file)
+        .flatten()
 }
 
 #[cfg(test)]

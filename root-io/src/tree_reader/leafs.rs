@@ -197,24 +197,28 @@ pub(crate) fn tleaf<'s>(
     }
 }
 
-#[allow(unused_variables)]
+#[rustfmt::skip::macros(do_parse)]
 fn tleafbase<'s>(input: &'s [u8], context: &'s Context<'s>) -> IResult<&'s [u8], TLeafBase> {
     let _curried_raw = |i| raw(i, context);
     do_parse!(input,
               ver: be_u16 >>
-              tnamed: length_value!(checked_byte_count,
-                                    tnamed) >>
+              tnamed: length_value!(checked_byte_count, tnamed) >>
               flen: be_i32 >>
               flentype: be_i32 >>
               foffset: be_i32 >>
               fisrange: be_u8 >>
               fisunsigned: be_u8 >>
               fleafcount:
-              switch!(peek!(be_u32),
-                      0 => map!(call!(be_u32), | _ | None) |
-                      _ => map!(map!(call!(_curried_raw),
-                                     |r| tleaf(r.obj, context, &r.classinfo).unwrap().1),
-                                |i| Some(Box::new(i)))) >>
+              switch!(
+                  peek!(be_u32),
+                  0 => map!(call!(be_u32), | _ | None) |
+                  _ => map!(
+                      map!(
+                          call!(_curried_raw),
+                          |r| tleaf(r.obj, context, &r.classinfo).unwrap().1
+                      ),
+                      |i| Some(Box::new(i)))
+              ) >>
               ({
                   TLeafBase {
                       ver,
@@ -227,9 +231,8 @@ fn tleafbase<'s>(input: &'s [u8], context: &'s Context<'s>) -> IResult<&'s [u8],
                       fleafcount } }))
 }
 
-
-fn tleafelement<'s>(input: &'s [u8], context: &'s Context<'s>)
-                    -> IResult<&'s [u8], TLeafElement> {
+#[rustfmt::skip::macros(do_parse)]
+fn tleafelement<'s>(input: &'s [u8], context: &'s Context<'s>) -> IResult<&'s [u8], TLeafElement> {
     do_parse!(input,
               _ver: be_u16 >>
               base: length_value!(checked_byte_count, call!(tleafbase, context)) >>
@@ -238,8 +241,9 @@ fn tleafelement<'s>(input: &'s [u8], context: &'s Context<'s>)
               (TLeafElement {base, id, type_id})
     )
 }
-fn tleafprimitive<'s>(input: &'s [u8], context: &'s Context<'s>)
-                    -> IResult<&'s [u8], TLeafBase> {
+
+#[rustfmt::skip::macros(do_parse)]
+fn tleafprimitive<'s>(input: &'s [u8], context: &'s Context<'s>) -> IResult<&'s [u8], TLeafBase> {
     do_parse!(input,
               _ver: be_u16 >>
               base: length_value!(checked_byte_count, call!(tleafbase, context)) >>
@@ -248,8 +252,9 @@ fn tleafprimitive<'s>(input: &'s [u8], context: &'s Context<'s>)
               (base)
     )
 }
-fn tleafobject<'s>(input: &'s [u8], context: &'s Context<'s>)
-                    -> IResult<&'s [u8], TLeafBase> {
+
+#[rustfmt::skip::macros(do_parse)]
+fn tleafobject<'s>(input: &'s [u8], context: &'s Context<'s>) -> IResult<&'s [u8], TLeafBase> {
     do_parse!(input,
               _ver: be_u16 >>
               base: length_value!(checked_byte_count, call!(tleafbase, context)) >>

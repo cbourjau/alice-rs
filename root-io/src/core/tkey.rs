@@ -27,6 +27,7 @@ pub struct TKey {
     pub(crate) obj: Vec<u8>,
 }
 
+#[rustfmt::skip::macros(do_parse)]
 named!(
     #[doc=r#"Header of a TKey Usually, TKeys are followed up by their
 content, but there is one "index" in ever root file where only the
@@ -44,17 +45,17 @@ TKey headers are stored for faster later `Seek`ing"#],
               obj_name: string >>
               obj_title: string >>
               (TKeyHeader {
-                  total_size: total_size,
-                  version: version,
-                  uncomp_len: uncomp_len,
-                  datime: datime,
-                  key_len: key_len,
-                  cycle: cycle,
-                  seek_key: seek_key,
-                  seek_pdir: seek_pdir,
-                  class_name: class_name,
-                  obj_name: obj_name,
-                  obj_title: obj_title,
+                  total_size,
+                  version,
+                  uncomp_len,
+                  datime,
+                  key_len,
+                  cycle,
+                  seek_key,
+                  seek_pdir,
+                  class_name,
+                  obj_name,
+                  obj_title,
               })
     )
 );
@@ -68,6 +69,7 @@ fn seek_point(input: &[u8], version: u16) -> nom::IResult<&[u8], u64> {
     }
 }
 
+#[rustfmt::skip::macros(do_parse)]
 named!(
     #[doc="Parse a full TKey including its payload"],
     pub tkey<&[u8], TKey>,

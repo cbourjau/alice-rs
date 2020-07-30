@@ -47,13 +47,16 @@ impl SimpleAnalysis {
     pub fn process_event(&mut self, event: &Event) {
         // Fill only if we have a valid primary vertex
         if let Some(prime_vtx) = event.primary_vertex() {
-	    for track in event.tracks().filter(|tr| default_track_filter(&tr, &prime_vtx)) {
-		self.single_particles.fill(&[
+            for track in event
+                .tracks()
+                .filter(|tr| default_track_filter(&tr, &prime_vtx))
+            {
+                self.single_particles.fill(&[
                     f64::from(track.eta()),
                     f64::from(track.phi()),
                     f64::from(prime_vtx.z),
                 ])
-	    }
+            }
 
             self.z_vertex.fill(&[f64::from(prime_vtx.z)]);
             self.multiplicity.fill(&[event
@@ -85,14 +88,12 @@ impl SimpleAnalysis {
             .boxes(
                 &self.single_particles.centers(0),
                 // Sum over phi and z
-		self.single_particles
-		    .sum_axis(1)
-		    .sum_axis(1)
-		    .mul(
-			1.0
-			    / self.z_vertex.values().iter().sum::<f64>()
-			    / eta_bin_width
-		    ).values().into_iter(),
+                self.single_particles
+                    .sum_axis(1)
+                    .sum_axis(1)
+                    .mul(1.0 / self.z_vertex.values().iter().sum::<f64>() / eta_bin_width)
+                    .values()
+                    .into_iter(),
                 &plot_options,
             );
 
@@ -115,14 +116,12 @@ impl SimpleAnalysis {
             .boxes(
                 &self.single_particles.centers(1),
                 // Sum over eta and z
-                self
-                    .single_particles
+                self.single_particles
                     .sum_axis(2)
                     .sum_axis(0)
-		    .mul(1.0
-			 / self.z_vertex.values().iter().sum::<f64>()
-			 / phi_bin_width
-		    ).values().into_iter(),
+                    .mul(1.0 / self.z_vertex.values().iter().sum::<f64>() / phi_bin_width)
+                    .values()
+                    .into_iter(),
                 &plot_options,
             );
 

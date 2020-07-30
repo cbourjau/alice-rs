@@ -31,14 +31,14 @@ impl Histogram {
     /// Find indices of bins along each axis
     fn find_bin_indices(&self, values: &[f64]) -> Option<Vec<usize>> {
         (0..values.len())
-	    .map(|dim| self.find_bin_index_axis(dim, values[dim]))
+            .map(|dim| self.find_bin_index_axis(dim, values[dim]))
             .collect()
     }
 
     pub fn fill(&mut self, values: &[f64]) {
-	if let Some(bin) = self.bin_mut(values) {
-	    *bin += 1.0;
-	}
+        if let Some(bin) = self.bin_mut(values) {
+            *bin += 1.0;
+        }
     }
 
     /// The center position of each bin along axis
@@ -60,19 +60,30 @@ impl Histogram {
     ///
     /// Panics if `axis` is out of bounds.
     pub fn sum_axis(&self, axis: u32) -> Histogram {
-	let axis = axis as usize;
-	let bins = self.bins.sum_axis(Axis(axis));
-	let edges = self.edges.iter()
-	    .enumerate()
-	    .filter_map(|(n, ax_edges)| if n == axis {None} else {Some(ax_edges.clone())})
-	    .collect();
-	Histogram { bins, edges }
+        let axis = axis as usize;
+        let bins = self.bins.sum_axis(Axis(axis));
+        let edges = self
+            .edges
+            .iter()
+            .enumerate()
+            .filter_map(|(n, ax_edges)| {
+                if n == axis {
+                    None
+                } else {
+                    Some(ax_edges.clone())
+                }
+            })
+            .collect();
+        Histogram { bins, edges }
     }
 
     /// Multiply the values inside this this histogram by a scalar
     /// value.
     pub fn mul(self, factor: f64) -> Histogram {
-	Histogram { bins: self.bins * factor, ..self }
+        Histogram {
+            bins: self.bins * factor,
+            ..self
+        }
     }
 }
 
@@ -82,11 +93,11 @@ impl Histogram {
     /// if `values` dimensionality is incompatible with that of the
     /// histogram.
     pub fn bin_mut(&mut self, values: &[f64]) -> Option<&mut f64> {
-	if values.len() != self.edges.len() {
-	    panic!("Expected values slice of len {}", self.edges.len());
-	}
-	self.find_bin_indices(values)
-	    .and_then(move |idx| self.bins.get_mut(idx.as_slice()))
+        if values.len() != self.edges.len() {
+            panic!("Expected values slice of len {}", self.edges.len());
+        }
+        self.find_bin_indices(values)
+            .and_then(move |idx| self.bins.get_mut(idx.as_slice()))
     }
 
     /// Dump histogram (without edges) to a file of `name`.
@@ -97,7 +108,7 @@ impl Histogram {
         let mut f = File::create(name)?;
         f.write_all(buf.as_slice())?;
         Ok(())
-    }    
+    }
 }
 
 #[wasm_bindgen]
@@ -110,9 +121,7 @@ pub struct HistogramBuilder {
 impl HistogramBuilder {
     #[wasm_bindgen(constructor)]
     pub fn new() -> HistogramBuilder {
-        HistogramBuilder {
-            edges: Vec::new(),
-        }
+        HistogramBuilder { edges: Vec::new() }
     }
 
     /// Create a new n-dimensional histogram
@@ -122,23 +131,16 @@ impl HistogramBuilder {
             .iter()
             .map(|edges1d| edges_to_bins(edges1d))
             .collect();
-	if edges.len() == 0 {
-	    return None;
-	}
-	let shape: Vec<_> = edges.iter()
-	    .map(|edges| edges.len())
-	    .collect();
-	
+        if edges.len() == 0 {
+            return None;
+        }
+        let shape: Vec<_> = edges.iter().map(|edges| edges.len()).collect();
+
         let bins = nd::ArrayD::zeros(IxDyn(shape.as_ref()));
         Some(Histogram { bins, edges })
     }
 
-    pub fn add_equal_width_axis(
-        mut self,
-        nbins: usize,
-        min: f64,
-        max: f64,
-    ) -> HistogramBuilder {
+    pub fn add_equal_width_axis(mut self, nbins: usize, min: f64, max: f64) -> HistogramBuilder {
         let width = (max - min) / nbins as f64;
         self.edges.push(
             (0..=nbins)
@@ -148,10 +150,7 @@ impl HistogramBuilder {
         self
     }
 
-    pub fn add_variable_width_axis(
-        mut self,
-        edges1d: &[f64],
-    ) -> HistogramBuilder {
+    pub fn add_variable_width_axis(mut self, edges1d: &[f64]) -> HistogramBuilder {
         self.edges.push(edges1d.to_vec());
         self
     }
@@ -237,8 +236,7 @@ mod tests {
     #[test]
     fn faulty_init() {
         // No axis
-        let opt = HistogramBuilder::new()
-            .build();
+        let opt = HistogramBuilder::new().build();
         assert!(opt.is_none());
     }
 

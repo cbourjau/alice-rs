@@ -175,35 +175,36 @@ pub(crate) fn tbranch_hdr<'s>(raw: &Raw<'s>, ctxt: &'s Context) -> IResult<&'s [
     }
 }
 
+#[rustfmt::skip::macros(do_parse)]
 fn tbranch<'s>(input: &'s [u8], context: &Context<'s>) -> IResult<&'s [u8], TBranch> {
     let _curried_raw = |i| raw(i, context);
     let wrapped_tobjarray =
         |i: &'s [u8]| length_value!(i, checked_byte_count, call!(tobjarray, context));
     do_parse!(
         input,
-        _ver: verify!(be_u16, |v| *v == 12)
-            >> tnamed: length_value!(checked_byte_count, tnamed)
-            >> _tattfill: length_data!(checked_byte_count)
-            >> fcompress: be_i32
-            >> fbasketsize: be_i32
-            >> fentryoffsetlen: be_i32
-            >> fwritebasket: be_i32
-            >> fentrynumber: be_i64
-            >> foffset: be_i32
-            >> fmaxbaskets: be_i32
-            >> fsplitlevel: be_i32
-            >> fentries: be_i64
-            >> ffirstentry: be_i64
-            >> ftotbytes: be_i64
-            >> fzipbytes: be_i64
-            >> fbranches: wrapped_tobjarray
-            >> fleaves: wrapped_tobjarray
-            >> fbaskets: wrapped_tobjarray
-            >> fbasketbytes: preceded!(be_u8, count!(be_i32, fmaxbaskets as usize))
-            >> fbasketentry: preceded!(be_u8, count!(be_i64, fmaxbaskets as usize))
-            >> fbasketseek: preceded!(be_u8, count!(be_u64, fmaxbaskets as usize))
-            >> ffilename: string
-            >> ({
+        _ver: verify!(be_u16, |v| *v == 12) >>
+            tnamed: length_value!(checked_byte_count, tnamed) >>
+            _tattfill: length_data!(checked_byte_count) >>
+            fcompress: be_i32 >>
+            fbasketsize: be_i32 >>
+            fentryoffsetlen: be_i32 >>
+            fwritebasket: be_i32 >>
+            fentrynumber: be_i64 >>
+            foffset: be_i32 >>
+            fmaxbaskets: be_i32 >>
+            fsplitlevel: be_i32 >>
+            fentries: be_i64 >>
+            ffirstentry: be_i64 >>
+            ftotbytes: be_i64 >>
+            fzipbytes: be_i64 >>
+            fbranches: wrapped_tobjarray >>
+            fleaves: wrapped_tobjarray >>
+            fbaskets: wrapped_tobjarray >>
+            fbasketbytes: preceded!(be_u8, count!(be_i32, fmaxbaskets as usize)) >>
+            fbasketentry: preceded!(be_u8, count!(be_i64, fmaxbaskets as usize)) >>
+            fbasketseek: preceded!(be_u8, count!(be_u64, fmaxbaskets as usize)) >>
+            ffilename: string >>
+            ({
                 let name = tnamed.name;
                 let fbranches = fbranches
                     .iter()

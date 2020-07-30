@@ -43,8 +43,8 @@ named!(
 );
 
 /// Read ROOT's version of short and long strings (preceeded by u8). Does not read null terminated!
-#[allow(unused_variables)]
-pub fn string(input: &[u8]) -> nom::IResult<&[u8], String>{
+#[rustfmt::skip::macros(do_parse)]
+pub fn string(input: &[u8]) -> nom::IResult<&[u8], String> {
     do_parse!(input,
               len: switch!(be_u8,
                            255 => call!(be_u32) |
@@ -56,6 +56,7 @@ pub fn string(input: &[u8]) -> nom::IResult<&[u8], String>{
     )
 }
 
+#[rustfmt::skip::macros(do_parse)]
 named!(
     #[doc="Parser for the most basic of ROOT types"],
     pub tobject<&[u8], TObject>,
@@ -133,6 +134,7 @@ where
 //     )
 // }
 
+#[rustfmt::skip::macros(do_parse)]
 named!(
     #[doc="Parser for `TNamed` objects"],
     pub tnamed<&[u8], TNamed>,
@@ -145,6 +147,7 @@ named!(
 );
 
 /// Parse a `TObjArray`
+#[rustfmt::skip::macros(do_parse)]
 pub fn tobjarray<'s, 'c>(
     input: &'s [u8],
     context: &'c Context,
@@ -165,8 +168,8 @@ where
 }
 
 /// Parse a `TObjArray` which does not have references pointing outside of the input buffer
-pub fn tobjarray_no_context(input: &[u8]) -> nom::IResult<&[u8], Vec<(ClassInfo, &[u8])>>
-{
+#[rustfmt::skip::macros(do_parse)]
+pub fn tobjarray_no_context(input: &[u8]) -> nom::IResult<&[u8], Vec<(ClassInfo, &[u8])>> {
     do_parse!(input,
               _ver: be_u16 >>
               _tobj: tobject >>
@@ -179,6 +182,7 @@ pub fn tobjarray_no_context(input: &[u8]) -> nom::IResult<&[u8], Vec<(ClassInfo,
     )
 }
 
+#[rustfmt::skip::macros(do_parse)]
 named!(
     #[doc="Parser for `TObjString`"],
     pub tobjstring<&[u8], String>,
@@ -237,9 +241,8 @@ pub fn c_string(i: &[u8]) -> nom::IResult<&[u8], String> {
 /// saved locally but rather in a reference to some other place in the
 /// buffer.This is modeled after ROOT's `TBufferFile::ReadObjectAny` and
 /// `TBufferFile::ReadClass`
-#[allow(unused_variables)]
-pub fn classinfo(input: &[u8]) -> nom::IResult<&[u8], ClassInfo>
-{
+#[rustfmt::skip::macros(do_parse)]
+pub fn classinfo(input: &[u8]) -> nom::IResult<&[u8], ClassInfo> {
     do_parse!(input,
               bcnt: be_u32 >>
               tag: switch!(
@@ -265,7 +268,7 @@ pub fn classinfo(input: &[u8]) -> nom::IResult<&[u8], ClassInfo>
 /// this buffer and the associated data. This function needs a
 /// `Context`, though, which may not be avialable. If so, have a look
 /// at the `classinfo` parser.
-#[allow(unused_variables)]
+#[rustfmt::skip::macros(do_parse)]
 pub fn class_name_and_buffer<'s, 'c>(
     input: &'s [u8],
     context: &'c Context,
@@ -302,6 +305,7 @@ where
 }
 
 /// Parse a `Raw` chunk from the given input buffer. This is usefull when one does not know the exact type at the time of parsing
+#[rustfmt::skip::macros(do_parse)]
 pub fn raw<'s, 'c>(input: &'s [u8], context: &'c Context) -> nom::IResult<&'s [u8], Raw<'c>>
 where
     's: 'c,
@@ -344,8 +348,7 @@ pub fn parse_tobjarray_of_tnameds(input: &[u8]) -> nom::IResult<&[u8], Vec<Strin
             if let ClassInfo::References(0) = ci {
                 Ok("".to_string())
             } else {
-                tnamed(&el)
-                    .map(|(_input, tn)| tn.name)
+                tnamed(&el).map(|(_input, tn)| tn.name)
             }
         })
         .collect::<Result<Vec<String>, _>>();
@@ -355,19 +358,17 @@ pub fn parse_tobjarray_of_tnameds(input: &[u8]) -> nom::IResult<&[u8], Vec<Strin
 /// Some Double_* values are saved with a custom mantissa... The
 /// number of bytes can be found in the comment string of the
 /// generated YAML code (for ALICE ESD files at least).  This function
-/// reconstructs a float from the exponent and mantissa 
+/// reconstructs a float from the exponent and mantissa
 pub fn parse_custom_mantissa(input: &[u8], nbits: usize) -> nom::IResult<&[u8], f32> {
     // TODO: Use ByteOrder crate to be cross-platform?
-    pair(be_u8, be_u16)(input)
-        .map(|(input, (exp, man))| {
-            let mut s = u32::from(exp);
-            // Move the exponent into the last 23 bits
-            s <<= 23;
-            s |= (u32::from(man) & ((1 << (nbits + 1)) - 1)) << (23 - nbits);
-            (input, f32::from_bits(s))
-        })
+    pair(be_u8, be_u16)(input).map(|(input, (exp, man))| {
+        let mut s = u32::from(exp);
+        // Move the exponent into the last 23 bits
+        s <<= 23;
+        s |= (u32::from(man) & ((1 << (nbits + 1)) - 1)) << (23 - nbits);
+        (input, f32::from_bits(s))
+    })
 }
-
 
 #[cfg(test)]
 mod classinfo_test {

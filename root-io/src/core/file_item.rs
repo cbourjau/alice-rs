@@ -1,5 +1,3 @@
-
-
 use failure::Error;
 use nom::*;
 
@@ -84,9 +82,7 @@ mod tests {
     #[tokio::test]
     async fn open_simple() {
         let path = Path::new("./src/test_data/simple.root");
-        let f = RootFile::new(path)
-            .await
-            .expect("Failed to open file");
+        let f = RootFile::new(path).await.expect("Failed to open file");
         assert_eq!(f.items().len(), 1);
         assert_eq!(f.items()[0].tkey_hdr.obj_name, "tree");
         // Only streamers; not rules

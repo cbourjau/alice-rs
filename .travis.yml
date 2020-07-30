@@ -12,13 +12,7 @@ before_install:
   - rustup component add rustfmt clippy
 
 script:
-  - cargo +$TRAVIS_RUST_VERSION fmt  -p alice-download -- --check
-  - cargo +$TRAVIS_RUST_VERSION fmt  -p alice-open-data -- --check
-  - cargo +$TRAVIS_RUST_VERSION fmt  -p malice -- --check
-  - cargo +$TRAVIS_RUST_VERSION fmt  -p root-ls -- --check
-  - cargo +$TRAVIS_RUST_VERSION fmt  -p histogram -- --check
-  - cargo +$TRAVIS_RUST_VERSION fmt  -p simple-analysis -- --check
-  - cargo +$TRAVIS_RUST_VERSION fmt  -p convert_to_msgpack -- --check
+  - cargo +$TRAVIS_RUST_VERSION fmt -- --check
   - cargo +$TRAVIS_RUST_VERSION clippy
   - cargo build --verbose --all
   # We need to download some files before we can run the tests.

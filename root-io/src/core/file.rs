@@ -1,13 +1,10 @@
 use std::fmt;
 
-
-
 use failure::Error;
 use nom::{
     self,
     number::complete::{be_i16, be_i32, be_i64, be_u32, be_u64, be_u8},
 };
-
 
 use crate::{
     code_gen::rust::{ToNamedRustParser, ToRustStruct},
@@ -59,6 +56,7 @@ pub struct Directory {
     seek_keys: SeekPointer,
 }
 
+#[rustfmt::skip::macros(do_parse)]
 named!(
     #[doc="Opening part of a root file"],
     file_header<&[u8], FileHeader>,
@@ -96,6 +94,7 @@ fn versioned_pointer(input: &[u8], version: i16) -> nom::IResult<&[u8], u64> {
     }
 }
 
+#[rustfmt::skip::macros(do_parse)]
 named!(
     #[doc="Directory within a root file; exists on ever file"],
     directory<&[u8], Directory>,
@@ -118,8 +117,8 @@ named!(
 impl RootFile {
     /// Open a new ROOT file either from a `Url`, or from a `Path`
     /// (not available on `wasm32`).
-    pub async fn new<S: Into::<Source>>(source: S) -> Result<Self, Error> {
-	let source = source.into();
+    pub async fn new<S: Into<Source>>(source: S) -> Result<Self, Error> {
+        let source = source.into();
         let hdr = source.fetch(0, FILE_HEADER_SIZE).await.and_then(|buf| {
             file_header(&buf)
                 .map_err(|_| format_err!("Failed to parse file header"))
@@ -163,7 +162,7 @@ impl RootFile {
             .source
             .fetch(self.hdr.seek_info, seek_info_len)
             .await
-            .and_then(|buf| Ok(tkey(&buf).unwrap().1))?;
+            .map(|buf| tkey(&buf).unwrap().1)?;
 
         let key_len = info_key.hdr.key_len;
         let context = Context {
@@ -272,11 +271,8 @@ mod test {
 
     #[tokio::test]
     async fn file_header_test() {
-        let local = Source::new(
-            Path::new("./src/test_data/simple.root")
-        );
-        let remote =
-            Source::new(Url::parse(SIMPLE_FILE_REMOTE).unwrap());
+        let local = Source::new(Path::new("./src/test_data/simple.root"));
+        let remote = Source::new(Url::parse(SIMPLE_FILE_REMOTE).unwrap());
         let sources: Vec<Source> = vec![local, remote];
         for source in &sources {
             let hdr = source
@@ -311,8 +307,7 @@ mod test {
     #[tokio::test]
     async fn directory_test() {
         let local = Path::new("./src/test_data/simple.root").into();
-        let remote = Source::new(
-	    Url::parse(SIMPLE_FILE_REMOTE).unwrap());
+        let remote = Source::new(Url::parse(SIMPLE_FILE_REMOTE).unwrap());
         let sources: Vec<Source> = vec![local, remote];
         for source in &sources {
             let hdr = source

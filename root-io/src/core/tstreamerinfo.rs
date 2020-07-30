@@ -19,6 +19,7 @@ pub struct TStreamerInfo {
 }
 
 /// Parse one `TStreamerInfo` object (as found in the `TList`)
+#[rustfmt::skip::macros(do_parse)]
 pub(crate) fn tstreamerinfo<'s, 'c>(
     input: &'s [u8],
     context: &'c Context,
@@ -60,6 +61,7 @@ where
 
 impl ToRustParser for TStreamerInfo {
     /// Generate a parser that can parse an an object described by this TStreamer
+    #[rustfmt::skip::macros(do_parse)]
     fn to_inline_parser(&self) -> Tokens {
         if type_is_core(self.named.name.as_str()) {
             // Don't generate a parser if its a core type
@@ -73,16 +75,16 @@ impl ToRustParser for TStreamerInfo {
             .iter()
             .map(|m| m.to_inline_parser())
             .collect();
-        quote!{
-            do_parse!(ver: be_u16 >>
-                      #(#member_names : #member_parsers >> )*
-                      ({let phantom = PhantomData;
-                        #struct_name {
-                            phantom,
-                            ver,
-                            #(#member_names),*
-                        }})
-            )}
+        quote! {
+        do_parse!(ver: be_u16 >>
+                  #(#member_names : #member_parsers >> )*
+                  ({let phantom = PhantomData;
+                    #struct_name {
+                        phantom,
+                        ver,
+                        #(#member_names),*
+                    }})
+        )}
     }
 }
 

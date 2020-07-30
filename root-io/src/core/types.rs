@@ -1,6 +1,5 @@
 use std::fmt;
 
-
 use crate::core::Source;
 
 use nom::HexDisplay;

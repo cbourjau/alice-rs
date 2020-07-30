@@ -90,6 +90,7 @@ pub(crate) struct TStreamerElement {
 
 /// Parse a `TStreamer` from a `Raw` buffer. This is usually the case
 /// after reading the `TList` of `TStreamerInfo`s from a ROOT file
+#[rustfmt::skip::macros(do_parse)]
 pub(crate) fn tstreamer<'c>(raw: &Raw<'c>) -> IResult<&'c [u8], TStreamer> {
     let wrapped_tstreamerelem = |i| length_value!(i, checked_byte_count, tstreamerelement);
     match raw.classinfo.as_str() {
@@ -150,10 +151,11 @@ pub(crate) fn tstreamer<'c>(raw: &Raw<'c>) -> IResult<&'c [u8], TStreamer> {
                                           vtype: map!(be_i32, StlTypeID::new) >>
                                           ctype: map_res!(be_i32, TypeID::new) >>
                                           (TStreamer::StlString {el, vtype, ctype})),
-        ci => unimplemented!("Unknown TStreamer {}", ci)
+        ci => unimplemented!("Unknown TStreamer {}", ci),
     }
 }
 
+#[rustfmt::skip::macros(do_parse)]
 named!(
     #[doc="The element which is wrapped in a TStreamer."],
     tstreamerelement<&[u8], TStreamerElement>,
