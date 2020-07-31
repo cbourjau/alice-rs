@@ -9,11 +9,13 @@ rust:
 
 before_install:
   - rustup component add rustfmt clippy
+  - rustup target add wasm32-unknown-unknown
 
 script:
   - cargo +$TRAVIS_RUST_VERSION fmt -- --check
   - cargo +$TRAVIS_RUST_VERSION clippy
-  - cargo build --verbose --all
+  - cargo +$TRAVIS_RUST_VERSION build -p malice --target wasm32-unknown-unknown --verbose
+  - cargo +$TRAVIS_RUST_VERSION build --verbose --all
   # We need to download some files before we can run the tests.
   - cd alice-download && cargo run -- 1 && cd ..  
-  - cargo test --verbose --all
+  - cargo +$TRAVIS_RUST_VERSION test --verbose --all
