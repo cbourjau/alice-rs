@@ -142,13 +142,13 @@ where
 #[cfg(test)]
 mod tests {
     use alice_open_data;
-    use async_std;
     use futures::{future, StreamExt};
     use root_io::RootFile;
+    use tokio;
 
     use super::{default_event_filter, default_track_filter, event_stream_from_tree};
 
-    #[async_std::test]
+    #[tokio::test]
     async fn test_filters() {
         let f = alice_open_data::test_file().unwrap();
         let rf = RootFile::new(f).await.unwrap();
