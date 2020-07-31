@@ -13,11 +13,11 @@ edition = "2018"
 
 
 [dependencies]
-alice-open-data = "0.3"
+alice-open-data = { version="0.4", path="../alice-open-data/" }
 bitflags = "1.0.0"
 failure = "0.1.5"
 flate2 = "^1"
-futures = "0.3.1"
+futures = "0.3"
 lzma-rs = "0.1.1"
 quote = "0.3.15"
 reqwest = "0.10"

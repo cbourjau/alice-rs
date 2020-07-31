@@ -6,7 +6,7 @@ workspace = "../../"
 edition = "2018"
 
 [dependencies]
-alice-open-data = "0.3"
+alice-open-data = { version="0.4", path="../../alice-open-data" }
 failure = "0.1.1"
 gnuplot = "^0.0.22"
 histogram = {path = "../../histogram" }

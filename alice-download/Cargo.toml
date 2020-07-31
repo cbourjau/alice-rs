@@ -13,6 +13,6 @@ edition = "2018"
 [dependencies]
 indicatif = "^0.6.0"
 clap = "^2"
-alice-open-data = "0.4"
+alice-open-data = { version="0.4", path="../alice-open-data" }
 failure = "0.1.5"
 tokio = "0.2.9"

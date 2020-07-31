@@ -31,7 +31,7 @@ wasm-bindgen = "0.2.60"
 tokio = { version = "0.2", features = ["macros"] }
 
 [dev-dependencies]
-alice-open-data = "0.3"
+alice-open-data = { version="0.4", path="../alice-open-data" }
 async-std = { "version"="1.0.1", "features"=["attributes"] }
 criterion = "0.3"
 

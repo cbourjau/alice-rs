@@ -5,9 +5,9 @@ authors = ["cbourjau <c.bourjau@posteo.de>"]
 edition = "2018"
 
 [dependencies]
-alice-open-data = "0.3.0"
-malice = "0.2.1"
+alice-open-data = { version="0.4.0", path="../../alice-open-data" }
+malice = { version="0.2.1", path="../../malice" }
 rmp-serde = "0.13.7"
-root-io = "0.2.1"
+root-io = { version="0.2.1", path="../../root-io" }
 serde = "1.0"
 serde_derive = "1.0"
