@@ -1,0 +1,18 @@
+install:
+  - ps: Install-Product node 10
+  - appveyor-retry appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
+  - rustup-init.exe -y --default-host x86_64-pc-windows-msvc --default-toolchain stable
+  - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
+  - rustc -V
+  - cargo -V
+  - rustup target add wasm32-unknown-unknown
+  - cargo install alice-download
+  - alice-download 1
+
+build: false
+
+test_script:
+  - cargo fmt -- --check
+  - cargo clippy
+  - cargo build -p  malice --target wasm32-unknown-unknown --verbose
+  - cargo test --verbose --all
