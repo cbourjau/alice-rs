@@ -16,7 +16,7 @@ fn root_url() -> Url {
         // Proxy with CORS properly set
         "http://127.0.0.1:3030/opendata/".parse().unwrap()
     } else {
-        "http://opendata-dev.web.cern.ch".parse().unwrap()
+        "http://opendata.web.cern.ch".parse().unwrap()
     }
 }
 
