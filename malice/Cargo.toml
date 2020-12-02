@@ -32,7 +32,6 @@ tokio = { version = "0.2", features = ["macros"] }
 
 [dev-dependencies]
 alice-open-data = { version="0.4", path="../alice-open-data" }
-tokio = { version = "0.2", features = ["macros"] }
 criterion = "0.3"
 
 [[bench]]
