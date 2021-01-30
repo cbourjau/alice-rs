@@ -1,13 +1,20 @@
-use failure::Error;
-use nom::number::complete::*;
-use nom::*;
-
 use std::fmt;
+use std::fmt::Debug;
 use std::ops::Deref;
+
+use failure::Error;
+use nom::{
+    combinator::{cond, verify},
+    error::ParseError,
+    multi::{count, length_value},
+    number::complete::*,
+    sequence::preceded,
+    IResult,
+};
 
 use crate::{
     core::parsers::*, core::types::*, tree_reader::branch::tbranch_hdr,
-    tree_reader::branch::TBranch, tree_reader::leafs::tleaf, tree_reader::leafs::TLeaf,
+    tree_reader::branch::TBranch, tree_reader::leafs::TLeaf,
 };
 
 /// `TTree` potentially has members with very large `Vec<u8>` buffers
@@ -47,7 +54,7 @@ pub struct Tree {
     /// Number of autosaved bytes
     fsavedbytes: i64,
     /// Number of autoflushed bytes
-    fflushedbytes: i64,
+    fflushedbytes: Option<i64>,
     /// Tree weight (see TTree::SetWeight)
     fweight: f64,
     /// Timer interval in milliseconds
@@ -119,8 +126,10 @@ impl<'s> Tree {
 
 /// Parse a `Tree` from the given buffer. Usually used through `FileItem::parse_with`.
 #[allow(clippy::unnecessary_unwrap)]
-#[rustfmt::skip::macros(do_parse)]
-pub fn ttree<'s>(input: &'s [u8], context: &Context) -> IResult<&'s [u8], Tree> {
+pub fn ttree<'s, E>(i: &'s [u8], context: &'s Context) -> IResult<&'s [u8], Tree, E>
+where
+    E: ParseError<&'s [u8]> + Debug,
+{
     let _curried_raw = |i| raw(i, context);
     let none_or_u8_buf = |i: &'s [u8]| {
         switch!(i, peek!(be_u32),
@@ -131,78 +140,87 @@ pub fn ttree<'s>(input: &'s [u8], context: &Context) -> IResult<&'s [u8], Tree> 
         )
     };
     let grab_checked_byte_count = |i| length_data!(i, checked_byte_count);
-    let wrapped_tobjarray =
-        |i: &'s [u8]| length_value!(i, checked_byte_count, call!(tobjarray, context));
-    do_parse!(input,
-              ver: be_u16 >>
-              tnamed: length_value!(checked_byte_count, tnamed) >>
-              _tattline: grab_checked_byte_count >>
-              _tattfill: grab_checked_byte_count >>
-              _tattmarker: grab_checked_byte_count >>
-              fentries: be_i64 >>
-              ftotbytes: be_i64 >>
-              fzipbytes: be_i64 >>
-              fsavedbytes: be_i64 >>
-              fflushedbytes: be_i64 >>
-              fweight: be_f64 >>
-              ftimerinterval: be_i32 >>
-              fscanfield: be_i32 >>
-              fupdate: be_i32 >>
-              _fdefaultentryoffsetlen: cond!(ver >= 18, be_i32) >>
-              fnclusterrange: cond!(ver >= 19, be_i32) >>
-              fmaxentries: be_i64 >>
-              fmaxentryloop: be_i64 >>
-              _fmaxvirtualsize: be_i64 >>
-              _fautosave: be_i64 >>
-              _fautoflush: be_i64 >>
-              festimate: be_i64 >>
-              _fclusterrangeend: cond!(fnclusterrange.is_some(),
-                                      preceded!(be_u8,
-                                                count!(be_i64, fnclusterrange.unwrap() as usize))) >>
-              _fclustersize: cond!(fnclusterrange.is_some(),
-                                  preceded!(be_u8,
-                                            count!(be_i64, fnclusterrange.unwrap() as usize))) >>
-              fbranches: wrapped_tobjarray >>
-              fleaves: wrapped_tobjarray >>
-              faliases: none_or_u8_buf >>
-              findexvalues: tarrayd >>
-              findex: tarrayi >>
-              ftreeindex: none_or_u8_buf >>
-              ffriends: none_or_u8_buf >>
-              fuserinfo: none_or_u8_buf >>
-              fbranchref: none_or_u8_buf >>
-              ({
-                  let fbranches = fbranches.iter()
-                      .map(|s| tbranch_hdr(s, context).unwrap().1)
-                      .collect();
-                  let fleaves = fleaves.into_iter()
-                      .map(|raw| tleaf(raw.obj, context, &raw.classinfo).unwrap().1)
-                      .collect();
-                  let ftreeindex = ftreeindex.map(Pointer);
-                  let ffriends = ffriends.map(Pointer);
-                  let fuserinfo = fuserinfo.map(Pointer);
-                  let fbranchref = fbranchref.map(Pointer);
-                  Tree {ver,
-                        tnamed,
-                        fentries,
-                        ftotbytes,
-                        fzipbytes,
-                        fsavedbytes,
-                        fflushedbytes,
-                        fweight,
-                        ftimerinterval,
-                        fscanfield,
-                        fupdate,
-                        fmaxentries,
-                        fmaxentryloop,
-                        festimate,
-                        fbranches,
-                        fleaves,
-                        faliases,
-                        findexvalues,
-                        findex,
-                        ftreeindex,
-                        ffriends,
-                        fuserinfo,
-                        fbranchref } }))
+    let (i, ver) = verify(be_u16, |v| [16, 17, 18, 19].contains(v))(i)?;
+    let (i, tnamed) = length_value(checked_byte_count, tnamed)(i)?;
+    let (i, _tattline) = grab_checked_byte_count(i)?;
+    let (i, _tattfill) = grab_checked_byte_count(i)?;
+    let (i, _tattmarker) = grab_checked_byte_count(i)?;
+    let (i, fentries) = be_i64(i)?;
+    let (i, ftotbytes) = be_i64(i)?;
+    let (i, fzipbytes) = be_i64(i)?;
+    let (i, fsavedbytes) = be_i64(i)?;
+    let (i, fflushedbytes) = cond(ver >= 18, be_i64)(i)?;
+    let (i, fweight) = be_f64(i)?;
+    let (i, ftimerinterval) = be_i32(i)?;
+    let (i, fscanfield) = be_i32(i)?;
+    let (i, fupdate) = be_i32(i)?;
+    let (i, _fdefaultentryoffsetlen) = cond(ver >= 17, be_i32)(i)?;
+    let (i, fnclusterrange) = cond(ver >= 19, be_i32)(i)?;
+    let (i, fmaxentries) = be_i64(i)?;
+    let (i, fmaxentryloop) = be_i64(i)?;
+    let (i, _fmaxvirtualsize) = be_i64(i)?;
+    let (i, _fautosave) = be_i64(i)?;
+    let (i, _fautoflush) = cond(ver >= 18, be_i64)(i)?;
+    let (i, festimate) = be_i64(i)?;
+    let (i, _fclusterrangeend) = {
+        if let Some(n_clst_range) = fnclusterrange {
+            preceded(be_u8, count(be_i64, n_clst_range as usize))(i)
+                .map(|(i, ends)| (i, Some(ends)))?
+        } else {
+            (i, None)
+        }
+    };
+    let (i, _fclustersize) = {
+        if let Some(n_clst_range) = fnclusterrange {
+            preceded(be_u8, count(be_i64, n_clst_range as usize))(i)
+                .map(|(i, ends)| (i, Some(ends)))?
+        } else {
+            (i, None)
+        }
+    };
+    let (i, fbranches) =
+        length_value(checked_byte_count, |i| tobjarray(tbranch_hdr, i, context))(i)?;
+    let (i, fleaves) = length_value(checked_byte_count, |i| {
+        tobjarray(TLeaf::parse_from_raw, i, context)
+    })(i)?;
+
+    let (i, faliases) = none_or_u8_buf(i)?;
+    let (i, findexvalues) = tarray(be_f64, i)?;
+    let (i, findex) = tarray(be_i32, i)?;
+    let (i, ftreeindex) = none_or_u8_buf(i)?;
+    let (i, ffriends) = none_or_u8_buf(i)?;
+    let (i, fuserinfo) = none_or_u8_buf(i)?;
+    let (i, fbranchref) = none_or_u8_buf(i)?;
+    let ftreeindex = ftreeindex.map(Pointer);
+    let ffriends = ffriends.map(Pointer);
+    let fuserinfo = fuserinfo.map(Pointer);
+    let fbranchref = fbranchref.map(Pointer);
+    Ok((
+        i,
+        Tree {
+            ver,
+            tnamed,
+            fentries,
+            ftotbytes,
+            fzipbytes,
+            fsavedbytes,
+            fflushedbytes,
+            fweight,
+            ftimerinterval,
+            fscanfield,
+            fupdate,
+            fmaxentries,
+            fmaxentryloop,
+            festimate,
+            fbranches,
+            fleaves,
+            faliases,
+            findexvalues,
+            findex,
+            ftreeindex,
+            ffriends,
+            fuserinfo,
+            fbranchref,
+        },
+    ))
 }

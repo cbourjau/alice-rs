@@ -1,7 +1,8 @@
+use std::pin::Pin;
+
 use failure::Error;
 use futures::{Stream, StreamExt};
 use nom::number::complete::*;
-use std::pin::Pin;
 
 use root_io::{core::parsers::string, stream_zip, tree_reader::Tree, RootFile};
 
@@ -21,7 +22,8 @@ impl Model {
                 .as_fixed_size_iterator(|i| be_i32(i)),
             t.branch_by_name("two")?
                 .as_fixed_size_iterator(|i| be_f32(i)),
-            t.branch_by_name("three")?.as_fixed_size_iterator(string)
+            t.branch_by_name("three")?
+                .as_fixed_size_iterator(|i| string(i))
         )
         .map(|(one, two, three)| Self { one, two, three })
         .boxed_local())

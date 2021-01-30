@@ -40,7 +40,7 @@ impl Model {
             t.branch_by_name("AliESDRun.fRunNumber")?
                 .as_fixed_size_iterator(|i| be_i32(i)),
             t.branch_by_name("AliESDRun.fTriggerClasses")?
-                .as_fixed_size_iterator(parse_tobjarray_of_tnameds),
+                .as_fixed_size_iterator(|i| parse_tobjarray_of_tnameds(i)),
             t.branch_by_name("AliESDHeader.fTriggerMask")?
                 .as_fixed_size_iterator(|i| be_u64(i)),
             t.branch_by_name("PrimaryVertex.AliVertex.fPosition[3]")?

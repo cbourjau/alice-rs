@@ -15,6 +15,7 @@ pub(crate) enum TypeID {
     Named,
     TObject,
     Any,
+    Objectp,
     ObjectP,
     String,
     AnyP,
@@ -33,6 +34,9 @@ pub(crate) struct PrimitiveID(pub(crate) i32);
 pub(crate) enum StlTypeID {
     Vector,
     Bitset,
+    String,
+    Map,
+    MultiMap,
 }
 
 impl PrimitiveID {
@@ -56,6 +60,7 @@ impl TypeID {
             id @ 41..=59 => Array(PrimitiveID::new(id - 40)?),
             61 => Object,
             62 => Any,
+            63 => Objectp,
             64 => ObjectP,
             65 => String,
             66 => TObject,
@@ -71,10 +76,12 @@ impl TypeID {
 
 impl StlTypeID {
     pub(crate) fn new(id: i32) -> StlTypeID {
-        use self::StlTypeID::*;
         match id {
-            1 => Vector,
-            8 => Bitset,
+            1 => StlTypeID::Vector,
+            4 => StlTypeID::Map,
+            5 => StlTypeID::MultiMap,
+            8 => StlTypeID::Bitset,
+            365 => StlTypeID::String,
             _ => unimplemented!("`StlTypeID` {} not implemented.", id),
         }
     }

@@ -1,5 +1,6 @@
-use nom::number::complete::*;
-use nom::*;
+use std::fmt::Debug;
+
+use nom::{error::ParseError, multi::length_data, number::complete::*, IResult};
 
 use quote::*;
 
@@ -91,7 +92,10 @@ pub(crate) struct TStreamerElement {
 /// Parse a `TStreamer` from a `Raw` buffer. This is usually the case
 /// after reading the `TList` of `TStreamerInfo`s from a ROOT file
 #[rustfmt::skip::macros(do_parse)]
-pub(crate) fn tstreamer<'c>(raw: &Raw<'c>) -> IResult<&'c [u8], TStreamer> {
+pub(crate) fn tstreamer<'s, E>(raw: &Raw<'s>) -> IResult<&'s [u8], TStreamer, E>
+where
+    E: ParseError<&'s [u8]> + Debug,
+{
     let wrapped_tstreamerelem = |i| length_value!(i, checked_byte_count, tstreamerelement);
     match raw.classinfo.as_str() {
         "TStreamerBase" => do_parse!(raw.obj,
@@ -143,23 +147,28 @@ pub(crate) fn tstreamer<'c>(raw: &Raw<'c>) -> IResult<&'c [u8], TStreamer> {
                                     vtype: map!(be_i32, StlTypeID::new) >>
                                     ctype: map_res!(be_i32, TypeID::new) >>
                                     (TStreamer::Stl {el, vtype, ctype})),
-        "TStreamerSTLstring" => do_parse!(raw.obj,
-                                          // Two version bcs `stlstring` derives from `stl`
-                                          _ver: be_u16 >>
-                                          _ver: be_u16 >>
-                                          el: wrapped_tstreamerelem >>
-                                          vtype: map!(be_i32, StlTypeID::new) >>
-                                          ctype: map_res!(be_i32, TypeID::new) >>
-                                          (TStreamer::StlString {el, vtype, ctype})),
+        "TStreamerSTLstring" => {
+            // Two version bcs `stlstring` derives from `stl`
+            let (i, _ver) = be_u16(raw.obj)?;
+            let (_, stl_buffer) = length_data(checked_byte_count)(i)?;
+            let (stl_buffer, _ver) = be_u16(stl_buffer)?;
+            let (stl_buffer, el) = wrapped_tstreamerelem(stl_buffer)?;
+            let (stl_buffer, vtype) = map!(stl_buffer, be_i32, StlTypeID::new)?;
+            let (_stl_buffer, ctype) = map_res!(stl_buffer, be_i32, TypeID::new)?;
+            Ok((i, TStreamer::StlString { el, vtype, ctype }))
+        }
         ci => unimplemented!("Unknown TStreamer {}", ci),
     }
 }
 
 #[rustfmt::skip::macros(do_parse)]
-named!(
-    #[doc="The element which is wrapped in a TStreamer."],
-    tstreamerelement<&[u8], TStreamerElement>,
-    do_parse!(ver: be_u16 >>
+/// The element which is wrapped in a TStreamer
+fn tstreamerelement<'s, E>(i: &'s [u8]) -> IResult<&'s [u8], TStreamerElement, E>
+where
+    E: ParseError<&'s [u8]> + Debug,
+{
+    do_parse!(i,
+              ver: be_u16 >>
               name: length_value!(checked_byte_count, tnamed) >>
               el_type: map_res!(be_i32, TypeID::new) >>
               size: be_i32 >>
@@ -180,7 +189,7 @@ named!(
                   }
               })
     )
-);
+}
 
 impl TStreamer {
     pub(crate) fn elem(&self) -> &TStreamerElement {
@@ -269,7 +278,7 @@ impl ToRustType for TStreamer {
             TStreamer::ObjectPointer { ref el } => {
                 match el.el_type {
                     // Pointers may be null!
-                    ObjectP => quote! {Option<#name>},
+                    ObjectP | Objectp => quote! {Option<#name>},
                     _ => panic!("{:#?}", self),
                 }
             }
@@ -282,16 +291,27 @@ impl ToRustType for TStreamer {
                     _ => panic!("{:#?}", self),
                 }
             }
-            TStreamer::String { ref el } => match el.el_type {
-                String => quote! {String},
-                _ => panic!("{:#?}", self),
-            },
+            TStreamer::String { ref el } | TStreamer::StlString { ref el, .. } => {
+                match el.el_type {
+                    String | Streamer => quote! {String},
+                    _ => panic!("{:#?}", self),
+                }
+            }
             TStreamer::Stl { ref vtype, .. } => match vtype {
                 StlTypeID::Vector => {
                     quote! {Stl_vec}
                 }
                 StlTypeID::Bitset => {
                     quote! {Stl_bitset}
+                }
+                StlTypeID::String => {
+                    quote! {Stl_string}
+                }
+                StlTypeID::Map => {
+                    quote! {Stl_map}
+                }
+                StlTypeID::MultiMap => {
+                    quote! {Stl_map}
                 }
             },
             _ => panic!("{:#?}", self),
@@ -375,16 +395,27 @@ impl ToRustParser for TStreamer {
                     _ => panic!("{:#?}", self),
                 }
             }
-            TStreamer::String { ref el } => match el.el_type {
-                String => quote! {string},
-                _ => panic!("{:#?}", self),
-            },
+            TStreamer::String { ref el } | TStreamer::StlString { ref el, .. } => {
+                match el.el_type {
+                    String | Streamer => quote! {string},
+                    _ => panic!("{:#?}", self),
+                }
+            }
             TStreamer::Stl { ref vtype, .. } => match vtype {
                 StlTypeID::Vector => {
                     quote! {stl_vec}
                 }
                 StlTypeID::Bitset => {
                     quote! {stl_bitset}
+                }
+                StlTypeID::String => {
+                    quote! {stl_string}
+                }
+                StlTypeID::Map => {
+                    quote! {stl_map}
+                }
+                StlTypeID::MultiMap => {
+                    quote! {stl_multimap}
                 }
             },
             _ => panic!("{:#?}", self),

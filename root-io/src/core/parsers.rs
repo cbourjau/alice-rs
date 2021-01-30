@@ -1,14 +1,12 @@
 use std::convert::TryFrom;
+use std::fmt::Debug;
 use std::io::Read;
 /// Parsers of the ROOT core types. Note that objects in ROOT files
 /// are often, but not always, preceeded by their size. The parsers in
 /// this module do therefore not included this leading size
 /// information. Usually, the user will want to do that with something
 /// along the lines of `length_value!(checked_byte_count, tobject)`
-/// themself.
-// Much of this is based on infromation from Much of this is derived
-// from streamerinfo.txt which is included in the official ROOT source
-// code for (old) layout
+/// themselves.
 use std::str;
 
 use failure::Error;
@@ -17,9 +15,10 @@ use lzma_rs::xz_decompress;
 use nom::{
     self,
     bytes::complete::{take, take_until},
-    combinator::{map_res, rest},
+    combinator::{map, map_res, rest, verify},
+    error::{ParseError, VerboseError},
     multi::{count, length_data, length_value},
-    number::complete::{be_f64, be_i32, be_u16, be_u32, be_u8},
+    number::complete::{be_i32, be_u16, be_u32, be_u64, be_u8},
     sequence::{pair, tuple},
 };
 
@@ -30,21 +29,26 @@ fn is_byte_count(v: &u32) -> bool {
     Flags::from_bits_truncate(*v).intersects(Flags::BYTE_COUNT_MASK)
 }
 
-// Check that the given byte count is not zero after applying bit mask
-named!(
-    #[doc="Return the size in bytes of the following object in the
-    input. The count is the remainder of this object minus the size
-    of the count."],
-    pub checked_byte_count<&[u8], u32>,
-    verify!(
-        map!(verify!(be_u32, is_byte_count),
-             |v| v & !Flags::BYTE_COUNT_MASK.bits()),
-        |v| *v != 0)
-);
+/// Return the size in bytes of the following object in the input. The
+/// count is the remainder of this object minus the size of the count.
+pub fn checked_byte_count<'s, E>(input: &'s [u8]) -> nom::IResult<&[u8], u32, E>
+where
+    E: ParseError<&'s [u8]> + Debug,
+{
+    verify(
+        map(verify(be_u32, is_byte_count), |v| {
+            v & !Flags::BYTE_COUNT_MASK.bits()
+        }),
+        |v| *v != 0,
+    )(input)
+}
 
 /// Read ROOT's version of short and long strings (preceeded by u8). Does not read null terminated!
 #[rustfmt::skip::macros(do_parse)]
-pub fn string(input: &[u8]) -> nom::IResult<&[u8], String> {
+pub fn string<'s, E>(input: &'s [u8]) -> nom::IResult<&'s [u8], String, E>
+where
+    E: ParseError<&'s [u8]> + Debug,
+{
     do_parse!(input,
               len: switch!(be_u8,
                            255 => call!(be_u32) |
@@ -56,11 +60,14 @@ pub fn string(input: &[u8]) -> nom::IResult<&[u8], String> {
     )
 }
 
-#[rustfmt::skip::macros(do_parse)]
-named!(
-    #[doc="Parser for the most basic of ROOT types"],
-    pub tobject<&[u8], TObject>,
-    do_parse!(ver: be_u16 >> // version_consume_extra_virtual >>
+/// Parser for the most basic of ROOT types
+pub fn tobject<'s, E>(input: &'s [u8]) -> nom::IResult<&[u8], TObject, E>
+where
+    E: ParseError<&'s [u8]> + Debug,
+{
+    do_parse!(
+        input,
+        ver: be_u16 >> // version_consume_extra_virtual >>
               id: be_u32 >>
               bits: map!(be_u32, |v| {
                   // TObjects read from disc must have the ON_HEAP flag
@@ -71,12 +78,12 @@ named!(
                   ver, id, bits
               }})
     )
-);
+}
 
 /// Parse a `TList`
-pub fn tlist<'s, 'c>(input: &'s [u8], context: &'c Context) -> nom::IResult<&'s [u8], TList<'c>>
+pub fn tlist<'s, E>(input: &'s [u8], context: &'s Context) -> nom::IResult<&'s [u8], TList<'s>, E>
 where
-    's: 'c,
+    E: ParseError<&'s [u8]> + Debug,
 {
     let (input, (ver, tobj, name, len)) = tuple((be_u16, tobject, string, be_i32))(input)?;
     let (input, objs) = count(
@@ -102,74 +109,61 @@ where
     ))
 }
 
-// /// Parse a `TList`
-// pub fn tlist<'s, 'c>(input: &'s [u8], context: &'c Context) -> nom::IResult<&'s [u8], TList<'c>>
-// where
-//     's: 'c,
-// {
-//     let wrapped_raw = |i| raw(i, context);
-//     do_parse!(input,
-//               ver: be_u16 >>
-//               tobj: tobject >>
-//               name: string >>
-//               len: be_i32 >>
-//               objs: count!(
-//                   do_parse!(obj: length_value!(checked_byte_count, wrapped_raw) >>
-//                             // It seems like the TList can have gaps
-//                             // between the elements. The size of the
-//                             // gap is specified with a be_u8 following
-//                             // the previous element.
-//                             _gap: opt!(complete!(length_data!(be_u8))) >>
-//                             (obj)),
-//                   len as usize) >>
-//               _rest: rest >>
-//               ({
-//                   TList{
-//                       ver: ver,
-//                       tobj: tobj,
-//                       name: name,
-//                       len: len as usize,
-//                       objs: objs
-//                   }})
-//     )
-// }
-
+/// Parser for `TNamed` objects
 #[rustfmt::skip::macros(do_parse)]
-named!(
-    #[doc="Parser for `TNamed` objects"],
-    pub tnamed<&[u8], TNamed>,
-    do_parse!(_ver: be_u16 >>
+pub fn tnamed<'s, E>(input: &'s [u8]) -> nom::IResult<&'s [u8], TNamed, E>
+where
+    E: ParseError<&'s [u8]> + Debug,
+{
+    do_parse!(input,
+              _ver: be_u16 >>
               _tobj: tobject >>
               name: string >>
               title: string >>
               ({TNamed{name, title}})
     )
-);
+}
 
 /// Parse a `TObjArray`
 #[rustfmt::skip::macros(do_parse)]
-pub fn tobjarray<'s, 'c>(
-    input: &'s [u8],
-    context: &'c Context,
-) -> nom::IResult<&'s [u8], Vec<Raw<'c>>>
+pub fn tobjarray<'s, E, F, O>(
+    parser: F,
+    i: &'s [u8],
+    context: &'s Context,
+) -> nom::IResult<&'s [u8], Vec<O>, E>
 where
-    's: 'c,
+    F: Fn(&Raw<'s>, &'s Context) -> nom::IResult<&'s [u8], O, E>,
+    E: ParseError<&'s [u8]> + Debug,
 {
-    let wrapped_raw = |i| raw(i, context);
-    do_parse!(input,
-              _ver: be_u16 >>
-              _tobj: tobject >>
-              _name: c_string >>
-              _size: be_i32 >>
-              _low: be_i32 >>
-              objs: count!(wrapped_raw, _size as usize) >>
-              (objs)
-    )
+    let (i, _ver) = be_u16(i)?;
+    let (i, _tobj) = tobject(i)?;
+    let (i, _name) = c_string(i)?;
+    let (i, size) = be_i32(i)?;
+    let (i, _low) = be_i32(i)?;
+    let (i, objs) = count(
+        map_res(
+            |i| raw(i, &context),
+            |r| {
+                let res = parser(&r, &context).map(|(_i, res)| res);
+                if res.is_err() {
+                    res.as_ref().unwrap();
+                }
+                res
+            },
+        ),
+        size as usize,
+    )(i)?;
+    Ok((i, objs))
 }
 
 /// Parse a `TObjArray` which does not have references pointing outside of the input buffer
 #[rustfmt::skip::macros(do_parse)]
-pub fn tobjarray_no_context(input: &[u8]) -> nom::IResult<&[u8], Vec<(ClassInfo, &[u8])>> {
+pub fn tobjarray_no_context<'s, E>(
+    input: &'s [u8],
+) -> nom::IResult<&'s [u8], Vec<(ClassInfo, &'s [u8])>, E>
+where
+    E: ParseError<&'s [u8]> + Debug,
+{
     do_parse!(input,
               _ver: be_u16 >>
               _tobj: tobject >>
@@ -194,16 +188,16 @@ named!(
     )
 );
 
-named!(
-    #[doc="Parse a so-called `TArrayI`. Note that ROOT's `TArray`s are actually not fixed size..."],
-    pub tarrayi<&[u8], Vec<i32>>,
-    length_count!(be_i32, be_i32)
-);
-named!(
-    #[doc="Parse a so-called `TArrayI`. Note that ROOT's `TArray`s are actually not fixed size..."],
-    pub tarrayd<&[u8], Vec<f64>>,
-    length_count!(be_i32, be_f64)
-);
+/// Parse a so-called `TArray`. Note that ROOT's `TArray`s are actually not fixed size.
+/// Example usage for TArrayI: `tarray(nom::complete::be_i32, input_slice)`
+pub fn tarray<'s, E, F, O>(parser: F, i: &'s [u8]) -> nom::IResult<&'s [u8], Vec<O>, E>
+where
+    F: Fn(&'s [u8]) -> nom::IResult<&'s [u8], O, E>,
+    E: ParseError<&'s [u8]> + Debug,
+{
+    let (i, counts) = be_i32(i)?;
+    count(parser, counts as usize)(i)
+}
 
 fn decode_reader(bytes: &[u8], magic: &str) -> Result<Vec<u8>, Error> {
     let mut ret = vec![];
@@ -216,7 +210,12 @@ fn decode_reader(bytes: &[u8], magic: &str) -> Result<Vec<u8>, Error> {
             let mut reader = std::io::BufReader::new(bytes);
             xz_decompress(&mut reader, &mut ret).unwrap();
         }
-        m => return Err(format_err!("Unsupported compression format `{}`", m)),
+        "L4" => {
+            use lz4_compress::decompress;
+            let (bytes, _checksum) = be_u64::<()>(bytes).unwrap();
+            ret = decompress(bytes).unwrap();
+        }
+        m => return std::dbg!(Err(format_err!("Unsupported compression format `{}`", m))),
     };
     Ok(ret)
 }
@@ -230,7 +229,10 @@ pub fn decompress(input: &[u8]) -> nom::IResult<&[u8], Vec<u8>> {
 }
 
 /// Parse a null terminated string
-pub fn c_string(i: &[u8]) -> nom::IResult<&[u8], String> {
+pub fn c_string<'s, E>(i: &'s [u8]) -> nom::IResult<&[u8], String, E>
+where
+    E: ParseError<&'s [u8]> + Debug,
+{
     let (i, s) = map_res(take_until(b"\x00".as_ref()), str::from_utf8)(i)?;
     // consume the null tag
     let (i, _) = take(1usize)(i)?;
@@ -242,7 +244,10 @@ pub fn c_string(i: &[u8]) -> nom::IResult<&[u8], String> {
 /// buffer.This is modeled after ROOT's `TBufferFile::ReadObjectAny` and
 /// `TBufferFile::ReadClass`
 #[rustfmt::skip::macros(do_parse)]
-pub fn classinfo(input: &[u8]) -> nom::IResult<&[u8], ClassInfo> {
+pub fn classinfo<'s, E>(input: &'s [u8]) -> nom::IResult<&[u8], ClassInfo, E>
+where
+    E: ParseError<&'s [u8]> + Debug,
+{
     do_parse!(input,
               bcnt: be_u32 >>
               tag: switch!(
@@ -269,19 +274,19 @@ pub fn classinfo(input: &[u8]) -> nom::IResult<&[u8], ClassInfo> {
 /// `Context`, though, which may not be avialable. If so, have a look
 /// at the `classinfo` parser.
 #[rustfmt::skip::macros(do_parse)]
-pub fn class_name_and_buffer<'s, 'c>(
+pub fn class_name_and_buffer<'s, E>(
     input: &'s [u8],
-    context: &'c Context,
-) -> nom::IResult<&'s [u8], (String, &'c [u8])>
+    context: &'s Context,
+) -> nom::IResult<&'s [u8], (String, &'s [u8]), E>
 where
-    's: 'c,
+    E: ParseError<&'s [u8]> + std::fmt::Debug,
 {
     let ctx_offset = u32::try_from(context.offset)
         .expect("Encountered pointer larger than 32 bits. Please file a bug.");
     let get_name_elsewhere = |tag| {
         let abs_offset = tag & !Flags::CLASS_MASK.bits();
         let s = &context.s[((abs_offset - ctx_offset) as usize)..];
-        let (_, (name, _)) = class_name_and_buffer(s, context).unwrap();
+        let (_, (name, _)) = class_name_and_buffer::<VerboseError<&[u8]>>(s, context).unwrap();
         name
     };
     let get_name_and_buf_elsewhere = |tag| {
@@ -291,7 +296,7 @@ where
             return ("".to_string(), &context.s[..0]);
         }
         let s = &context.s[((abs_offset - ctx_offset) as usize)..];
-        let (_, (name, buf)) = class_name_and_buffer(s, context).unwrap();
+        let (_, (name, buf)) = class_name_and_buffer::<VerboseError<&[u8]>>(s, context).unwrap();
         (name, buf)
     };
     do_parse!(input,
@@ -306,9 +311,9 @@ where
 
 /// Parse a `Raw` chunk from the given input buffer. This is usefull when one does not know the exact type at the time of parsing
 #[rustfmt::skip::macros(do_parse)]
-pub fn raw<'s, 'c>(input: &'s [u8], context: &'c Context) -> nom::IResult<&'s [u8], Raw<'c>>
+pub fn raw<'s, E>(input: &'s [u8], context: &'s Context) -> nom::IResult<&'s [u8], Raw<'s>, E>
 where
-    's: 'c,
+    E: ParseError<&'s [u8]> + Debug,
 {
     do_parse!(input,
               string_and_obj: call!(class_name_and_buffer, context) >>
@@ -321,7 +326,10 @@ where
 /// Same as `raw` but doesn't require a `Context` as input. Panics if
 /// a `Context` is required to parse the underlying buffer (i.e., the
 /// given buffer contains a reference to some other part of the file.
-pub fn raw_no_context(input: &[u8]) -> nom::IResult<&[u8], (ClassInfo, &[u8])> {
+pub fn raw_no_context<'s, E>(input: &'s [u8]) -> nom::IResult<&'s [u8], (ClassInfo, &[u8]), E>
+where
+    E: ParseError<&'s [u8]> + Debug,
+{
     use super::ClassInfo::*;
     let (input, ci) = classinfo(input)?;
     let obj = match ci {
@@ -339,9 +347,12 @@ pub fn raw_no_context(input: &[u8]) -> nom::IResult<&[u8], (ClassInfo, &[u8])> {
 /// different "menu" of available triggers. The trigger menu is saved
 /// as an `TObjArray` of `TNamed` objects for each event. This breaks
 /// it down to a simple vector
-pub fn parse_tobjarray_of_tnameds(input: &[u8]) -> nom::IResult<&[u8], Vec<String>> {
+pub fn parse_tobjarray_of_tnameds<'s, E>(input: &'s [u8]) -> nom::IResult<&[u8], Vec<String>, E>
+where
+    E: ParseError<&'s [u8]> + Debug,
+{
     // each element of the tobjarray has a Vec<u8>
-    let (input, vals) = length_value!(input, checked_byte_count, tobjarray_no_context)?;
+    let (input, vals) = length_value(checked_byte_count, tobjarray_no_context)(input)?;
     let strings = vals
         .into_iter()
         .map(|(ci, el)| {
@@ -359,7 +370,10 @@ pub fn parse_tobjarray_of_tnameds(input: &[u8]) -> nom::IResult<&[u8], Vec<Strin
 /// number of bytes can be found in the comment string of the
 /// generated YAML code (for ALICE ESD files at least).  This function
 /// reconstructs a float from the exponent and mantissa
-pub fn parse_custom_mantissa(input: &[u8], nbits: usize) -> nom::IResult<&[u8], f32> {
+pub fn parse_custom_mantissa<'s, E>(input: &'s [u8], nbits: usize) -> nom::IResult<&[u8], f32, E>
+where
+    E: ParseError<&'s [u8]> + Debug,
+{
     // TODO: Use ByteOrder crate to be cross-platform?
     pair(be_u8, be_u16)(input).map(|(input, (exp, man))| {
         let mut s = u32::from(exp);
@@ -373,6 +387,7 @@ pub fn parse_custom_mantissa(input: &[u8], nbits: usize) -> nom::IResult<&[u8], 
 #[cfg(test)]
 mod classinfo_test {
     use super::classinfo;
+    use nom::error::VerboseError;
 
     /// There is an issue where the following is parsed differently on
     /// nightly ( rustc 1.25.0-nightly (79a521bb9 2018-01-15)), than
@@ -398,8 +413,9 @@ mod classinfo_test {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 84, 83, 116, 114, 105, 110, 103,
         ];
         let i = i.as_slice();
-        let (i, _ci) = classinfo(i).unwrap();
-        // The error manifests in the entire input being (wrongly) consumed, instead of having some left overs
+        let (i, _ci) = classinfo::<VerboseError<_>>(i).unwrap();
+        // The error manifests in the entire input being (wrongly)
+        // consumed, instead of having some left overs
         assert_eq!(i.len(), 352);
     }
 }

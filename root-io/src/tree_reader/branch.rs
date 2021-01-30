@@ -1,11 +1,16 @@
+use std::fmt::Debug;
+
 use futures::prelude::*;
-use nom::multi::count;
-use nom::number::complete::*;
-use nom::*;
+use nom::{
+    error::{ParseError, VerboseError},
+    multi::{count, length_value},
+    number::complete::*,
+    IResult,
+};
 
 use crate::{
     code_gen::rust::ToRustType, core::parsers::*, core::types::*,
-    tree_reader::container::Container, tree_reader::leafs::tleaf, tree_reader::leafs::TLeaf,
+    tree_reader::container::Container, tree_reader::leafs::TLeaf,
 };
 
 /// A `TBranch` describes one "Column" of a `TTree`
@@ -113,13 +118,14 @@ impl TBranch {
     /// ```
     pub fn as_fixed_size_iterator<T, P>(&self, p: P) -> impl Stream<Item = T>
     where
-        P: Fn(&[u8]) -> IResult<&[u8], T>,
+        P: Fn(&[u8]) -> IResult<&[u8], T, VerboseError<&[u8]>>,
     {
         stream::iter(self.containers().to_owned())
             .then(|basket| async move { basket.raw_data().await.unwrap() })
             .map(move |(n_events_in_basket, buffer)| {
                 // Parse the entire basket buffer; if something is left over its just junk
-                let events = match count(&p, n_events_in_basket as usize)(&buffer) {
+                let x = count(&p, n_events_in_basket as usize)(&buffer);
+                let events = match x {
                     Ok((_rest, output)) => output,
                     Err(e) => panic!(format!("Parser failed unexpectedly {:?}", e)),
                 };
@@ -161,14 +167,14 @@ impl TBranch {
 
 /// `TBranchElements` are a subclass of `TBranch` if the content is an Object
 /// We ignore the extra information for now and just parse the TBranch"Header" in either case
-pub(crate) fn tbranch_hdr<'s>(raw: &Raw<'s>, ctxt: &'s Context) -> IResult<&'s [u8], TBranch> {
+pub(crate) fn tbranch_hdr<'s, E>(raw: &Raw<'s>, ctxt: &'s Context) -> IResult<&'s [u8], TBranch, E>
+where
+    E: ParseError<&'s [u8]> + Debug,
+{
     match raw.classinfo.as_str() {
         "TBranchElement" | "TBranchObject" => {
-            preceded!(
-                raw.obj,
-                be_u16, // version
-                length_value!(checked_byte_count, call!(tbranch, ctxt))
-            )
+            let (i, _ver) = be_u16(raw.obj)?;
+            length_value!(i, checked_byte_count, call!(tbranch, ctxt))
         }
         "TBranch" => tbranch(raw.obj, ctxt),
         name => panic!("Unexpected Branch type {}", name),
@@ -176,139 +182,78 @@ pub(crate) fn tbranch_hdr<'s>(raw: &Raw<'s>, ctxt: &'s Context) -> IResult<&'s [
 }
 
 #[rustfmt::skip::macros(do_parse)]
-fn tbranch<'s>(input: &'s [u8], context: &Context<'s>) -> IResult<&'s [u8], TBranch> {
-    let _curried_raw = |i| raw(i, context);
-    let wrapped_tobjarray =
-        |i: &'s [u8]| length_value!(i, checked_byte_count, call!(tobjarray, context));
-    do_parse!(
-        input,
-        _ver: verify!(be_u16, |v| *v == 12) >>
-            tnamed: length_value!(checked_byte_count, tnamed) >>
-            _tattfill: length_data!(checked_byte_count) >>
-            fcompress: be_i32 >>
-            fbasketsize: be_i32 >>
-            fentryoffsetlen: be_i32 >>
-            fwritebasket: be_i32 >>
-            fentrynumber: be_i64 >>
-            foffset: be_i32 >>
-            fmaxbaskets: be_i32 >>
-            fsplitlevel: be_i32 >>
-            fentries: be_i64 >>
-            ffirstentry: be_i64 >>
-            ftotbytes: be_i64 >>
-            fzipbytes: be_i64 >>
-            fbranches: wrapped_tobjarray >>
-            fleaves: wrapped_tobjarray >>
-            fbaskets: wrapped_tobjarray >>
-            fbasketbytes: preceded!(be_u8, count!(be_i32, fmaxbaskets as usize)) >>
-            fbasketentry: preceded!(be_u8, count!(be_i64, fmaxbaskets as usize)) >>
-            fbasketseek: preceded!(be_u8, count!(be_u64, fmaxbaskets as usize)) >>
-            ffilename: string >>
-            ({
-                let name = tnamed.name;
-                let fbranches = fbranches
-                    .iter()
-                    .map(|s| tbranch_hdr(s, context).unwrap().1)
-                    .collect();
-                let fleaves = fleaves
-                    .into_iter()
-                    .map(|r| tleaf(r.obj, context, &r.classinfo).unwrap().1)
-                    .collect();
-                // Remove tailing empty baskets informations
-                let fbaskets = fbaskets
-                    .into_iter()
-                    .filter(|s| !s.obj.is_empty())
-                    .map(|s| Container::InMemory(s.obj.to_vec()));
-                let nbaskets = fwritebasket as usize;
-                let fbasketbytes = fbasketbytes
-                    .into_iter()
-                    .take(nbaskets)
-                    .map(|val| val as usize);
-                let fbasketentry = fbasketentry.into_iter().take(nbaskets).collect();
-                let fbasketseek = fbasketseek.into_iter().take(nbaskets);
-                let source = if ffilename == "" {
-                    context.source.to_owned()
-                } else {
-                    unimplemented!("Root files referencing other Root files is not implemented")
-                };
-                let containers_disk = fbasketseek
-                    .zip(fbasketbytes)
-                    .map(|(seek, len)| Container::OnDisk(source.clone(), seek, len as u64));
-                let containers = fbaskets.chain(containers_disk).collect();
-                TBranch {
-                    name,
-                    fcompress,
-                    fbasketsize,
-                    fentryoffsetlen,
-                    fwritebasket,
-                    fentrynumber,
-                    foffset,
-                    fsplitlevel,
-                    fentries,
-                    ffirstentry,
-                    ftotbytes,
-                    fzipbytes,
-                    fbranches,
-                    fleaves,
-                    fbasketentry,
-                    containers,
-                }
-            })
-    )
+fn tbranch<'s, E>(i: &'s [u8], context: &'s Context<'s>) -> IResult<&'s [u8], TBranch, E>
+where
+    E: ParseError<&'s [u8]> + Debug,
+{
+    let (i, _ver) = verify!(i, be_u16, |v| [11, 12].contains(v))?;
+    let (i, tnamed) = length_value!(i, checked_byte_count, tnamed)?;
+    let (i, _tattfill) = length_data!(i, checked_byte_count)?;
+    let (i, fcompress) = be_i32(i)?;
+    let (i, fbasketsize) = be_i32(i)?;
+    let (i, fentryoffsetlen) = be_i32(i)?;
+    let (i, fwritebasket) = be_i32(i)?;
+    let (i, fentrynumber) = be_i64(i)?;
+    let (i, foffset) = be_i32(i)?;
+    let (i, fmaxbaskets) = be_i32(i)?;
+    let (i, fsplitlevel) = be_i32(i)?;
+    let (i, fentries) = be_i64(i)?;
+    let (i, ffirstentry) = be_i64(i)?;
+    let (i, ftotbytes) = be_i64(i)?;
+    let (i, fzipbytes) = be_i64(i)?;
+    let (i, fbranches) =
+        length_value(checked_byte_count, |i| tobjarray(tbranch_hdr, i, context))(i)?;
+    let (i, fleaves) = length_value(checked_byte_count, |i| {
+        tobjarray(TLeaf::parse_from_raw, i, context)
+    })(i)?;
+    let (i, fbaskets) = length_value(checked_byte_count, |i| {
+        tobjarray(|r, _context| Ok((&[], r.obj)), i, context)
+    })(i)?;
+    let (i, fbasketbytes) = preceded!(i, be_u8, count!(be_i32, fmaxbaskets as usize))?;
+    let (i, fbasketentry) = preceded!(i, be_u8, count!(be_i64, fmaxbaskets as usize))?;
+    let (i, fbasketseek) = preceded!(i, be_u8, count!(be_u64, fmaxbaskets as usize))?;
+    let (i, ffilename) = string(i)?;
+
+    let name = tnamed.name;
+    let fbaskets = fbaskets
+        .into_iter()
+        .filter(|s| !s.is_empty())
+        .map(|s| Container::InMemory(s.to_vec()));
+    let nbaskets = fwritebasket as usize;
+    let fbasketbytes = fbasketbytes
+        .into_iter()
+        .take(nbaskets)
+        .map(|val| val as usize);
+    let fbasketentry = fbasketentry.into_iter().take(nbaskets).collect();
+    let fbasketseek = fbasketseek.into_iter().take(nbaskets);
+    let source = if ffilename == "" {
+        context.source.to_owned()
+    } else {
+        unimplemented!("Root files referencing other Root files is not implemented")
+    };
+    let containers_disk = fbasketseek
+        .zip(fbasketbytes)
+        .map(|(seek, len)| Container::OnDisk(source.clone(), seek, len as u64));
+    let containers = fbaskets.chain(containers_disk).collect();
+    Ok((
+        i,
+        TBranch {
+            name,
+            fcompress,
+            fbasketsize,
+            fentryoffsetlen,
+            fwritebasket,
+            fentrynumber,
+            foffset,
+            fsplitlevel,
+            fentries,
+            ffirstentry,
+            ftotbytes,
+            fzipbytes,
+            fbranches,
+            fleaves,
+            fbasketentry,
+            containers,
+        },
+    ))
 }
-
-// /// Iterator over chunks of variable size. It solves the issue that we
-// /// get chunks of data from the underlying TBuckets, but then need to
-// /// chunk that data into smaller, variable sized chunks again. The
-// /// size of the smaller chunks is given by the `chunk_size`
-// /// iterator. The bigger chunks are produced by an inner stream of
-// /// `Vec<el>`s as read from file.
-// struct VarChunkIter<IChunkSizes: Iterator<Item = u32>, IBigChunks: Stream> {
-//     /// Number of elements in each chunk
-//     chunk_sizes: IChunkSizes,
-//     /// Inner iterators over elements. This is wanted since we don't
-//     /// want to read all baskets form file immediately
-//     inner: IBigChunks,
-//     /// The big chunk we are currently chopping up
-//     current_big_chunk: IBigChunks::Item
-// }
-
-// impl<T, IChunkSizes: Iterator<Item = u32>, IBigChunks: Stream<Item=Vec<T>>> VarChunkIter<IChunkSizes, IBigChunks> {
-//     fn new(chunk_sizes: IChunkSizes, elements: IBigChunks) -> Self {
-//         Self {
-//             chunk_sizes,
-//             inner: elements,
-//             current_big_chunk: Vec::new(),
-//         }
-//     }
-// }
-
-// impl<T, IChunkSizes, IBigChunks> Stream
-//     for VarChunkIter<IChunkSizes, IBigChunks>
-// where
-//     IChunkSizes: Iterator<Item = u32>,
-//     IBigChunks: Stream<Item=Vec<T>>,
-// {
-//     type Item = <IBigChunks as Stream>::Item;
-
-//     fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut futures::task::Context) -> futures::task::Poll<Option<Self::Item>> {
-//         // if self.current_big_chunk.is_empty() {
-//         //     match self.inner.poll_next(&mut cx) {
-//         //     }
-//         // }
-//         unimplemented!()
-//     }
-//     // fn next(&mut self) -> Option<Self::Item> {
-//     //     if let Some(n_elem) = self.chunk_sizes.next() {
-//     //         let mut chunk = Vec::with_capacity(n_elem as usize);
-//     //         for _ in 0..n_elem {
-//     //             chunk.push(self.inner.next().expect("Inner Iterator ended"));
-//     //         }
-//     //         Some(chunk)
-//     //     } else {
-//     //         // No more elements expected; TODO check if `inner` is also
-//     //         // depleted
-//     //         None
-//     //     }
-//     // }
-// }

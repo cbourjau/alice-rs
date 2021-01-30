@@ -13,14 +13,14 @@ async fn download_partial() {
     let client = Client::builder().build().unwrap();
     let url = get_file_list(139_038).await.unwrap()[0].clone();
     let (start, len) = (13993603, 68936);
-    let rsp = dbg!(client
+    let rsp = client
         .get(url)
         .header("User-Agent", "alice-rs")
-        .header(RANGE, &format!("bytes={}-{}", start, start + len - 1)))
-    .send()
-    .await
-    .unwrap();
-    dbg!(&rsp);
+        .header(RANGE, &format!("bytes={}-{}", start, start + len - 1))
+        .send()
+        .await
+        .unwrap();
+
     let partial = rsp.error_for_status().unwrap().bytes().await.unwrap();
     assert_eq!(partial.len(), len);
     #[cfg(not(target_arch = "wasm32"))]

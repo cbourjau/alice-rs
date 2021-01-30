@@ -1,5 +1,5 @@
 use failure::Error;
-use nom::*;
+use nom::{error::VerboseError, multi::length_value};
 
 use crate::core::{checked_byte_count, decompress, Context, Source, TKeyHeader};
 use crate::tree_reader::{ttree, Tree};
@@ -20,12 +20,6 @@ impl FileItem {
         }
     }
 
-    /// Parse this item as a `Tree`. Instead one could also call
-    /// `parse_with` with the `ttree` parser
-    pub async fn as_tree(&self) -> Result<Tree, Error> {
-        self.parse_with(ttree).await
-    }
-
     /// Information about this file item in Human readable form
     pub fn verbose_info(&self) -> String {
         format!("{:#?}", self.tkey_hdr)
@@ -37,39 +31,44 @@ impl FileItem {
         )
     }
 
-    /// Read (and possibly decompress) data from disk and parse it as
-    /// the appropriate type using the TStreamerInfo types.
-    /// The return type of the parser function must not contain a
-    /// reference to the parsed buffer
-    pub(crate) async fn parse_with<O, F>(&self, parser: F) -> Result<O, Error>
-    where
-        F: for<'s> Fn(&'s [u8], &'s Context<'s>) -> IResult<&'s [u8], O>,
-    {
+    pub(crate) async fn get_buffer(&self) -> Result<Vec<u8>, Error> {
         let start = self.tkey_hdr.seek_key + self.tkey_hdr.key_len as u64;
         let len = self.tkey_hdr.total_size - self.tkey_hdr.key_len as u32;
         let comp_buf = self.source.fetch(start, len as u64).await?;
 
-        let buf = {
-            if self.tkey_hdr.total_size < self.tkey_hdr.uncomp_len {
-                // Decompress the read buffer; buf is Vec<u8>
-                let (_, buf) = decompress(comp_buf.as_slice()).unwrap();
-                buf
-            } else {
-                comp_buf
-            }
+        let buf = if self.tkey_hdr.total_size < self.tkey_hdr.uncomp_len {
+            // Decompress the read buffer; buf is Vec<u8>
+            let (_, buf) = decompress(comp_buf.as_slice()).unwrap();
+            buf
+        } else {
+            comp_buf
         };
-        let s = buf.as_slice();
+        Ok(buf)
+    }
+
+    pub(crate) fn context_from_buffer<'s>(&self, buffer: &'s [u8]) -> Context<'s> {
         let k_map_offset = 2;
-        let context = Context {
+        Context {
             source: self.source.clone(),
             offset: (self.tkey_hdr.key_len + k_map_offset) as u64,
-            s,
-        };
-        // wrap parser in a byte count
-        let res = length_value!(s, checked_byte_count, call!(&parser, &context));
+            s: buffer,
+        }
+    }
+
+    /// Parse this `FileItem` as a `Tree`
+    pub async fn as_tree(&self) -> Result<Tree, Error> {
+        let buf = self.get_buffer().await?;
+        let context = self.context_from_buffer(&buf);
+
+        let res = length_value(checked_byte_count, |i| {
+            ttree::<VerboseError<_>>(i, &context)
+        })(&buf);
         match res {
             Ok((_, obj)) => Ok(obj),
-            _ => Err(format_err!("Supplied parser failed!")),
+            Err(nom::Err::Error(e)) | Err(nom::Err::Failure(e)) => {
+                Err(format_err!("Supplied parser failed! {:?}", e.errors))
+            }
+            _ => panic!(),
         }
     }
 }

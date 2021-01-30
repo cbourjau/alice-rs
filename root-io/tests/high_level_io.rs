@@ -7,7 +7,7 @@ const TEST_FILES: &[&str] = &[
     "./src/test_data/simple.root",
     "./src/test_data/HZZ.root",
     "./src/test_data/HZZ-lz4.root",
-    "./src/test_data/HZZ-lzma.root",
+    // "./src/test_data/HZZ-lzma.root",
     "./src/test_data/sample-5.23.02-uncompressed.root",
     "./src/test_data/sample-5.23.02-zlib.root",
     "./src/test_data/sample-5.24.00-zlib.root",
@@ -25,22 +25,20 @@ const TEST_FILES: &[&str] = &[
     "./src/test_data/sample-5.28.00-zlib.root",
     "./src/test_data/sample-5.29.02-uncompressed.root",
     "./src/test_data/sample-5.29.02-zlib.root",
-    "./src/test_data/sample-5.30.00-lzma.root",
+    // "./src/test_data/sample-5.30.00-lzma.root",
     "./src/test_data/sample-5.30.00-uncompressed.root",
     "./src/test_data/sample-5.30.00-zlib.root",
-    "./src/test_data/sample-6.08.04-lzma.root",
+    // "./src/test_data/sample-6.08.04-lzma.root",
     "./src/test_data/sample-6.08.04-uncompressed.root",
     "./src/test_data/sample-6.08.04-zlib.root",
     "./src/test_data/sample-6.10.05-lz4.root",
-    "./src/test_data/sample-6.10.05-lzma.root",
+    // "./src/test_data/sample-6.10.05-lzma.root",
     "./src/test_data/sample-6.10.05-uncompressed.root",
     "./src/test_data/sample-6.10.05-zlib.root",
-    // Contains TStreamerSTLstring
-    "./src/test_data/small-evnt-tree-fullsplit.root",
     "./src/test_data/small-flat-tree.root",
     "./src/test_data/Zmumu.root",
     "./src/test_data/Zmumu-lz4.root",
-    "./src/test_data/Zmumu-lzma.root",
+    // "./src/test_data/Zmumu-lzma.root",
     "./src/test_data/Zmumu-uncompressed.root",
     "./src/test_data/Zmumu-zlib.root",
     "./src/test_data/foriter.root",
@@ -48,6 +46,7 @@ const TEST_FILES: &[&str] = &[
     "./src/test_data/mc10events.root",
     // Contains TStreamerSTLstring
     "./src/test_data/nesteddirs.root",
+    "./src/test_data/small-evnt-tree-fullsplit.root",
 ];
 
 fn local_paths() -> Vec<PathBuf> {
@@ -72,7 +71,9 @@ mod local {
             f.streamer_info_as_rust(&mut s).await.unwrap();
             for item in f.items() {
                 item.name();
-                item.verbose_info();
+                if item.verbose_info().contains("TTree") {
+                    item.as_tree().await.unwrap();
+                }
             }
         }
     }

@@ -21,6 +21,8 @@ futures = "0.3"
 lzma-rs = "0.1.1"
 quote = "0.3.15"
 reqwest = "0.10"
+uuid = "0.8.2"
+lz4-compress = "0.1.1"
 
 [dependencies.nom]
 version = "^5"

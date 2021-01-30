@@ -1,5 +1,6 @@
-use nom::number::complete::*;
-use nom::*;
+use std::fmt::Debug;
+
+use nom::{error::ParseError, multi::length_value, number::complete::*, IResult};
 
 use quote::*;
 
@@ -20,43 +21,36 @@ pub struct TStreamerInfo {
 
 /// Parse one `TStreamerInfo` object (as found in the `TList`)
 #[rustfmt::skip::macros(do_parse)]
-pub(crate) fn tstreamerinfo<'s, 'c>(
-    input: &'s [u8],
-    context: &'c Context,
-) -> IResult<&'s [u8], TStreamerInfo>
+pub(crate) fn tstreamerinfo<'s, E>(
+    i: &'s [u8],
+    context: &'s Context,
+) -> IResult<&'s [u8], TStreamerInfo, E>
 where
-    's: 'c,
+    E: ParseError<&'s [u8]> + Debug,
 {
-    let wrapped_tobjarray = |i| tobjarray(i, &context);
-    do_parse!(input,
-              tstreamerinfo_ver: be_u16 >>
-              named: length_value!(checked_byte_count, tnamed) >>
-              checksum: be_u32 >>
-              new_class_version: be_u32 >>
-              _size_tobjarray_with_class_info: checked_byte_count >>
-              _class_info_objarray: classinfo >>
-              data_members: length_value!(checked_byte_count, wrapped_tobjarray) >>
-              _eof: eof!() >>
-              ({
-                  let data_members = data_members.iter()
-                      .filter_map(|el| {
-                          match tstreamer(el) {
-                              Ok((_, v)) => Some(v),
-                              _ => {println!("Failed to parse TStreamer for {}:\n{}",
-                                             el.classinfo, el.obj.to_hex(16));
-                                    None
-                              },
-                          }
-                      })
-                      .collect();
-                  TStreamerInfo {
-                      tstreamerinfo_ver,
-                      named,
-                      checksum,
-                      new_class_version,
-                      data_members,
-                  }})
-    )
+    let parse_members = |i| tobjarray(|raw_obj, _context| tstreamer(raw_obj), i, &context);
+
+    let (i, tstreamerinfo_ver) = be_u16(i)?;
+    let (i, named) = length_value!(i, checked_byte_count, tnamed)?;
+    let (i, checksum) = be_u32(i)?;
+    let (i, new_class_version) = be_u32(i)?;
+    let (i, _size_tobjarray_with_class_info) = checked_byte_count(i)?;
+    let (i, _class_info_objarray) = classinfo(i)?;
+    let (i, data_members) = length_value(
+        nom::dbg_dmp(checked_byte_count, "byte count"),
+        nom::dbg_dmp(parse_members, "parse_members"),
+    )(i)?;
+    let (i, _eof) = eof!(i,)?;
+    Ok((
+        i,
+        TStreamerInfo {
+            tstreamerinfo_ver,
+            named,
+            checksum,
+            new_class_version,
+            data_members,
+        },
+    ))
 }
 
 impl ToRustParser for TStreamerInfo {

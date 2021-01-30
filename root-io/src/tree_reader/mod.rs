@@ -17,7 +17,6 @@ mod tests {
     use std::path::PathBuf;
     use tokio;
 
-    use super::ttree;
     use crate::core::RootFile;
 
     #[tokio::test]
@@ -26,6 +25,6 @@ mod tests {
         let f = RootFile::new(path.as_path())
             .await
             .expect("Failed to open file");
-        f.items()[0].parse_with(ttree).await.unwrap();
+        f.items()[0].as_tree().await.unwrap();
     }
 }

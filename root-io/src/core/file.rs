@@ -3,8 +3,13 @@ use std::fmt;
 use failure::Error;
 use nom::{
     self,
-    number::complete::{be_i16, be_i32, be_i64, be_u32, be_u64, be_u8},
+    bytes::complete::tag,
+    error::VerboseError,
+    number::complete::{be_i16, be_i32, be_u128, be_u16, be_u32, be_u64, be_u8},
+    IResult,
 };
+
+use uuid::Uuid;
 
 use crate::{
     code_gen::rust::{ToNamedRustParser, ToRustStruct},
@@ -13,7 +18,7 @@ use crate::{
 };
 
 /// Size of serialized `FileHeader` in bytes
-const FILE_HEADER_SIZE: u64 = 53;
+const FILE_HEADER_SIZE: u64 = 75;
 
 /// Size of serialized TDirectory. Depending on the ROOT version this
 /// may use 32 or 64 bit pointers. This is the maximal (64 bit size).
@@ -31,8 +36,8 @@ pub struct RootFile {
 struct FileHeader {
     version: i32,
     begin: i32,
-    end: i32,
-    seek_free: i32,
+    end: u64,
+    seek_free: u64,
     nbytes_free: i32,
     n_entries_free: i32,
     n_bytes_name: i32,
@@ -40,7 +45,7 @@ struct FileHeader {
     compression: i32,
     seek_info: SeekPointer,
     nbytes_info: i32,
-    uuid: i64,
+    uuid: Uuid,
     seek_dir: SeekPointer,
 }
 
@@ -56,34 +61,53 @@ pub struct Directory {
     seek_keys: SeekPointer,
 }
 
-#[rustfmt::skip::macros(do_parse)]
-named!(
-    #[doc="Opening part of a root file"],
-    file_header<&[u8], FileHeader>,
-    do_parse!(
-        tag!("root") >>
-            version: be_i32 >>
-            begin:   be_i32 >>
-            end:     be_i32 >>
-            seek_free: be_i32 >>
-            nbytes_free: be_i32 >>
-            n_entries_free: be_i32 >>
-            n_bytes_name: be_i32 >>
-            pointer_size: be_u8 >>
-            compression: be_i32 >>
-            seek_info: map!(be_i32, |v| v as u64) >>
-            nbytes_info: be_i32 >>
-            uuid: be_i64 >>
-            ({
-                let seek_dir = (begin + n_bytes_name) as u64;
-                FileHeader {
-                    version, begin, end, seek_free, nbytes_free,
-                    n_entries_free, n_bytes_name, pointer_size,
-                    compression, seek_info, nbytes_info, uuid,
-                    seek_dir,
-                }})
-    )
-);
+/// Parse opening part of a root file
+fn file_header(i: &[u8]) -> IResult<&[u8], FileHeader> {
+    fn version_dep_int(i: &[u8], is_64_bit: bool) -> IResult<&[u8], u64> {
+        if is_64_bit {
+            be_u64(i)
+        } else {
+            let (i, end) = be_u32(i)?;
+            Ok((i, end as u64))
+        }
+    }
+    let (i, _) = tag("root")(i)?;
+    let (i, version) = be_i32(i)?;
+    let is_64_bit = version > 1000000;
+    let (i, begin) = be_i32(i)?;
+    let (i, end) = version_dep_int(i, is_64_bit)?;
+    let (i, seek_free) = version_dep_int(i, is_64_bit)?;
+    let (i, nbytes_free) = be_i32(i)?;
+    let (i, n_entries_free) = be_i32(i)?;
+    let (i, n_bytes_name) = be_i32(i)?;
+    let (i, pointer_size) = be_u8(i)?;
+    let (i, compression) = be_i32(i)?;
+    let (i, seek_info) = version_dep_int(i, is_64_bit)?;
+    let (i, nbytes_info) = be_i32(i)?;
+    let (i, _uuid_version) = be_u16(i)?;
+    let (i, uuid) = be_u128(i)?;
+
+    let uuid = Uuid::from_u128(uuid);
+    let seek_dir = (begin + n_bytes_name) as u64;
+    Ok((
+        i,
+        FileHeader {
+            version,
+            begin,
+            end,
+            seek_free,
+            nbytes_free,
+            n_entries_free,
+            n_bytes_name,
+            pointer_size,
+            compression,
+            seek_info,
+            nbytes_info,
+            uuid,
+            seek_dir,
+        },
+    ))
+}
 
 /// Parse a file-pointer based on the version of the file
 fn versioned_pointer(input: &[u8], version: i16) -> nom::IResult<&[u8], u64> {
@@ -124,7 +148,6 @@ impl RootFile {
                 .map_err(|_| format_err!("Failed to parse file header"))
                 .map(|(_i, o)| o)
         })?;
-
         // Jump to the TDirectory and parse it
         let dir = source
             .fetch(hdr.seek_dir, TDIRECTORY_MAX_SIZE)
@@ -171,7 +194,7 @@ impl RootFile {
             s: info_key.obj.as_slice(),
         };
         // This TList in the payload has a bytecount in front...
-        let wrapped_tlist = |i| tlist(i, &context);
+        let wrapped_tlist = |i| tlist::<VerboseError<&[u8]>>(i, &context);
         let tlist_objs =
             match length_value!(info_key.obj.as_slice(), checked_byte_count, wrapped_tlist) {
                 Ok((_, l)) => Ok(l.objs),
@@ -185,7 +208,7 @@ impl RootFile {
                 "TStreamerInfo" => Some(raw.obj),
                 _ => None,
             })
-            .map(|i| tstreamerinfo(i, &context).unwrap().1)
+            .map(|i| tstreamerinfo::<VerboseError<&[u8]>>(i, &context).unwrap().1)
             .collect());
         // Parse the "rules", if any, from the same tlist
         let _rules: Vec<_> = tlist_objs
@@ -195,7 +218,7 @@ impl RootFile {
                 _ => None,
             })
             .map(|i| {
-                let tl = tlist(i, &context).unwrap().1;
+                let tl = tlist::<VerboseError<&[u8]>>(i, &context).unwrap().1;
                 // Each `Rule` is a TList of `TObjString`s
                 tl.objs
                     .iter()
@@ -263,11 +286,25 @@ mod test {
     use super::*;
     use std::path::Path;
 
+    use nom::multi::length_value;
+
     use reqwest::Url;
     use tokio;
 
     const SIMPLE_FILE_REMOTE: &str =
 	"https://github.com/cbourjau/alice-rs/blob/master/root-io/src/test_data/simple.root?raw=true";
+
+    #[tokio::test]
+    async fn read_cms_file_remote() {
+        let url = "http://opendata.web.cern.ch/eos/opendata/cms/hidata/HIRun2010/HIAllPhysics/RECO/ZS-v2/0000/001DA267-7243-E011-B38F-001617C3B6CE.root";
+        let f = RootFile::new(Url::parse(url).unwrap()).await.unwrap();
+        let mut s = String::new();
+        f.streamer_info_as_yaml(&mut s).await.unwrap();
+        println!("{}", s);
+        for item in f.items() {
+            item.as_tree().await.unwrap();
+        }
+    }
 
     #[tokio::test]
     async fn file_header_test() {
@@ -297,7 +334,7 @@ mod test {
                 compression: 1,
                 seek_info: 1117,
                 nbytes_info: 4442,
-                uuid: 409442932018821,
+                uuid: Uuid::from_u128(154703765255331693287451041600576143087),
                 seek_dir: 158,
             };
             assert_eq!(hdr, should);
@@ -374,17 +411,16 @@ mod test {
                 s: key.obj.as_slice(),
             };
 
-            match length_value!(
-                key.obj.as_slice(),
-                checked_byte_count,
-                call!(tlist, &context)
-            ) {
+            match length_value(checked_byte_count, |i| {
+                tlist::<VerboseError<_>>(i, &context)
+            })(key.obj.as_slice())
+            {
                 Ok((_, l)) => {
                     assert_eq!(l.ver, 5);
                     assert_eq!(l.name, "");
                     assert_eq!(l.len, 19);
                 }
-                _ => panic!("Not parsed as TList!"),
+                Err(_e) => panic!("Not parsed as TList!"),
             };
         }
     }

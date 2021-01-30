@@ -1,13 +1,169 @@
-use std::fmt;
+use std::fmt::Debug;
 
-use nom::number::complete::*;
-use nom::*;
+use nom::{
+    combinator::{map_res, verify},
+    error::ParseError,
+    multi::length_value,
+    number::complete::*,
+    IResult,
+};
+
 use quote::{Ident, Tokens};
 
 use crate::{code_gen::rust::ToRustType, core::*};
 
+/// Parse a bool from a big endian u8
+fn be_bool<'a, E: ParseError<&'a [u8]>>(i: &'a [u8]) -> IResult<&[u8], bool, E> {
+    let (i, byte) = verify(be_u8, |&byte| byte == 0 || byte == 1)(i)?;
+    Ok((i, byte == 1))
+}
+
+// Wrap everything once more to avoid exporting the enum variants.
 #[derive(Debug, Clone)]
-pub struct TLeafBase {
+pub struct TLeaf {
+    variant: TLeafVariant,
+}
+
+impl TLeaf {
+    pub fn parse<'s, E>(
+        i: &'s [u8],
+        context: &'s Context,
+        c_name: &str,
+    ) -> IResult<&'s [u8], Self, E>
+    where
+        E: ParseError<&'s [u8]> + Debug,
+    {
+        TLeafVariant::parse(i, context, c_name).map(|(i, var)| (i, Self { variant: var }))
+    }
+
+    // A helper function to get around some lifetime issues on the caller sider
+    pub(crate) fn parse_from_raw<'s, E>(
+        raw: &Raw<'s>,
+        ctxt: &'s Context,
+    ) -> IResult<&'s [u8], Self, E>
+    where
+        E: ParseError<&'s [u8]> + Debug,
+    {
+        Self::parse(raw.obj, ctxt, &raw.classinfo)
+    }
+}
+
+#[derive(Debug, Clone)]
+enum TLeafVariant {
+    TLeafB(TLeafB),
+    TLeafS(TLeafS),
+    TLeafI(TLeafI),
+    TLeafL(TLeafL),
+    TLeafF(TLeafF),
+    TLeafD(TLeafD),
+    TLeafC(TLeafC),
+    TLeafO(TLeafO),
+    TLeafD32(TLeafD32),
+    TLeafElement(TLeafElement),
+}
+
+impl TLeafVariant {
+    fn parse<'s, E>(i: &'s [u8], context: &'s Context, c_name: &str) -> IResult<&'s [u8], Self, E>
+    where
+        E: ParseError<&'s [u8]> + Debug,
+    {
+        match c_name {
+            "TLeafB" => TLeafB::parse(i, context).map(|(i, l)| (i, TLeafVariant::TLeafB(l))),
+            "TLeafS" => TLeafS::parse(i, context).map(|(i, l)| (i, TLeafVariant::TLeafS(l))),
+            "TLeafI" => TLeafI::parse(i, context).map(|(i, l)| (i, TLeafVariant::TLeafI(l))),
+            "TLeafL" => TLeafL::parse(i, context).map(|(i, l)| (i, TLeafVariant::TLeafL(l))),
+            "TLeafF" => TLeafF::parse(i, context).map(|(i, l)| (i, TLeafVariant::TLeafF(l))),
+            "TLeafD" => TLeafD::parse(i, context).map(|(i, l)| (i, TLeafVariant::TLeafD(l))),
+            "TLeafC" => TLeafC::parse(i, context).map(|(i, l)| (i, TLeafVariant::TLeafC(l))),
+            "TLeafO" => TLeafO::parse(i, context).map(|(i, l)| (i, TLeafVariant::TLeafO(l))),
+            "TLeafD32" => TLeafD32::parse(i, context).map(|(i, l)| (i, TLeafVariant::TLeafD32(l))),
+            "TLeafElement" => {
+                TLeafElement::parse(i, context).map(|(i, l)| (i, TLeafVariant::TLeafElement(l)))
+            }
+            name => unimplemented!("Unexpected Leaf type {}", name),
+        }
+    }
+}
+
+macro_rules! make_tleaf_variant {
+    // Usually the element size ish what we also use for min/max, but not always
+    ($struct_name:ident, $field_type:ty, $parser:ident) => {
+        make_tleaf_variant! {$struct_name, $field_type, $parser, std::mem::size_of::<$field_type>()}
+    };
+    ($struct_name:ident, $field_type:ty, $parser:ident, $size_of_el:expr) => {
+        #[derive(Debug, Clone)]
+        struct $struct_name {
+            base: TLeafBase,
+            fminimum: $field_type,
+            fmaximum: $field_type,
+        }
+        impl $struct_name {
+            fn parse<'s, E>(i: &'s [u8], context: &'s Context) -> IResult<&'s [u8], Self, E>
+            where
+                E: ParseError<&'s [u8]> + Debug,
+            {
+                // All known descendens have version 1
+                let (i, _) = verify(be_u16, |&ver| ver == 1)(i)?;
+                let (i, base) =
+                    length_value(checked_byte_count, |i| TLeafBase::parse(i, context))(i)?;
+                let (i, fminimum) = $parser(i)?;
+                let (i, fmaximum) = $parser(i)?;
+                let obj = Self {
+                    base,
+                    fminimum,
+                    fmaximum,
+                };
+                obj.verify_consistency().unwrap();
+                Ok((i, obj))
+            }
+
+            fn verify_consistency(&self) -> Result<(), String> {
+                if self.base.flentype as usize != $size_of_el {
+                    return Err(String::from("Unexpected type length"));
+                }
+                if self.base.fisunsigned {
+                    // The minimum and maximum values are possibly wrong
+                    // return Err(String::from("Expected signed value"));
+                }
+                Ok(())
+            }
+        }
+    };
+}
+
+make_tleaf_variant! {TLeafB, i8, be_i8}
+make_tleaf_variant! {TLeafS, i16, be_i16}
+make_tleaf_variant! {TLeafI, i32, be_i32}
+make_tleaf_variant! {TLeafL, i64, be_i64}
+make_tleaf_variant! {TLeafF, f32, be_f32}
+make_tleaf_variant! {TLeafD, f64, be_f64}
+// TLeafC has chars as elements
+make_tleaf_variant! {TLeafC, i32, be_i32, 1}
+make_tleaf_variant! {TLeafO, bool, be_bool}
+make_tleaf_variant! {TLeafD32, f32, be_f32}
+
+#[derive(Debug, Clone)]
+struct TLeafElement {
+    base: TLeafBase,
+    fid: i32,
+    ftype: TypeID,
+}
+
+impl TLeafElement {
+    fn parse<'s, E>(i: &'s [u8], context: &'s Context) -> IResult<&'s [u8], Self, E>
+    where
+        E: ParseError<&'s [u8]> + Debug,
+    {
+        let (i, _) = verify(be_u16, |&ver| ver == 1)(i)?;
+        let (i, base) = length_value(checked_byte_count, |i| TLeafBase::parse(i, context))(i)?;
+        let (i, fid) = be_i32(i)?;
+        let (i, ftype) = map_res(be_i32, TypeID::new)(i)?;
+        Ok((i, Self { base, fid, ftype }))
+    }
+}
+
+#[derive(Debug, Clone)]
+struct TLeafBase {
     /// Version of the read layout
     ver: u16,
     /// The basis for a named object (name, title)
@@ -19,246 +175,79 @@ pub struct TLeafBase {
     /// Offset in ClonesArray object (if one)
     foffset: i32,
     /// (=kTRUE if leaf has a range, kFALSE otherwise)
-    fisrange: u8,
+    fisrange: bool,
     /// (=kTRUE if unsigned, kFALSE otherwise)
-    fisunsigned: u8,
+    fisunsigned: bool,
     /// Pointer to Leaf count if variable length (we do not own the counter)
-    fleafcount: Option<Box<TLeaf>>,
+    fleafcount: Option<Box<TLeafVariant>>,
 }
 
-#[derive(Debug, Clone)]
-pub struct TLeafElement {
-    /// `TLeaf` header
-    base: TLeafBase,
-    /// Element serial number in fInfo; No idea what this does...
-    id: i32,
-    /// TStreamerType number
-    type_id: TypeID,
-}
-
-#[derive(Clone)]
-pub enum TLeaf {
-    /// TLeafX describing a `primitive` type such as u16. The first
-    /// element of the tupel is the name of the TLeaf class such as
-    /// TLeafF.
-    Primitive(String, TLeafBase),
-    /// Variant describing a `TLeafC`, which describes a variable length string
-    String(TLeafBase),
-    /// TLeafElement describes more complicated types such as fixed size arrays
-    Element(TLeafElement),
-    /// `TLeafObject`s are used if a custom object is streamed in one chunk
-    /// For now, this is just treated as a blob of &[u8]
-    Object(String, TLeafBase),
-}
-
-impl fmt::Debug for TLeaf {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "Rust leaf type `{}`;", self.type_name())?;
-        match *self {
-            TLeaf::Primitive(ref leaf_name, ref leaf) => {
-                writeln!(f, "`{}`: {:#?}", leaf_name, leaf)
+impl TLeafBase {
+    fn parse<'s, E>(i: &'s [u8], context: &'s Context) -> IResult<&'s [u8], Self, E>
+    where
+        E: ParseError<&'s [u8]> + std::fmt::Debug,
+    {
+        let (i, ver) = be_u16(i)?;
+        let (i, tnamed) = length_value(checked_byte_count, tnamed)(i)?;
+        let (i, flen) = be_i32(i)?;
+        let (i, flentype) = be_i32(i)?;
+        let (i, foffset) = be_i32(i)?;
+        let (i, fisrange) = be_bool(i)?;
+        let (i, fisunsigned) = be_bool(i)?;
+        let (i, fleafcount) = {
+            if peek!(i, be_u32)?.1 == 0 {
+                // Consume the bytes but we have no nested leafs
+                be_u32(i).map(|(i, _)| (i, None))?
+            } else {
+                let (i, r) = raw(i, context)?;
+                // We don't parse from the input buffer. TODO: Check
+                // that we consumed all bytes
+                let (_, tleaf) = TLeafVariant::parse(r.obj, context, &r.classinfo)?;
+                (i, Some(Box::new(tleaf)))
             }
-            TLeaf::String(ref leaf) => writeln!(f, "String: {:#?}", leaf),
-            TLeaf::Element(ref leaf) => writeln!(f, "Element: {:#?}", leaf),
-            TLeaf::Object(ref leaf_name, ref leaf) => writeln!(f, "`{}`: {:#?}", leaf_name, leaf),
-        }
+        };
+        Ok((
+            i,
+            Self {
+                ver,
+                tnamed,
+                flen,
+                flentype,
+                foffset,
+                fisrange,
+                fisunsigned,
+                fleafcount,
+            },
+        ))
+    }
+}
+
+/// If we have more than one element make this
+fn arrayfy_maybe(ty_name: &str, len: usize) -> Tokens {
+    // not an array
+    let t = Ident::new(ty_name);
+    if len == 1 {
+        quote! {#t}
+    } else {
+        // array
+        quote! {[#t; #len]}
     }
 }
 
 impl ToRustType for TLeaf {
     fn type_name(&self) -> Tokens {
-        match *self {
-            TLeaf::Primitive(ref leaf_name, ref leaf) => {
-                if leaf.flen != 1 || leaf.foffset != 0 || leaf.fleafcount.is_some() {
-                    panic!("Unexpected TLeaf: \n{:#?}", leaf);
-                }
-                let t = match leaf_name.as_str() {
-                    "TLeafO" => {
-                        if leaf.flentype != 1 {
-                            panic!("Unexpected type length")
-                        }
-                        "bool"
-                    }
-                    "TLeafB" => {
-                        if leaf.flentype != 1 {
-                            panic!("Unexpected type length")
-                        };
-                        if leaf.fisunsigned == 1 {
-                            "u8"
-                        } else {
-                            "i8"
-                        }
-                    }
-                    "TLeafS" => {
-                        if leaf.flentype != 2 {
-                            panic!("Unexpected type length")
-                        };
-                        if leaf.fisunsigned == 1 {
-                            "u16"
-                        } else {
-                            "i16"
-                        }
-                    }
-                    "TLeafI" => {
-                        if leaf.flentype != 4 {
-                            panic!("Unexpected type length")
-                        };
-                        if leaf.fisunsigned == 1 {
-                            "u32"
-                        } else {
-                            "i32"
-                        }
-                    }
-                    "TLeafL" => {
-                        if leaf.flentype != 8 {
-                            panic!("Unexpected type length")
-                        };
-                        if leaf.fisunsigned == 1 {
-                            "u64"
-                        } else {
-                            "i64"
-                        }
-                    }
-                    "TLeafF" => {
-                        if leaf.flentype != 4 || leaf.fisunsigned != 0 {
-                            panic!("Unexpected type length or sign: {:#?}", leaf);
-                        };
-                        "f32"
-                    }
-                    "TLeafD" => {
-                        if leaf.flentype != 8 || leaf.fisunsigned != 0 {
-                            panic!("Unexpected type length or sign: {:#?}", leaf);
-                        };
-                        "f64"
-                    }
-                    name => panic!("Unexpected TLeaf type name {}", name),
-                };
-                // not an array
-                let t = Ident::new(t);
-                if leaf.flen == 1 {
-                    quote! {#t}
-                } else {
-                    // array
-                    let s = format!("[{}; {}]", t, leaf.flen);
-                    quote! {#s}
-                }
-            }
-            TLeaf::String(_) => quote!(String),
-            TLeaf::Element(ref tleaf_el) => {
-                match &tleaf_el.type_id {
-                    &TypeID::Primitive(ref id) | &TypeID::Offset(ref id) => {
-                        let t = id.type_name().to_string();
-                        if tleaf_el.base.flen > 1 {
-                            let t = Ident::new(format!("[{}; {}]", t, tleaf_el.base.flen));
-                            quote! {#t}
-                        } else {
-                            let t = Ident::new(t);
-                            quote! {#t}
-                        }
-                    }
-                    id @ &TypeID::InvalidOrCounter(_) => {
-                        // If this is used as a counter, its type id is
-                        // -1 but its "serial id" is 0 (else -2)...
-                        if tleaf_el.id == 0 {
-                            quote! {u32}
-                        } else {
-                            id.type_name()
-                        }
-                    }
-                    id => id.type_name(),
-                }
-            }
-            // Treating streamed objects as blobs of &[u8] for now
-            TLeaf::Object(_, _) => quote! {Vec<u8>},
-        }
+        use TLeafVariant::*;
+        let (type_name, len) = match &self.variant {
+            TLeafO(l) => ("bool", l.base.flen),
+            TLeafB(l) => (if l.base.fisunsigned { "u8" } else { "i8" }, l.base.flen),
+            TLeafS(l) => (if l.base.fisunsigned { "u16" } else { "i16" }, l.base.flen),
+            TLeafI(l) => (if l.base.fisunsigned { "u32" } else { "i32" }, l.base.flen),
+            TLeafL(l) => (if l.base.fisunsigned { "u64" } else { "i64" }, l.base.flen),
+            TLeafF(l) => ("f32", l.base.flen),
+            TLeafD(l) => ("f64", l.base.flen),
+            TLeafC(l) => ("String", l.base.flen),
+            l => todo!("{:?}", l),
+        };
+        arrayfy_maybe(type_name, len as usize)
     }
-}
-
-/// Helper function to parse the header of a `TLeaf`; Note that each
-/// `TLeaf` also has a type specific part which is ingnored here!
-pub(crate) fn tleaf<'s>(
-    i: &'s [u8],
-    context: &'s Context,
-    c_name: &str,
-) -> IResult<&'s [u8], TLeaf> {
-    // let c_name = c_name.as_bytes();
-    match c_name {
-        // Variable length string; has same layout as `Primitive`
-        "TLeafC" => map!(i, call!(tleafprimitive, context), TLeaf::String),
-        "TLeafElement" => map!(i, call!(tleafelement, context), TLeaf::Element),
-        "TLeafObject" => map!(i, call!(tleafobject, context), |v| TLeaf::Object(
-            c_name.to_string(),
-            v
-        )),
-        _ => map!(i, call!(tleafprimitive, context), |v| TLeaf::Primitive(
-            c_name.to_string(),
-            v
-        )),
-    }
-}
-
-#[rustfmt::skip::macros(do_parse)]
-fn tleafbase<'s>(input: &'s [u8], context: &'s Context<'s>) -> IResult<&'s [u8], TLeafBase> {
-    let _curried_raw = |i| raw(i, context);
-    do_parse!(input,
-              ver: be_u16 >>
-              tnamed: length_value!(checked_byte_count, tnamed) >>
-              flen: be_i32 >>
-              flentype: be_i32 >>
-              foffset: be_i32 >>
-              fisrange: be_u8 >>
-              fisunsigned: be_u8 >>
-              fleafcount:
-              switch!(
-                  peek!(be_u32),
-                  0 => map!(call!(be_u32), | _ | None) |
-                  _ => map!(
-                      map!(
-                          call!(_curried_raw),
-                          |r| tleaf(r.obj, context, &r.classinfo).unwrap().1
-                      ),
-                      |i| Some(Box::new(i)))
-              ) >>
-              ({
-                  TLeafBase {
-                      ver,
-                      tnamed,
-                      flen,
-                      flentype,
-                      foffset,
-                      fisrange,
-                      fisunsigned,
-                      fleafcount } }))
-}
-
-#[rustfmt::skip::macros(do_parse)]
-fn tleafelement<'s>(input: &'s [u8], context: &'s Context<'s>) -> IResult<&'s [u8], TLeafElement> {
-    do_parse!(input,
-              _ver: be_u16 >>
-              base: length_value!(checked_byte_count, call!(tleafbase, context)) >>
-              id: be_i32 >>
-              type_id: map_res!(be_i32, TypeID::new) >>
-              (TLeafElement {base, id, type_id})
-    )
-}
-
-#[rustfmt::skip::macros(do_parse)]
-fn tleafprimitive<'s>(input: &'s [u8], context: &'s Context<'s>) -> IResult<&'s [u8], TLeafBase> {
-    do_parse!(input,
-              _ver: be_u16 >>
-              base: length_value!(checked_byte_count, call!(tleafbase, context)) >>
-              _fmaximum: be_f32 >>
-              _fminimum: be_f32 >>
-              (base)
-    )
-}
-
-#[rustfmt::skip::macros(do_parse)]
-fn tleafobject<'s>(input: &'s [u8], context: &'s Context<'s>) -> IResult<&'s [u8], TLeafBase> {
-    do_parse!(input,
-              _ver: be_u16 >>
-              base: length_value!(checked_byte_count, call!(tleafbase, context)) >>
-              _fvirtual: be_u8 >>
-              (base)
-    )
 }
