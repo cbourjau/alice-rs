@@ -182,7 +182,7 @@ where
 }
 
 #[rustfmt::skip::macros(do_parse)]
-fn tbranch<'s, E>(i: &'s [u8], context: &'s Context<'s>) -> IResult<&'s [u8], TBranch, E>
+fn tbranch<'s, E>(i: &'s [u8], context: &'s Context) -> IResult<&'s [u8], TBranch, E>
 where
     E: ParseError<&'s [u8]> + Debug,
 {

@@ -1,6 +1,12 @@
 use std::fmt::Debug;
 
-use nom::{error::ParseError, multi::length_data, number::complete::*, IResult};
+use nom::{
+    error::{ParseError, VerboseError},
+    multi::length_data,
+    multi::length_value,
+    number::complete::*,
+    IResult,
+};
 
 use quote::*;
 
@@ -159,6 +165,43 @@ where
         }
         ci => unimplemented!("Unknown TStreamer {}", ci),
     }
+}
+
+/// Return all `TSreamerInfo` for the data in this file
+pub fn streamers<'s, E>(i: &'s [u8], ctx: &'s Context) -> IResult<&'s [u8], Vec<TStreamerInfo>, E>
+where
+    E: ParseError<&'s [u8]> + Debug,
+{
+    // Dunno why we are 4 bytes off with the size of the streamer info...
+
+    // This TList in the payload has a bytecount in front...
+    let (i, tlist_objs) = length_value(checked_byte_count, |i| tlist(i, &ctx))(i)?;
+    // Mainly this is a TList of `TStreamerInfo`s, but there might
+    // be some "rules" in the end
+    let streamers = tlist_objs
+        .iter()
+        .filter_map(|raw| match raw.classinfo {
+            "TStreamerInfo" => Some(raw.obj),
+            _ => None,
+        })
+        .map(|i| tstreamerinfo::<VerboseError<&'s [u8]>>(i, &ctx).unwrap().1)
+        .collect();
+    // Parse the "rules", if any, from the same tlist
+    let _rules: Vec<_> = tlist_objs
+        .iter()
+        .filter_map(|raw| match raw.classinfo {
+            "TList" => Some(raw.obj),
+            _ => None,
+        })
+        .map(|i| {
+            let tl = tlist::<VerboseError<&[u8]>>(i, &ctx).unwrap().1;
+            // Each `Rule` is a TList of `TObjString`s
+            tl.iter()
+                .map(|el| tobjstring(el.obj).unwrap().1)
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    Ok((i, streamers))
 }
 
 #[rustfmt::skip::macros(do_parse)]

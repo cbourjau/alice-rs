@@ -31,7 +31,7 @@ fn list_of_rules() {
     let context = Context {
         source: PathBuf::from("").into(),
         offset: 0,
-        s: &[],
+        s: vec![],
     };
     use nom::HexDisplay;
     println!("{}", s.to_hex(16));

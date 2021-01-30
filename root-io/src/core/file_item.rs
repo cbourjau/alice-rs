@@ -31,7 +31,7 @@ impl FileItem {
         )
     }
 
-    pub(crate) async fn get_buffer(&self) -> Result<Vec<u8>, Error> {
+    async fn get_buffer(&self) -> Result<Vec<u8>, Error> {
         let start = self.tkey_hdr.seek_key + self.tkey_hdr.key_len as u64;
         let len = self.tkey_hdr.total_size - self.tkey_hdr.key_len as u32;
         let comp_buf = self.source.fetch(start, len as u64).await?;
@@ -46,23 +46,22 @@ impl FileItem {
         Ok(buf)
     }
 
-    pub(crate) fn context_from_buffer<'s>(&self, buffer: &'s [u8]) -> Context<'s> {
+    pub(crate) async fn get_context<'s>(&self) -> Result<Context, Error> {
+        let buffer = self.get_buffer().await?;
         let k_map_offset = 2;
-        Context {
+        Ok(Context {
             source: self.source.clone(),
             offset: (self.tkey_hdr.key_len + k_map_offset) as u64,
             s: buffer,
-        }
+        })
     }
 
     /// Parse this `FileItem` as a `Tree`
     pub async fn as_tree(&self) -> Result<Tree, Error> {
-        let buf = self.get_buffer().await?;
-        let context = self.context_from_buffer(&buf);
+        let ctx = self.get_context().await?;
+        let buf = ctx.s.as_slice();
 
-        let res = length_value(checked_byte_count, |i| {
-            ttree::<VerboseError<_>>(i, &context)
-        })(&buf);
+        let res = length_value(checked_byte_count, |i| ttree::<VerboseError<_>>(i, &ctx))(&buf);
         match res {
             Ok((_, obj)) => Ok(obj),
             Err(nom::Err::Error(e)) | Err(nom::Err::Failure(e)) => {
@@ -85,7 +84,7 @@ mod tests {
         assert_eq!(f.items().len(), 1);
         assert_eq!(f.items()[0].tkey_hdr.obj_name, "tree");
         // Only streamers; not rules
-        assert_eq!(f.streamers().await.unwrap().len(), 18);
+        assert_eq!(f.streamer_infos().await.unwrap().len(), 18);
     }
 
     // Skip this test on MacOs since the downloaded file is not working on Travis
@@ -102,6 +101,6 @@ mod tests {
         assert_eq!(f.items().len(), 2);
         assert_eq!(f.items()[0].tkey_hdr.obj_name, "esdTree");
         assert_eq!(f.items()[1].tkey_hdr.obj_name, "HLTesdTree");
-        assert_eq!(f.streamers().await.unwrap().len(), 87);
+        assert_eq!(f.streamer_infos().await.unwrap().len(), 87);
     }
 }

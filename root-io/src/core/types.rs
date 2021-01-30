@@ -60,15 +60,15 @@ pub struct Raw<'s> {
 
 /// The context from which we are currently parsing
 #[derive(Debug)]
-pub struct Context<'s> {
+pub struct Context {
     /// Path to file of this context
-    pub source: Source,
+    pub(crate) source: Source,
     /// Offset between the beginning of `s` and to where absolute
     /// positions in the buffer point (e.g. for class defs)
     /// Usually something like TKey-length + 4
-    pub offset: u64,
+    pub(crate) offset: u64,
     /// The full buffer we are working on
-    pub s: &'s [u8],
+    pub(crate) s: Vec<u8>,
 }
 
 impl<'s> fmt::Debug for Raw<'s> {

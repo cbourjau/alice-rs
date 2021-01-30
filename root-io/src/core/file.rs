@@ -5,7 +5,6 @@ use nom::{
     self,
     bytes::complete::tag,
     error::VerboseError,
-    multi::length_value,
     number::complete::{be_i16, be_i32, be_u128, be_u16, be_u32, be_u64, be_u8},
     IResult,
 };
@@ -14,6 +13,7 @@ use uuid::Uuid;
 
 use crate::{
     code_gen::rust::{ToNamedRustParser, ToRustStruct},
+    core::tstreamer::streamers,
     core::*,
     MAP_OFFSET,
 };
@@ -178,9 +178,7 @@ impl RootFile {
         Ok(RootFile { source, hdr, items })
     }
 
-    /// Return all `TSreamerInfo` for the data in this file
-    pub async fn streamers(&self) -> Result<Vec<TStreamerInfo>, Error> {
-        // Dunno why we are 4 bytes off with the size of the streamer info...
+    pub async fn get_streamer_context(&self) -> Result<Context, Error> {
         let seek_info_len = (self.hdr.nbytes_info + 4) as u64;
         let info_key = self
             .source
@@ -189,42 +187,11 @@ impl RootFile {
             .map(|buf| tkey(&buf).unwrap().1)?;
 
         let key_len = info_key.hdr.key_len;
-        let context = Context {
+        Ok(Context {
             source: self.source.clone(),
             offset: key_len as u64 + MAP_OFFSET,
-            s: info_key.obj.as_slice(),
-        };
-        // This TList in the payload has a bytecount in front...
-        let wrapped_tlist = |i| tlist::<VerboseError<&[u8]>>(i, &context);
-        let (_, tlist_objs) =
-            length_value(checked_byte_count, wrapped_tlist)(info_key.obj.as_slice())
-                .map_err(|_| format_err!("Expected TStreamerInfo's TList"))?;
-        // Mainly this is a TList of `TStreamerInfo`s, but there might
-        // be some "rules" in the end
-        let streamers = Ok(tlist_objs
-            .iter()
-            .filter_map(|raw| match raw.classinfo {
-                "TStreamerInfo" => Some(raw.obj),
-                _ => None,
-            })
-            .map(|i| tstreamerinfo::<VerboseError<&[u8]>>(i, &context).unwrap().1)
-            .collect());
-        // Parse the "rules", if any, from the same tlist
-        let _rules: Vec<_> = tlist_objs
-            .iter()
-            .filter_map(|raw| match raw.classinfo {
-                "TList" => Some(raw.obj),
-                _ => None,
-            })
-            .map(|i| {
-                let tl = tlist::<VerboseError<&[u8]>>(i, &context).unwrap().1;
-                // Each `Rule` is a TList of `TObjString`s
-                tl.iter()
-                    .map(|el| tobjstring(el.obj).unwrap().1)
-                    .collect::<Vec<_>>()
-            })
-            .collect();
-        streamers
+            s: info_key.obj,
+        })
     }
 
     /// Slice of the items contained in this file
@@ -233,8 +200,17 @@ impl RootFile {
     }
 
     /// Translate the streamer info of this file to a YAML file
+    pub async fn streamer_infos(&self) -> Result<Vec<TStreamerInfo>, Error> {
+        let ctx = self.get_streamer_context().await?;
+        let buf = ctx.s.as_slice();
+        let (_, streamer_vec) = streamers::<VerboseError<_>>(buf, &ctx)
+            .map_err(|_| format_err!("Failed to parse TStreamers"))?;
+        Ok(streamer_vec)
+    }
+
+    /// Translate the streamer info of this file to a YAML file
     pub async fn streamer_info_as_yaml<W: fmt::Write>(&self, s: &mut W) -> Result<(), Error> {
-        for el in &self.streamers().await? {
+        for el in &self.streamer_infos().await? {
             writeln!(s, "{:#}", el.to_yaml())?;
         }
         Ok(())
@@ -255,15 +231,15 @@ impl RootFile {
             }
             .to_string()
         )?;
-
+        let streamer_infos = self.streamer_infos().await?;
         // generate structs
-        for el in &self.streamers().await? {
+        for el in &streamer_infos {
             // The structs contain comments which introduce line breaks; i.e. readable
             writeln!(s, "{}", el.to_struct().to_string())?;
         }
 
         // generate parsers
-        for el in &self.streamers().await? {
+        for el in &streamer_infos {
             // The parsers have no comments, but are ugly; We introduce some
             // Linebreaks here to not have rustfmt choke later (doing it later
             // is inconvinient since the comments in the structs might contain
@@ -284,6 +260,8 @@ mod test {
     use super::*;
     use std::path::Path;
 
+    use nom::error::VerboseError;
+    use nom::multi::length_value;
     use reqwest::Url;
     use tokio;
 
@@ -404,12 +382,12 @@ mod test {
             let context = Context {
                 source: source.clone(),
                 offset: (key_len + k_map_offset) as u64,
-                s: key.obj.as_slice(),
+                s: key.obj,
             };
 
             match length_value(checked_byte_count, |i| {
                 tlist::<VerboseError<_>>(i, &context)
-            })(key.obj.as_slice())
+            })(&context.s)
             {
                 Ok((_, l)) => {
                     assert_eq!(l.len(), 19);
