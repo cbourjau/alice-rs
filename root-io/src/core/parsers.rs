@@ -229,14 +229,14 @@ pub fn decompress(input: &[u8]) -> nom::IResult<&[u8], Vec<u8>> {
 }
 
 /// Parse a null terminated string
-pub fn c_string<'s, E>(i: &'s [u8]) -> nom::IResult<&[u8], String, E>
+pub fn c_string<'s, E>(i: &'s [u8]) -> nom::IResult<&[u8], &str, E>
 where
     E: ParseError<&'s [u8]> + Debug,
 {
     let (i, s) = map_res(take_until(b"\x00".as_ref()), str::from_utf8)(i)?;
     // consume the null tag
     let (i, _) = take(1usize)(i)?;
-    Ok((i, s.to_string()))
+    Ok((i, s))
 }
 
 /// Figure out the class we are looking at. The data might not be
@@ -279,7 +279,7 @@ where
 pub fn class_name_and_buffer<'s, E>(
     i: &'s [u8],
     context: &'s Context,
-) -> nom::IResult<&'s [u8], (String, &'s [u8]), E>
+) -> nom::IResult<&'s [u8], (&'s str, &'s [u8]), E>
 where
     E: ParseError<&'s [u8]> + std::fmt::Debug,
 {
@@ -306,7 +306,7 @@ where
                 let abs_offset = tag;
                 // Sometimes, the reference points to `0`; so we return an empty slice
                 if abs_offset == 0 {
-                    ("".to_string(), &context.s[..0])
+                    ("", &context.s[..0])
                 } else {
                     let s = &context.s[((abs_offset - ctx_offset) as usize)..];
                     let (_, (name, buf)) = class_name_and_buffer(s, context)?;

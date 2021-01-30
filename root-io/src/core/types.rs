@@ -26,9 +26,9 @@ bitflags! {
 /// Describes if the following entry is a new class or if it was
 /// already described.
 #[derive(Debug)]
-pub enum ClassInfo {
+pub enum ClassInfo<'s> {
     /// Class name of the new class
-    New(String),
+    New(&'s str),
     /// Byte offset of new class tag in record, + 2; whatever... followed by object
     Exists(u32),
     /// Byte offset of new class tag in record, + 2; whatever... ref to object
@@ -64,7 +64,7 @@ pub struct TList<'a> {
 
 /// A type holding nothing but the original data and a class info object
 pub struct Raw<'s> {
-    pub(crate) classinfo: String,
+    pub(crate) classinfo: &'s str,
     pub(crate) obj: &'s [u8],
 }
 

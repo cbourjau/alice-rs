@@ -171,7 +171,7 @@ pub(crate) fn tbranch_hdr<'s, E>(raw: &Raw<'s>, ctxt: &'s Context) -> IResult<&'
 where
     E: ParseError<&'s [u8]> + Debug,
 {
-    match raw.classinfo.as_str() {
+    match raw.classinfo {
         "TBranchElement" | "TBranchObject" => {
             let (i, _ver) = be_u16(raw.obj)?;
             length_value!(i, checked_byte_count, call!(tbranch, ctxt))

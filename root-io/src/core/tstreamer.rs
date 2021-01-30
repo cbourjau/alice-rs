@@ -97,7 +97,7 @@ where
     E: ParseError<&'s [u8]> + Debug,
 {
     let wrapped_tstreamerelem = |i| length_value!(i, checked_byte_count, tstreamerelement);
-    match raw.classinfo.as_str() {
+    match raw.classinfo {
         "TStreamerBase" => do_parse!(raw.obj,
                                      _ver: be_u16 >>
                                      el: wrapped_tstreamerelem >>

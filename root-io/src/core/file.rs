@@ -204,7 +204,7 @@ impl RootFile {
         // be some "rules" in the end
         let streamers = Ok(tlist_objs
             .iter()
-            .filter_map(|raw| match raw.classinfo.as_str() {
+            .filter_map(|raw| match raw.classinfo {
                 "TStreamerInfo" => Some(raw.obj),
                 _ => None,
             })
@@ -213,7 +213,7 @@ impl RootFile {
         // Parse the "rules", if any, from the same tlist
         let _rules: Vec<_> = tlist_objs
             .iter()
-            .filter_map(|raw| match raw.classinfo.as_str() {
+            .filter_map(|raw| match raw.classinfo {
                 "TList" => Some(raw.obj),
                 _ => None,
             })
