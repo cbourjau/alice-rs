@@ -243,39 +243,41 @@ where
 /// saved locally but rather in a reference to some other place in the
 /// buffer.This is modeled after ROOT's `TBufferFile::ReadObjectAny` and
 /// `TBufferFile::ReadClass`
-#[rustfmt::skip::macros(do_parse)]
-pub fn classinfo<'s, E>(input: &'s [u8]) -> nom::IResult<&[u8], ClassInfo, E>
+pub fn classinfo<'s, E>(i: &'s [u8]) -> nom::IResult<&[u8], ClassInfo, E>
 where
     E: ParseError<&'s [u8]> + Debug,
 {
-    do_parse!(input,
-              bcnt: be_u32 >>
-              tag: switch!(
-                  value!(!is_byte_count(&bcnt) || bcnt == Flags::NEW_CLASSTAG.bits()),
-                  true => value!(bcnt) |
-                  false => call!(be_u32)) >>
-              cl: switch!(
-                  value!(tag as u32), // If new class, this should be like TClass::Load
-                  // 0xFFFFFFFF is new class tag
-                  0xFFFF_FFFF => map!(c_string, ClassInfo::New) |
-                  // Is this an existing class or is it another tag (pointer elswhere)
-                  tag => switch!(
-                      value!(Flags::from_bits_truncate(tag).contains(Flags::CLASS_MASK)),
-                      false => value!(ClassInfo::References(tag)) |
-                      true => value!(ClassInfo::Exists(tag & !Flags::CLASS_MASK.bits()))
-                  )) >>
-              (cl)
-    )
+    let (i, tag) = {
+        let (i, bcnt) = be_u32(i)?;
+        if !is_byte_count(&bcnt) || bcnt == Flags::NEW_CLASSTAG.bits() {
+            (i, bcnt)
+        } else {
+            be_u32(i)?
+        }
+    };
+    let (i, cl) = match tag as u32 {
+        0xFFFF_FFFF => {
+            let (i, cl) = map!(i, c_string, ClassInfo::New)?;
+            (i, cl)
+        },
+        tag => {
+            if Flags::from_bits_truncate(tag).contains(Flags::CLASS_MASK) {
+                (i, ClassInfo::Exists(tag & !Flags::CLASS_MASK.bits()))
+            } else {
+                (i, ClassInfo::References(tag))
+            }
+        }
+    };
+    Ok((i, cl))
 }
 
 /// Figure out the class we are looking at. This parser immediately
 /// resolves possible references returning the name of the object in
 /// this buffer and the associated data. This function needs a
-/// `Context`, though, which may not be avialable. If so, have a look
+/// `Context`, though, which may not be available. If so, have a look
 /// at the `classinfo` parser.
-#[rustfmt::skip::macros(do_parse)]
 pub fn class_name_and_buffer<'s, E>(
-    input: &'s [u8],
+    i: &'s [u8],
     context: &'s Context,
 ) -> nom::IResult<&'s [u8], (String, &'s [u8]), E>
 where
@@ -283,30 +285,37 @@ where
 {
     let ctx_offset = u32::try_from(context.offset)
         .expect("Encountered pointer larger than 32 bits. Please file a bug.");
-    let get_name_elsewhere = |tag| {
-        let abs_offset = tag & !Flags::CLASS_MASK.bits();
-        let s = &context.s[((abs_offset - ctx_offset) as usize)..];
-        let (_, (name, _)) = class_name_and_buffer::<VerboseError<&[u8]>>(s, context).unwrap();
-        name
-    };
-    let get_name_and_buf_elsewhere = |tag| {
-        let abs_offset = tag;
-        // Sometimes, the reference points to `0`; so we return an empty slice
-        if abs_offset == 0 {
-            return ("".to_string(), &context.s[..0]);
+    let (i, ci) = classinfo(i)?;
+    Ok(match ci {
+        ClassInfo::New(s) => {
+            let (i, buf) = length_value(checked_byte_count, rest)(i)?;
+            (i, (s, buf))
+        },
+        ClassInfo::Exists(tag) => {
+            let name = {
+                let abs_offset = tag & !Flags::CLASS_MASK.bits();
+                let s = &context.s[((abs_offset - ctx_offset) as usize)..];
+                let (_, (name, _)) = class_name_and_buffer(s, context)?;
+                name
+            };
+            let (i, buf) = length_value(checked_byte_count, rest)(i)?;
+            (i, (name, buf))
+        },
+        ClassInfo::References(tag) => {
+            let (name, buf) = {
+                let abs_offset = tag;
+                // Sometimes, the reference points to `0`; so we return an empty slice
+                if abs_offset == 0 {
+                    ("".to_string(), &context.s[..0])
+                } else {
+                    let s = &context.s[((abs_offset - ctx_offset) as usize)..];
+                    let (_, (name, buf)) = class_name_and_buffer(s, context)?;
+                    (name, buf)
+                }
+            };
+            (i, (name, buf))
         }
-        let s = &context.s[((abs_offset - ctx_offset) as usize)..];
-        let (_, (name, buf)) = class_name_and_buffer::<VerboseError<&[u8]>>(s, context).unwrap();
-        (name, buf)
-    };
-    do_parse!(input,
-              ci: switch!(classinfo,
-                          ClassInfo::New(s) => tuple!(value!(s), length_value!(checked_byte_count, call!(rest))) |
-                          ClassInfo::Exists(tag) => tuple!(value!(get_name_elsewhere(tag)),
-                                                             length_value!(checked_byte_count, call!(rest))) |
-                          ClassInfo::References(tag) => value!(get_name_and_buf_elsewhere(tag))) >>
-              (ci)
-    )
+    })
 }
 
 /// Parse a `Raw` chunk from the given input buffer. This is usefull when one does not know the exact type at the time of parsing
