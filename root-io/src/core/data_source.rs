@@ -48,7 +48,8 @@ impl Source {
                     .header(USER_AGENT, "alice-rs")
                     .header(RANGE, format!("bytes={}-{}", start, start + len - 1))
                     .send()
-                    .await?;
+                    .await?
+                    .error_for_status()?;
                 let bytes = rsp.bytes().await?;
                 Ok(bytes.as_ref().to_vec())
             }
