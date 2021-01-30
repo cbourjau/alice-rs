@@ -5,6 +5,7 @@ use nom::{
     self,
     bytes::complete::tag,
     error::VerboseError,
+    multi::length_value,
     number::complete::{be_i16, be_i32, be_u128, be_u16, be_u32, be_u64, be_u8},
     IResult,
 };
@@ -195,11 +196,9 @@ impl RootFile {
         };
         // This TList in the payload has a bytecount in front...
         let wrapped_tlist = |i| tlist::<VerboseError<&[u8]>>(i, &context);
-        let tlist_objs =
-            match length_value!(info_key.obj.as_slice(), checked_byte_count, wrapped_tlist) {
-                Ok((_, l)) => Ok(l.objs),
-                _ => Err(format_err!("Expected TStreamerInfo's TList")),
-            }?;
+        let (_, tlist_objs) =
+            length_value(checked_byte_count, wrapped_tlist)(info_key.obj.as_slice())
+                .map_err(|_| format_err!("Expected TStreamerInfo's TList"))?;
         // Mainly this is a TList of `TStreamerInfo`s, but there might
         // be some "rules" in the end
         let streamers = Ok(tlist_objs
@@ -220,8 +219,7 @@ impl RootFile {
             .map(|i| {
                 let tl = tlist::<VerboseError<&[u8]>>(i, &context).unwrap().1;
                 // Each `Rule` is a TList of `TObjString`s
-                tl.objs
-                    .iter()
+                tl.iter()
                     .map(|el| tobjstring(el.obj).unwrap().1)
                     .collect::<Vec<_>>()
             })
@@ -285,8 +283,6 @@ impl RootFile {
 mod test {
     use super::*;
     use std::path::Path;
-
-    use nom::multi::length_value;
 
     use reqwest::Url;
     use tokio;
@@ -416,9 +412,7 @@ mod test {
             })(key.obj.as_slice())
             {
                 Ok((_, l)) => {
-                    assert_eq!(l.ver, 5);
-                    assert_eq!(l.name, "");
-                    assert_eq!(l.len, 19);
+                    assert_eq!(l.len(), 19);
                 }
                 Err(_e) => panic!("Not parsed as TList!"),
             };

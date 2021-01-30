@@ -52,16 +52,6 @@ pub struct TNamed {
     pub title: String,
 }
 
-/// A "list" (implemented as `Vec`) of arbitrary objects
-#[derive(Debug)]
-pub struct TList<'a> {
-    pub(crate) ver: u16,
-    pub(crate) tobj: TObject,
-    pub(crate) name: String,
-    pub(crate) len: usize,
-    pub(crate) objs: Vec<Raw<'a>>,
-}
-
 /// A type holding nothing but the original data and a class info object
 pub struct Raw<'s> {
     pub(crate) classinfo: &'s str,

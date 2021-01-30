@@ -16,10 +16,11 @@ use nom::{
     self,
     bytes::complete::{take, take_until},
     combinator::{map, map_res, rest, verify},
-    error::{ParseError, VerboseError},
+    error::ParseError,
     multi::{count, length_data, length_value},
     number::complete::{be_i32, be_u16, be_u32, be_u64, be_u8},
     sequence::{pair, tuple},
+    IResult,
 };
 
 use crate::core::*;
@@ -81,32 +82,23 @@ where
 }
 
 /// Parse a `TList`
-pub fn tlist<'s, E>(input: &'s [u8], context: &'s Context) -> nom::IResult<&'s [u8], TList<'s>, E>
+pub fn tlist<'s, E>(i: &'s [u8], ctx: &'s Context) -> IResult<&'s [u8], Vec<Raw<'s>>, E>
 where
     E: ParseError<&'s [u8]> + Debug,
 {
-    let (input, (ver, tobj, name, len)) = tuple((be_u16, tobject, string, be_i32))(input)?;
-    let (input, objs) = count(
+    let (i, _ver) = verify(be_u16, |&v| v == 5)(i)?;
+    let (i, (_tobj, _name, len)) = tuple((tobject, string, be_i32))(i)?;
+    let (i, objs) = count(
         |i| {
-            let wrapped_raw = |i| raw(i, context);
+            let wrapped_raw = |i| raw(i, ctx);
             let (i, obj) = length_value(checked_byte_count, wrapped_raw)(i)?;
             let (i, _) = length_data(be_u8)(i)?;
             Ok((i, obj))
         },
         len as usize,
-    )(input)?;
-
-    let (input, _) = rest(input)?;
-    Ok((
-        input,
-        TList {
-            ver,
-            tobj,
-            name,
-            len: len as usize,
-            objs,
-        },
-    ))
+    )(i)?;
+    let (i, _) = rest(i)?;
+    Ok((i, objs))
 }
 
 /// Parser for `TNamed` objects
@@ -259,7 +251,7 @@ where
         0xFFFF_FFFF => {
             let (i, cl) = map!(i, c_string, ClassInfo::New)?;
             (i, cl)
-        },
+        }
         tag => {
             if Flags::from_bits_truncate(tag).contains(Flags::CLASS_MASK) {
                 (i, ClassInfo::Exists(tag & !Flags::CLASS_MASK.bits()))
@@ -290,7 +282,7 @@ where
         ClassInfo::New(s) => {
             let (i, buf) = length_value(checked_byte_count, rest)(i)?;
             (i, (s, buf))
-        },
+        }
         ClassInfo::Exists(tag) => {
             let name = {
                 let abs_offset = tag & !Flags::CLASS_MASK.bits();
@@ -300,7 +292,7 @@ where
             };
             let (i, buf) = length_value(checked_byte_count, rest)(i)?;
             (i, (name, buf))
-        },
+        }
         ClassInfo::References(tag) => {
             let (name, buf) = {
                 let abs_offset = tag;
