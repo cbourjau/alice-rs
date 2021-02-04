@@ -36,15 +36,28 @@ pub async fn download(base_dir: PathBuf, url: Url) -> Result<usize, Error> {
     if let Some(dir) = dest.parent() {
         DirBuilder::new().recursive(true).create(dir)?;
     }
+    // Try downloading with re-tries
+    let mut n_retries = 3;
+    let bytes = loop {
+        let result = try_download(url.clone()).await;
+        if result.is_ok() || n_retries <= 0 {
+            break result;
+        } else {
+            n_retries -= 1;
+        }
+    }?;
+    let mut f = File::create(dest)?;
+    Ok(f.write(&bytes)?)
+}
+
+async fn try_download(url: Url) -> Result<Vec<u8>, Error> {
     let resp = Client::new().get(url).send().await?;
-    let bytes: Vec<_> = resp
+    Ok(resp
         .error_for_status()?
         .bytes()
         .await?
         .into_iter()
-        .collect();
-    let mut f = File::create(dest)?;
-    Ok(f.write(&bytes)?)
+        .collect())
 }
 
 /// Base path to the local ALICE open data directory
