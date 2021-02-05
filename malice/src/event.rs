@@ -4,13 +4,7 @@ use std::fmt::Debug;
 use failure::Error;
 use futures::prelude::*;
 use itertools::izip;
-use nom::{
-    combinator::map,
-    number::complete::*,
-    sequence::tuple,
-    error::ParseError,
-    IResult,
-};
+use nom::{combinator::map, error::ParseError, number::complete::*, sequence::tuple, IResult};
 use wasm_bindgen::prelude::*;
 
 use root_io::core::parsers::{parse_custom_mantissa, parse_tobjarray_of_tnameds};
@@ -68,7 +62,7 @@ impl Event {
 
 impl Event {
     /// Iterator over **all** `Track`s in this event
-    pub fn tracks<'a>(&'a self) -> impl Iterator<Item = Track> + 'a {
+    pub fn tracks(&self) -> impl Iterator<Item = Track> + '_ {
         izip!(
             self.tracks_fx.iter(),
             self.tracks_fp.iter(),
@@ -232,7 +226,7 @@ pub async fn event_stream_from_tree(t: &Tree) -> Result<impl Stream<Item = Event
 /// mapping may depend on the run number
 fn string_to_mask(s: &str, run_number: i32) -> TriggerMask {
     // LHC10h
-    if 136_851 <= run_number && run_number <= 139_517 {
+    if (136_851..=139_517).contains(&run_number) {
         match s {
             "CMBAC-B-NOPF-ALL"
             | "CMBS2A-B-NOPF-ALL"
@@ -247,9 +241,9 @@ fn string_to_mask(s: &str, run_number: i32) -> TriggerMask {
     }
 }
 
-fn parse_pid_probabilities<'s, E>(input: &'s[u8]) -> IResult<&'s[u8], PidProbabilities, E>
+fn parse_pid_probabilities<'s, E>(input: &'s [u8]) -> IResult<&'s [u8], PidProbabilities, E>
 where
-    E: ParseError<&'s [u8]> + Debug
+    E: ParseError<&'s [u8]> + Debug,
 {
     let (input, electron) = parse_custom_mantissa(input, 8)?;
     let (input, muon) = parse_custom_mantissa(input, 8)?;

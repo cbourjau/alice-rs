@@ -37,22 +37,22 @@ bitflags! {
         const TOF_OUT = 0x2000;
         const TOF_REFIT = 0x4000;
         const TOF_PID = 0x8000;
-        const HMPID_OUT = 0x10_000;
-        const HMPID_PID = 0x20_000;
-        const EMCAL_MATCH = 0x40_000;
-        const TRD_BACKUP = 0x80_000;
-        const TOF_MISMATCH = 0x100_000;
-        const PHOS_MATCH = 0x200_000;
-        const ITS_UPG = 0x400_000;
-        const SKIP_FRIEND = 0x800_000;
-        const GLOBAL_MERGE = 0x1_000_000;
-        const MULT_IN_V0 = 0x2_000_000;
-        const MULT_SEC = 0x4_000_000;
-        const EMBEDDED = 0x8_000_000;
-        const ITS_PURE_SA = 0x10_000_000;
-        const TRDS_TOP = 0x20_000_000;
-        const ESD_PID = 0x40_000_000;
-        const TIME = 0x80_000_000;
+        const HMPID_OUT = 0x0001_0000;
+        const HMPID_PID = 0x0002_0000;
+        const EMCAL_MATCH = 0x0004_0000;
+        const TRD_BACKUP = 0x0008_0000;
+        const TOF_MISMATCH = 0x0010_0000;
+        const PHOS_MATCH = 0x0020_0000;
+        const ITS_UPG = 0x0040_0000;
+        const SKIP_FRIEND = 0x0080_0000;
+        const GLOBAL_MERGE = 0x0100_0000;
+        const MULT_IN_V0 = 0x0200_0000;
+        const MULT_SEC = 0x0400_0000;
+        const EMBEDDED = 0x0800_0000;
+        const ITS_PURE_SA = 0x1000_0000;
+        const TRDS_TOP = 0x2000_0000;
+        const ESD_PID = 0x4000_0000;
+        const TIME = 0x8000_0000;
     }
 }
 

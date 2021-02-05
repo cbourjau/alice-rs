@@ -226,7 +226,7 @@ where
         .map(|val| val as usize);
     let fbasketentry = fbasketentry.into_iter().take(nbaskets).collect();
     let fbasketseek = fbasketseek.into_iter().take(nbaskets);
-    let source = if ffilename == "" {
+    let source = if ffilename.is_empty() {
         context.source.to_owned()
     } else {
         unimplemented!("Root files referencing other Root files is not implemented")
