@@ -140,7 +140,7 @@ impl TBranch {
     /// in the repository for a comprehensive example
     pub fn as_var_size_iterator<T, P>(&self, p: P, el_counter: &[u32]) -> impl Stream<Item = Vec<T>>
     where
-        P: Fn(&[u8]) -> IResult<&[u8], T>,
+        P: Fn(&[u8]) -> IResult<&[u8], T, VerboseError<&[u8]>>,
     {
         let mut elems_per_event = el_counter.to_owned().into_iter();
         stream::iter(self.containers().to_owned())
