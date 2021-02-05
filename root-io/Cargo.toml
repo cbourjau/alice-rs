@@ -1,6 +1,6 @@
 [package]
 name = "root-io"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["cbourjau <c.bourjau@posteo.de>"]
 exclude = ["*test_data/", "*.root"]
 description = "Reading of `.root` binary files which are commonly used in particle physics"
@@ -13,7 +13,7 @@ edition = "2018"
 
 
 [dependencies]
-alice-open-data = { version="0.4", path="../alice-open-data/" }
+alice-open-data = { version="0.5", path="../alice-open-data/" }
 bitflags = "1.0.0"
 failure = "0.1.5"
 flate2 = "^1"

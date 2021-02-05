@@ -6,8 +6,8 @@ workspace = "../../"
 edition = "2018"
 
 [dependencies]
-alice-open-data = { version="0.4", path="../../alice-open-data" }
+alice-open-data = { version="0.5", path="../../alice-open-data" }
 failure = "0.1.1"
 gnuplot = "^0.0.22"
 histogram = {path = "../../histogram" }
-malice = { version = "0.2.1", path = "../../malice" }
+malice = { version = "0.3.0", path = "../../malice" }

@@ -1,6 +1,6 @@
 [package]
 name = "malice"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["cbourjau <c.bourjau@posteo.de>"]
 exclude = ["benches/*"]
 description = "A small framwork providing sensible defaults to analyse ALICE's open data"
@@ -20,7 +20,7 @@ bitflags = "1.0.1"
 failure = "0.1.5"
 futures = "0.3"
 nom = "^5"
-root-io = "0.2.1"
+root-io = { version="0.3.0", path="../root-io" }
 # Optional dependencies
 alice-sys = { version="0.1.1", optional = true }
 itertools = "0.8.1"
@@ -31,7 +31,7 @@ wasm-bindgen = "0.2.60"
 tokio = { version = "0.2", features = ["macros"] }
 
 [dev-dependencies]
-alice-open-data = { version="0.4", path="../alice-open-data" }
+alice-open-data = { version="0.5", path="../alice-open-data" }
 criterion = "0.3"
 
 [[bench]]
