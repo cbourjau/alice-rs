@@ -1,5 +1,7 @@
 # ALICE-rs #
 
+**Note: Builds are currently broken until https://github.com/cernopendata/opendata.cern.ch/issues/3074 is resolved. This only affects streaming files. Alice-rs is still functional for local files downloaded with `alice-download`.**
+
 | Linux/OS X/WebAssembly                                                                                  | Windows |
 |:-------------------------------------------------------------------------------------------------------:|---------|
 | [![Build Status](https://travis-ci.org/cbourjau/alice-rs.svg)](https://travis-ci.org/cbourjau/alice-rs) | [![Build status](https://ci.appveyor.com/api/projects/status/u7xxhg4x7h9mgpam/branch/master?svg=true)](https://ci.appveyor.com/project/cbourjau/alice-rs/branch/master) |
