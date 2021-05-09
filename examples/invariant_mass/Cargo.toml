@@ -1,0 +1,14 @@
+[package]
+name = "invariant-mass"
+version = "0.1.0"
+authors = ["cbourjau <c.bourjau@posteo.de>"]
+workspace = "../../"
+edition = "2018"
+
+[dependencies]
+alice-open-data = "0.3"
+gnuplot = "0.0.36"
+histogram = {path = "../../histogram" }
+malice = { version = "0.2.1", path = "../../malice" }
+thiserror = "1.0.19"
+textplots = "0.5.1"
