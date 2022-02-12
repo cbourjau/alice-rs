@@ -1,7 +1,7 @@
 #![cfg(all(test, not(target_arch = "wasm32")))]
-use std::path::PathBuf;
 
 use root_io::*;
+use std::path::PathBuf;
 
 const TEST_FILES: &[&str] = &[
     "./src/test_data/simple.root",

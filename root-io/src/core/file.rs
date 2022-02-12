@@ -1,22 +1,19 @@
-use std::fmt;
-
-use failure::Error;
-use nom::{
-    self,
-    bytes::complete::tag,
-    error::VerboseError,
-    number::complete::{be_i16, be_i32, be_u128, be_u16, be_u32, be_u64, be_u8},
-    IResult,
-};
-
+use nom::{self,
+          IResult,
+          number::complete::{be_i16, be_i32, be_u128, be_u16, be_u32, be_u64, be_u8}, Parser};
+use nom::sequence::tuple;
+use nom_supreme::{ParserExt, tag::complete::tag};
 use uuid::Uuid;
+
+use std::fmt;
 
 use crate::{
     code_gen::rust::{ToNamedRustParser, ToRustStruct},
-    core::tstreamer::streamers,
     core::*,
+    core::tstreamer::streamers,
     MAP_OFFSET,
 };
+use crate::tree_reader::{ReadError, WriteError};
 
 /// Size of serialized `FileHeader` in bytes
 const FILE_HEADER_SIZE: u64 = 75;
@@ -63,8 +60,8 @@ pub struct Directory {
 }
 
 /// Parse opening part of a root file
-fn file_header(i: &[u8]) -> IResult<&[u8], FileHeader> {
-    fn version_dep_int(i: &[u8], is_64_bit: bool) -> IResult<&[u8], u64> {
+fn file_header<'s, E: RootError<&'s [u8]>>(i: &'s [u8]) -> IResult<&'s [u8], FileHeader, E> {
+    fn version_dep_int<'s, E: RootError<&'s [u8]>>(i: &'s [u8], is_64_bit: bool) -> IResult<&'s [u8], u64, E> {
         if is_64_bit {
             be_u64(i)
         } else {
@@ -111,65 +108,68 @@ fn file_header(i: &[u8]) -> IResult<&[u8], FileHeader> {
 }
 
 /// Parse a file-pointer based on the version of the file
-fn versioned_pointer(input: &[u8], version: i16) -> nom::IResult<&[u8], u64> {
-    if version > 1000 {
-        be_u64(input)
-    } else {
-        map!(input, be_i32, |val| val as u64)
+fn versioned_pointer<'s, E>(version: i16) -> impl nom::Parser<&'s [u8], u64, E>
+    where
+        E: RootError<&'s [u8]>
+{
+    move |i| {
+        if version > 1000 {
+            be_u64.parse(i)
+        } else {
+            be_u32.map(|v| v as u64).parse(i)
+        }
     }
 }
 
-#[rustfmt::skip::macros(do_parse)]
-named!(
-    #[doc="Directory within a root file; exists on ever file"],
-    directory<&[u8], Directory>,
-    do_parse!(
-        version: be_i16 >>
-            c_time: be_u32 >>
-            m_time: be_u32 >>
-            n_bytes_keys: be_i32 >>
-            n_bytes_name: be_i32 >>
-            seek_dir: call!(versioned_pointer, version) >>
-            seek_parent: call!(versioned_pointer, version) >>
-            seek_keys: call!(versioned_pointer, version) >>
-            ({
-                Directory {version, c_time, m_time, n_bytes_keys,
-                           n_bytes_name, seek_dir, seek_parent, seek_keys,
-                }})
-    )
-);
+/// Directory within a root file; exists on ever file
+fn directory<'s, E>(input: &'s [u8]) -> IResult<&'s [u8], Directory, E>
+    where
+        E: RootError<&'s [u8]>
+{
+    tuple((
+        be_i16.context("directory version"),
+        be_u32.context("directory time created"),
+        be_u32.context("directory time modified"),
+        be_i32.context("directory key byte count"),
+        be_i32.context("directory name byte count")
+    )).flat_map(make_fn(|(version, c_time, m_time, n_bytes_keys, n_bytes_name)| {
+        tuple((
+            versioned_pointer(version).context("seek dir"),
+            versioned_pointer(version).context("seek parent"),
+            versioned_pointer(version).context("seek keys")
+        )).map(move |(seek_dir, seek_parent, seek_keys)|
+            Directory {
+                version,
+                c_time,
+                m_time,
+                n_bytes_keys,
+                n_bytes_name,
+                seek_dir,
+                seek_parent,
+                seek_keys,
+            })
+    })).context("ROOT directory").parse(input)
+}
+
 
 impl RootFile {
     /// Open a new ROOT file either from a `Url`, or from a `Path`
     /// (not available on `wasm32`).
-    pub async fn new<S: Into<Source>>(source: S) -> Result<Self, Error> {
+    pub async fn new<S: Into<Source>>(source: S) -> Result<Self, ReadError> {
         let source = source.into();
-        let hdr = source.fetch(0, FILE_HEADER_SIZE).await.and_then(|buf| {
-            file_header(&buf)
-                .map_err(|_| format_err!("Failed to parse file header"))
-                .map(|(_i, o)| o)
-        })?;
+        let hdr_buf = source.fetch(0, FILE_HEADER_SIZE).await?;
+        let hdr = wrap_parser(file_header.all_consuming())(&hdr_buf)?;
+        //let hdr = _hdr?;
+
         // Jump to the TDirectory and parse it
-        let dir = source
-            .fetch(hdr.seek_dir, TDIRECTORY_MAX_SIZE)
-            .await
-            .and_then(|buf| {
-                directory(&buf)
-                    .map_err(|_| format_err!("Failed to parse TDirectory"))
-                    .map(|(_i, o)| o)
-            })?;
-        let tkey_of_keys = source
-            .fetch(dir.seek_keys, dir.n_bytes_keys as u64)
-            .await
-            .and_then(|buf| {
-                tkey(&buf)
-                    .map_err(|_| format_err!("Failed to parse TKeys"))
-                    .map(|(_i, o)| o)
-            })?;
-        let keys = match tkey_headers(&tkey_of_keys.obj) {
-            Ok((_, hdrs)) => Ok(hdrs),
-            _ => Err(format_err!("Expected TKeyHeaders")),
-        }?;
+        let dir_buf = source.fetch(hdr.seek_dir, TDIRECTORY_MAX_SIZE).await?;
+        let dir = wrap_parser(directory)(&dir_buf)?;
+
+        let tkey_buf = source.fetch(dir.seek_keys, dir.n_bytes_keys as u64).await?;
+        let tkey_of_keys = wrap_parser(tkey.all_consuming())(&tkey_buf)?;
+
+        let keys = wrap_parser(tkey_headers.all_consuming())(&tkey_of_keys.obj)?;
+
         let items = keys
             .iter()
             .map(|k_hdr| FileItem::new(k_hdr, source.clone()))
@@ -178,13 +178,13 @@ impl RootFile {
         Ok(RootFile { source, hdr, items })
     }
 
-    pub async fn get_streamer_context(&self) -> Result<Context, Error> {
+    pub async fn get_streamer_context(&self) -> Result<Context, ReadError> {
         let seek_info_len = (self.hdr.nbytes_info + 4) as u64;
-        let info_key = self
+        let info_key_buf = self
             .source
             .fetch(self.hdr.seek_info, seek_info_len)
-            .await
-            .map(|buf| tkey(&buf).unwrap().1)?;
+            .await?;
+        let info_key = wrap_parser(tkey.all_consuming())(&info_key_buf)?;
 
         let key_len = info_key.hdr.key_len;
         Ok(Context {
@@ -199,17 +199,16 @@ impl RootFile {
         &self.items
     }
 
-    /// Translate the streamer info of this file to a YAML file
-    pub async fn streamer_infos(&self) -> Result<Vec<TStreamerInfo>, Error> {
+    /// Get the stream info of this file
+    pub async fn streamer_infos(&self) -> Result<Vec<TStreamerInfo>, ReadError> {
         let ctx = self.get_streamer_context().await?;
         let buf = ctx.s.as_slice();
-        let (_, streamer_vec) = streamers::<VerboseError<_>>(buf, &ctx)
-            .map_err(|_| format_err!("Failed to parse TStreamers"))?;
-        Ok(streamer_vec)
+        let res = wrap_parser(streamers(&ctx))(buf)?;
+        Ok(res)
     }
 
     /// Translate the streamer info of this file to a YAML file
-    pub async fn streamer_info_as_yaml<W: fmt::Write>(&self, s: &mut W) -> Result<(), Error> {
+    pub async fn streamer_info_as_yaml<W: fmt::Write>(&self, s: &mut W) -> Result<(), WriteError> {
         for el in &self.streamer_infos().await? {
             writeln!(s, "{:#}", el.to_yaml())?;
         }
@@ -217,7 +216,7 @@ impl RootFile {
     }
 
     /// Generate Rust code from the streamer info of this file
-    pub async fn streamer_info_as_rust<W: fmt::Write>(&self, s: &mut W) -> Result<(), Error> {
+    pub async fn streamer_info_as_rust<W: fmt::Write>(&self, s: &mut W) -> Result<(), WriteError> {
         // Add necessary imports at the top of the file
         writeln!(
             s,
@@ -229,7 +228,6 @@ impl RootFile {
                 use parsers::utils::*;
                 use core_types::*;
             }
-            .to_string()
         )?;
         let streamer_infos = self.streamer_infos().await?;
         // generate structs
@@ -257,16 +255,17 @@ impl RootFile {
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod test {
-    use super::*;
-    use std::path::Path;
-
     use nom::error::VerboseError;
     use nom::multi::length_value;
     use reqwest::Url;
     use tokio;
 
+    use std::path::Path;
+
+    use super::*;
+
     const SIMPLE_FILE_REMOTE: &str =
-	"https://github.com/cbourjau/alice-rs/blob/master/root-io/src/test_data/simple.root?raw=true";
+        "https://github.com/cbourjau/alice-rs/blob/master/root-io/src/test_data/simple.root?raw=true";
 
     #[tokio::test]
     async fn read_cms_file_remote() {
@@ -402,6 +401,7 @@ mod test {
 
     #[tokio::test]
     async fn streamerinfo_test_local() {
+
         let local = Path::new("./src/test_data/simple.root").into();
         streamerinfo_test(local).await;
     }

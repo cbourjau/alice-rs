@@ -1,6 +1,6 @@
 [package]
 name = "malice"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["cbourjau <c.bourjau@posteo.de>"]
 exclude = ["benches/*"]
 description = "A small framwork providing sensible defaults to analyse ALICE's open data"
@@ -19,7 +19,7 @@ cpp = ["alice-sys"]
 bitflags = "1"
 failure = "0.1"
 futures = "0.3"
-nom = "^5"
+nom = "7"
 root-io = { version="0.3", path="../root-io" }
 # Optional dependencies
 alice-sys = { version="0.1", optional = true }

@@ -1,8 +1,8 @@
+use nom::HexDisplay;
+
 use std::fmt;
 
 use crate::core::Source;
-
-use nom::HexDisplay;
 
 /// Absolute point in file to seek data
 pub(crate) type SeekPointer = u64;
@@ -25,7 +25,7 @@ bitflags! {
 /// Used in `TStreamerInfo`
 /// Describes if the following entry is a new class or if it was
 /// already described.
-#[derive(Debug)]
+#[derive(Clone,Copy,Debug)]
 pub enum ClassInfo<'s> {
     /// Class name of the new class
     New(&'s str),
@@ -42,6 +42,7 @@ pub struct TObject {
     pub(crate) ver: u16,
     pub(crate) id: u32,
     pub(crate) bits: TObjectFlags,
+    pub(crate) _ref: Option<u16>,
 }
 
 /// A ROOT object with a name and a title

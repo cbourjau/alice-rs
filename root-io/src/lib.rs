@@ -13,21 +13,21 @@
 //! The API surface is deliberately small to make the processing of said
 //! files as easy as possible. If you are looking for a particular
 //! parser chances have it that it exists but it is not marked as `pub`.
+#![feature(negative_impls)]
+
 #![allow(clippy::cognitive_complexity)]
 #![recursion_limit = "256"]
+extern crate alice_open_data;
 #[macro_use]
 extern crate bitflags;
-#[macro_use]
+extern crate flate2;
+extern crate lzma_rs;
 extern crate nom;
 #[macro_use]
 extern crate quote;
-#[macro_use]
-extern crate failure;
-extern crate flate2;
-extern crate lzma_rs;
 extern crate reqwest;
 
-extern crate alice_open_data;
+pub use crate::core::{FileItem, RootFile, Source};
 
 // pub mod core_types;
 mod code_gen;
@@ -38,8 +38,6 @@ pub mod tree_reader;
 
 // Contains the stream_zip macro
 pub mod utils;
-
-pub use crate::core::{FileItem, RootFile, Source};
 
 /// Offset when using Context; should be in `Context`, maybe?
 const MAP_OFFSET: u64 = 2;

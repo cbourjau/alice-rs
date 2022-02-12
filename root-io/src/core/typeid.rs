@@ -1,15 +1,34 @@
-use failure::Error;
 use quote::*;
+use thiserror::Error;
 
 use crate::code_gen::rust::{ToRustParser, ToRustType};
 
+#[derive(Error, Debug)]
+pub enum TypeIdError {
+    #[error("Invalid Type Id {0}")]
+    InvalidTypeId(i32),
+    #[error("Invalid Primitive Id")]
+    PrimitiveError(#[from] InvalidPrimitive),
+}
+
+#[derive(Error, Debug)]
+pub enum InvalidPrimitive {
+    #[error("Invalid Primitive Id {0}")]
+    Id(i32),
+    #[error("Invalid Primitive Offset {0}")]
+    Offset(i32),
+    #[error("Invalid Primitive Array {0}")]
+    Array(i32),
+}
+
+
 /// Integer ID describing a streamed type in a `TStreamer`
-#[derive(Debug, Clone)]
-pub(crate) enum TypeID {
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum TypeId {
     InvalidOrCounter(i32),
-    Primitive(PrimitiveID),
-    Offset(PrimitiveID),
-    Array(PrimitiveID),
+    Primitive(PrimitiveId),
+    Offset(PrimitiveId),
+    Array(PrimitiveId),
     Base,
     Object,
     Named,
@@ -19,18 +38,18 @@ pub(crate) enum TypeID {
     ObjectP,
     String,
     AnyP,
-    STL,
-    STLString,
+    Stl,
+    StlString,
     Streamer,
     Unknown(i32),
 }
 
 /// ID describing a primitive type. This is a subset (1..19) of the integers used for `TypeID`.
-#[derive(Debug, Clone)]
-pub(crate) struct PrimitiveID(pub(crate) i32);
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct PrimitiveId(pub(crate) i32);
 
 /// Type of a streamed STL container
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum StlTypeID {
     Vector,
     Bitset,
@@ -39,25 +58,25 @@ pub(crate) enum StlTypeID {
     MultiMap,
 }
 
-impl PrimitiveID {
-    pub(crate) fn new(id: i32) -> Result<PrimitiveID, Error> {
+impl PrimitiveId {
+    pub(crate) fn new(id: i32) -> Option<PrimitiveId> {
         match id {
-            1..=19 => Ok(PrimitiveID(id)),
-            id => Err(format_err!("Invalid base type id {}", id)),
+            1..=19 => Some(PrimitiveId(id)),
+            _id => None,
         }
     }
 }
 
-impl TypeID {
-    pub(crate) fn new(id: i32) -> Result<TypeID, Error> {
-        use self::TypeID::*;
+impl TypeId {
+    pub(crate) fn new(id: i32) -> Result<TypeId, TypeIdError> {
+        use self::TypeId::*;
         Ok(match id {
             // -1 may mean that this branch / leaf has no data, or that it has an elements-per-entry array...
             -1 => InvalidOrCounter(id),
             0 => Base,
-            id @ 1..=19 => Primitive(PrimitiveID::new(id)?),
-            id @ 21..=39 => Offset(PrimitiveID::new(id - 20)?),
-            id @ 41..=59 => Array(PrimitiveID::new(id - 40)?),
+            id @ 1..=19 => Primitive(PrimitiveId::new(id).ok_or(InvalidPrimitive::Id(id))?),
+            id @ 21..=39 => Offset(PrimitiveId::new(id - 20).ok_or(InvalidPrimitive::Offset(id))?),
+            id @ 41..=59 => Array(PrimitiveId::new(id - 40).ok_or(InvalidPrimitive::Array(id))?),
             61 => Object,
             62 => Any,
             63 => Objectp,
@@ -66,8 +85,8 @@ impl TypeID {
             66 => TObject,
             67 => Named,
             69 => AnyP,
-            300 => STL,
-            365 => STLString,
+            300 => Stl,
+            365 => StlString,
             500 => Streamer,
             id => Unknown(id),
         })
@@ -87,9 +106,9 @@ impl StlTypeID {
     }
 }
 
-impl ToRustType for TypeID {
+impl ToRustType for TypeId {
     fn type_name(&self) -> Tokens {
-        use self::TypeID::*;
+        use self::TypeId::*;
         let t = match self {
             Primitive(ref id) | Offset(ref id) => id.type_name().to_string(),
             Array(ref id) => format!("Vec<{}>", id.type_name()),
@@ -97,7 +116,7 @@ impl ToRustType for TypeID {
             ObjectP => "Option<Raw<'s>>".to_string(),
             String => "String".to_string(),
             // Some funky things which we just treat as byte strings for now
-            Object | STL | STLString | Streamer | Unknown(82) => "Vec<u8>".to_string(),
+            Object | Stl | StlString | Streamer | Unknown(82) => "Vec<u8>".to_string(),
             Any => "Vec<u8>".to_string(),
             AnyP => "Vec<u8>".to_string(),
             InvalidOrCounter(-1) => "u32".to_string(),
@@ -108,7 +127,7 @@ impl ToRustType for TypeID {
     }
 }
 
-impl ToRustParser for PrimitiveID {
+impl ToRustParser for PrimitiveId {
     fn to_inline_parser(&self) -> Tokens {
         let t = match self.0 {
             1 => "be_i8",      //"kChar",
@@ -142,7 +161,7 @@ impl ToRustParser for PrimitiveID {
     }
 }
 
-impl ToRustType for PrimitiveID {
+impl ToRustType for PrimitiveId {
     fn type_name(&self) -> Tokens {
         let t = match self.0 {
             1 => "i8",      //"kChar",

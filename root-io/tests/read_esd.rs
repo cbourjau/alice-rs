@@ -1,8 +1,8 @@
-use failure::Error;
 use futures::prelude::*;
 use nom::number::complete::*;
 use nom::sequence::tuple;
 
+use root_io::tree_reader::tree::MissingBranch;
 use root_io::{
     core::parsers::{parse_custom_mantissa, parse_tobjarray_of_tnameds},
     stream_zip,
@@ -30,7 +30,7 @@ struct Model {
 }
 
 impl Model {
-    async fn stream_from_tree(t: &Tree) -> Result<impl Stream<Item = Self> + '_, Error> {
+    async fn stream_from_tree(t: &Tree) -> Result<impl Stream<Item = Self> + '_, MissingBranch> {
         let track_counter: Vec<_> = t
             .branch_by_name("Tracks")?
             .as_fixed_size_iterator(|i| be_u32(i))
@@ -109,9 +109,10 @@ impl Model {
 
 #[cfg(target_arch = "wasm32")]
 mod wasm {
-    use super::*;
     use reqwest::Url;
     use wasm_bindgen_test::*;
+
+    use super::*;
 
     wasm_bindgen_test_configure!(run_in_browser);
 
@@ -132,11 +133,10 @@ mod wasm {
 #[cfg(not(target_arch = "wasm32"))]
 mod x64 {
     use super::*;
-
     use reqwest::Url;
 
     const REMOTE_FILE: &str =
-	"http://opendata.web.cern.ch/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root";
+        "http://opendata.web.cern.ch/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root";
 
     #[tokio::test]
     async fn read_esd_local_and_remote() {

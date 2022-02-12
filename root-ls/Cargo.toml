@@ -1,6 +1,6 @@
 [package]
 name = "root-ls"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["cbourjau <christian.bourjau@cern.ch>"]
 description = "CLI tool to inspect the content and layout of `.root` files"
 repository = "https://github.com/cbourjau/alice-rs"
@@ -14,7 +14,7 @@ edition = "2018"
 [dependencies]
 clap = "2"
 failure = "0.1"
-root-io = { version="0.3", path="../root-io" }
+root-io = { version="0.3.1", path="../root-io" }
 prettyplease = "0.1"
 syn = "1"
 tokio = { version = "1", features = ["full"] }

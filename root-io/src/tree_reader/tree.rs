@@ -1,20 +1,20 @@
+use nom::branch::alt;
+use nom::combinator::{cond, verify};
+use nom::multi::{count, length_value};
+use nom::multi::length_data;
+use nom::number::complete::{be_f64, be_i32, be_i64, be_u16, be_u32, be_u8};
+use nom::Parser;
+use nom::sequence::preceded;
+use nom_supreme::ParserExt;
+use thiserror::Error;
+
 use std::fmt;
 use std::fmt::Debug;
 use std::ops::Deref;
 
-use failure::Error;
-use nom::{
-    combinator::{cond, verify},
-    error::ParseError,
-    multi::{count, length_value},
-    number::complete::*,
-    sequence::preceded,
-    IResult,
-};
-
 use crate::{
-    core::parsers::*, core::types::*, tree_reader::branch::tbranch_hdr,
-    tree_reader::branch::TBranch, tree_reader::leafs::TLeaf,
+    core::parsers::*, core::types::*, tree_reader::branch::TBranch,
+    tree_reader::branch::tbranch_hdr, tree_reader::leafs::TLeaf,
 };
 
 /// `TTree` potentially has members with very large `Vec<u8>` buffers
@@ -90,6 +90,10 @@ pub struct Tree {
     fbranchref: Option<Pointer>,
 }
 
+#[derive(Error, Debug)]
+#[error("No branch named {0} (available: {1:?})")]
+pub struct MissingBranch(String, Vec<String>);
+
 impl<'s> Tree {
     /// Get all branches of a tree (including nested ones)
     pub(crate) fn branches(&self) -> Vec<&TBranch> {
@@ -108,120 +112,113 @@ impl<'s> Tree {
             .collect()
     }
 
-    pub fn branch_by_name(&self, name: &str) -> Result<&TBranch, Error> {
+    pub fn branch_by_name(&self, name: &str) -> Result<&TBranch, MissingBranch> {
         self.branches()
             .into_iter()
             .find(|b| b.name == name)
-            .ok_or_else(|| {
-                format_err!(
-                    "Branch {} not found in tree: \n {:#?}",
-                    name,
-                    self.branches()
-                        .iter()
-                        .map(|b| b.name.to_owned())
-                        .collect::<Vec<_>>()
-                )
-            })
+            .ok_or_else(|| MissingBranch(name.to_string(),
+                                         self.branches()
+                                             .iter()
+                                             .map(|b| b.name.to_string())
+                                             .collect::<Vec<_>>()))
     }
 }
 
 /// Parse a `Tree` from the given buffer. Usually used through `FileItem::parse_with`.
 #[allow(clippy::unnecessary_unwrap)]
-pub fn ttree<'s, E>(i: &'s [u8], context: &'s Context) -> IResult<&'s [u8], Tree, E>
-where
-    E: ParseError<&'s [u8]> + Debug,
+pub fn ttree<'s, E>(context: &'s Context) -> impl Parser<&'s [u8], Tree, E>
+    where
+        E: RootError<&'s [u8]>,
 {
-    let _curried_raw = |i| raw(i, context);
-    let none_or_u8_buf = |i: &'s [u8]| {
-        switch!(i, peek!(be_u32),
-                0 => map!(call!(be_u32), | _ | None) |
-                _ => map!(
-                    map!(call!(_curried_raw), |r| r.obj.to_vec()),
-                    Some)
-        )
-    };
-    let grab_checked_byte_count = |i| length_data!(i, checked_byte_count);
-    let (i, ver) = verify(be_u16, |v| [16, 17, 18, 19].contains(v))(i)?;
-    let (i, tnamed) = length_value(checked_byte_count, tnamed)(i)?;
-    let (i, _tattline) = grab_checked_byte_count(i)?;
-    let (i, _tattfill) = grab_checked_byte_count(i)?;
-    let (i, _tattmarker) = grab_checked_byte_count(i)?;
-    let (i, fentries) = be_i64(i)?;
-    let (i, ftotbytes) = be_i64(i)?;
-    let (i, fzipbytes) = be_i64(i)?;
-    let (i, fsavedbytes) = be_i64(i)?;
-    let (i, fflushedbytes) = cond(ver >= 18, be_i64)(i)?;
-    let (i, fweight) = be_f64(i)?;
-    let (i, ftimerinterval) = be_i32(i)?;
-    let (i, fscanfield) = be_i32(i)?;
-    let (i, fupdate) = be_i32(i)?;
-    let (i, _fdefaultentryoffsetlen) = cond(ver >= 17, be_i32)(i)?;
-    let (i, fnclusterrange) = cond(ver >= 19, be_i32)(i)?;
-    let (i, fmaxentries) = be_i64(i)?;
-    let (i, fmaxentryloop) = be_i64(i)?;
-    let (i, _fmaxvirtualsize) = be_i64(i)?;
-    let (i, _fautosave) = be_i64(i)?;
-    let (i, _fautoflush) = cond(ver >= 18, be_i64)(i)?;
-    let (i, festimate) = be_i64(i)?;
-    let (i, _fclusterrangeend) = {
-        if let Some(n_clst_range) = fnclusterrange {
-            preceded(be_u8, count(be_i64, n_clst_range as usize))(i)
-                .map(|(i, ends)| (i, Some(ends)))?
-        } else {
-            (i, None)
-        }
-    };
-    let (i, _fclustersize) = {
-        if let Some(n_clst_range) = fnclusterrange {
-            preceded(be_u8, count(be_i64, n_clst_range as usize))(i)
-                .map(|(i, ends)| (i, Some(ends)))?
-        } else {
-            (i, None)
-        }
-    };
-    let (i, fbranches) =
-        length_value(checked_byte_count, |i| tobjarray(tbranch_hdr, i, context))(i)?;
-    let (i, fleaves) = length_value(checked_byte_count, |i| {
-        tobjarray(TLeaf::parse_from_raw, i, context)
-    })(i)?;
+    move |i| {
+        let none_or_u8_buf = |i: &'s [u8]| {
+            alt((
+                be_u32.verify(|&v| v == 0).precedes(be_u32.map(|_| None).cut()),
+                be_u32.verify(|&v| v != 0).precedes(raw(context)).map(|r| Some(r.obj.to_vec()))
+            )).parse(i)
+        };
+        let (i, ver) = verify(be_u16, |v| [16, 17, 18, 19].contains(v))(i)?;
+        let (i, tnamed) = length_value(checked_byte_count, tnamed)(i)?;
+        let (i, _tattline) = length_data(checked_byte_count)(i)?;
+        let (i, _tattfill) = length_data(checked_byte_count)(i)?;
+        let (i, _tattmarker) = length_data(checked_byte_count)(i)?;
+        let (i, fentries) = be_i64(i)?;
+        let (i, ftotbytes) = be_i64(i)?;
+        let (i, fzipbytes) = be_i64(i)?;
+        let (i, fsavedbytes) = be_i64(i)?;
+        let (i, fflushedbytes) = cond(ver >= 18, be_i64)(i)?;
+        let (i, fweight) = be_f64(i)?;
+        let (i, ftimerinterval) = be_i32(i)?;
+        let (i, fscanfield) = be_i32(i)?;
+        let (i, fupdate) = be_i32(i)?;
+        let (i, _fdefaultentryoffsetlen) = cond(ver >= 17, be_i32)(i)?;
+        let (i, fnclusterrange) = cond(ver >= 19, be_i32)(i)?;
+        let (i, fmaxentries) = be_i64(i)?;
+        let (i, fmaxentryloop) = be_i64(i)?;
+        let (i, _fmaxvirtualsize) = be_i64(i)?;
+        let (i, _fautosave) = be_i64(i)?;
+        let (i, _fautoflush) = cond(ver >= 18, be_i64)(i)?;
+        let (i, festimate) = be_i64(i)?;
+        let (i, _fclusterrangeend) = {
+            if let Some(n_clst_range) = fnclusterrange {
+                preceded(be_u8, count(be_i64, n_clst_range as usize))(i)
+                    .map(|(i, ends)| (i, Some(ends)))?
+            } else {
+                (i, None)
+            }
+        };
+        let (i, _fclustersize) = {
+            if let Some(n_clst_range) = fnclusterrange {
+                preceded(be_u8, count(be_i64, n_clst_range as usize))(i)
+                    .map(|(i, ends)| (i, Some(ends)))?
+            } else {
+                (i, None)
+            }
+        };
+        let (i, fbranches) =
+            length_value(checked_byte_count, tobjarray(tbranch_hdr, context))(i)?;
+        let (i, fleaves) = length_value(checked_byte_count,
+                                        tobjarray(TLeaf::parse_from_raw, context),
+        )(i)?;
 
-    let (i, faliases) = none_or_u8_buf(i)?;
-    let (i, findexvalues) = tarray(be_f64, i)?;
-    let (i, findex) = tarray(be_i32, i)?;
-    let (i, ftreeindex) = none_or_u8_buf(i)?;
-    let (i, ffriends) = none_or_u8_buf(i)?;
-    let (i, fuserinfo) = none_or_u8_buf(i)?;
-    let (i, fbranchref) = none_or_u8_buf(i)?;
-    let ftreeindex = ftreeindex.map(Pointer);
-    let ffriends = ffriends.map(Pointer);
-    let fuserinfo = fuserinfo.map(Pointer);
-    let fbranchref = fbranchref.map(Pointer);
-    Ok((
-        i,
-        Tree {
-            ver,
-            tnamed,
-            fentries,
-            ftotbytes,
-            fzipbytes,
-            fsavedbytes,
-            fflushedbytes,
-            fweight,
-            ftimerinterval,
-            fscanfield,
-            fupdate,
-            fmaxentries,
-            fmaxentryloop,
-            festimate,
-            fbranches,
-            fleaves,
-            faliases,
-            findexvalues,
-            findex,
-            ftreeindex,
-            ffriends,
-            fuserinfo,
-            fbranchref,
-        },
-    ))
+        let (i, faliases) = none_or_u8_buf(i)?;
+        let (i, findexvalues) = tarray(be_f64).parse(i)?;
+        let (i, findex) = tarray(be_i32).parse(i)?;
+        let (i, ftreeindex) = none_or_u8_buf(i)?;
+        let (i, ffriends) = none_or_u8_buf(i)?;
+        let (i, fuserinfo) = none_or_u8_buf(i)?;
+        let (i, fbranchref) = none_or_u8_buf(i)?;
+        let ftreeindex = ftreeindex.map(Pointer);
+        let ffriends = ffriends.map(Pointer);
+        let fuserinfo = fuserinfo.map(Pointer);
+        let fbranchref = fbranchref.map(Pointer);
+        Ok((
+            i,
+            Tree {
+                ver,
+                tnamed,
+                fentries,
+                ftotbytes,
+                fzipbytes,
+                fsavedbytes,
+                fflushedbytes,
+                fweight,
+                ftimerinterval,
+                fscanfield,
+                fupdate,
+                fmaxentries,
+                fmaxentryloop,
+                festimate,
+                fbranches,
+                fleaves,
+                faliases,
+                findexvalues,
+                findex,
+                ftreeindex,
+                ffriends,
+                fuserinfo,
+                fbranchref,
+            },
+        ))
+    }
 }
