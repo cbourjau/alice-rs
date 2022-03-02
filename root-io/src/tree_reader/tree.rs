@@ -1,5 +1,5 @@
 use nom::branch::alt;
-use nom::combinator::{cond, verify};
+use nom::combinator::cond;
 use nom::multi::{count, length_value};
 use nom::multi::length_data;
 use nom::number::complete::{be_f64, be_i32, be_i64, be_u16, be_u32, be_u8};
@@ -126,22 +126,26 @@ impl<'s> Tree {
 
 /// Parse a `Tree` from the given buffer. Usually used through `FileItem::parse_with`.
 #[allow(clippy::unnecessary_unwrap)]
-pub fn ttree<'s, E>(context: &'s Context) -> impl Parser<&'s [u8], Tree, E>
+pub fn ttree<'s, E>(context: &'s Context) -> impl RParser<'s, Tree, E>
     where
-        E: RootError<&'s [u8]>,
+        E: RootError<Span<'s>>,
 {
-    move |i| {
-        let none_or_u8_buf = |i: &'s [u8]| {
+    let parser = move |i| {
+        let none_or_u8_buf = |input: Span<'s>| {
             alt((
-                be_u32.verify(|&v| v == 0).precedes(be_u32.map(|_| None).cut()),
-                be_u32.verify(|&v| v != 0).precedes(raw(context)).map(|r| Some(r.obj.to_vec()))
-            )).parse(i)
+                be_u32.verify(|&v| v == 0)
+                    .map(|_| None)
+                    .context("empty ttree buffer"),
+                raw(context)
+                    .map(|r| Some(r.obj.to_vec()))
+                    .context("filled ttree buffer")
+            )).parse(input)
         };
-        let (i, ver) = verify(be_u16, |v| [16, 17, 18, 19].contains(v))(i)?;
-        let (i, tnamed) = length_value(checked_byte_count, tnamed)(i)?;
-        let (i, _tattline) = length_data(checked_byte_count)(i)?;
-        let (i, _tattfill) = length_data(checked_byte_count)(i)?;
-        let (i, _tattmarker) = length_data(checked_byte_count)(i)?;
+        let (i, ver) = be_u16.verify(|v| [16, 17, 18, 19].contains(v)).context("assertion: ttree version is in 16-19").parse(i)?;
+        let (i, tnamed) = length_value(checked_byte_count, tnamed).context("tnamed").complete().context("length-prefixed data").parse(i)?;
+        let (i, _tattline) = length_data(checked_byte_count).context("tattrline").complete().context("length-prefixed data").parse(i)?;
+        let (i, _tattfill) = length_data(checked_byte_count).context("tattrfill").complete().context("length-prefixed data").parse(i)?;
+        let (i, _tattmarker) = length_data(checked_byte_count).context("tattrmarker").complete().context("length-prefixed data").parse(i)?;
         let (i, fentries) = be_i64(i)?;
         let (i, ftotbytes) = be_i64(i)?;
         let (i, fzipbytes) = be_i64(i)?;
@@ -159,35 +163,49 @@ pub fn ttree<'s, E>(context: &'s Context) -> impl Parser<&'s [u8], Tree, E>
         let (i, _fautosave) = be_i64(i)?;
         let (i, _fautoflush) = cond(ver >= 18, be_i64)(i)?;
         let (i, festimate) = be_i64(i)?;
+        // TODO change None to empty vec?
         let (i, _fclusterrangeend) = {
             if let Some(n_clst_range) = fnclusterrange {
-                preceded(be_u8, count(be_i64, n_clst_range as usize))(i)
-                    .map(|(i, ends)| (i, Some(ends)))?
+                preceded(be_u8, count(be_i64, n_clst_range as usize))
+                    .context("fclusterrange end")
+                    .map(Some)
+                    .parse(i)?
             } else {
                 (i, None)
             }
         };
         let (i, _fclustersize) = {
             if let Some(n_clst_range) = fnclusterrange {
-                preceded(be_u8, count(be_i64, n_clst_range as usize))(i)
-                    .map(|(i, ends)| (i, Some(ends)))?
+                preceded(be_u8, count(be_i64, n_clst_range as usize))
+                    .context("fcluster size")
+                    .map(Some)
+                    .parse(i)?
             } else {
                 (i, None)
             }
         };
-        let (i, fbranches) =
-            length_value(checked_byte_count, tobjarray(tbranch_hdr, context))(i)?;
-        let (i, fleaves) = length_value(checked_byte_count,
-                                        tobjarray(TLeaf::parse_from_raw, context),
-        )(i)?;
 
-        let (i, faliases) = none_or_u8_buf(i)?;
-        let (i, findexvalues) = tarray(be_f64).parse(i)?;
-        let (i, findex) = tarray(be_i32).parse(i)?;
-        let (i, ftreeindex) = none_or_u8_buf(i)?;
-        let (i, ffriends) = none_or_u8_buf(i)?;
-        let (i, fuserinfo) = none_or_u8_buf(i)?;
-        let (i, fbranchref) = none_or_u8_buf(i)?;
+        let (i, fbranches) =
+            length_value(checked_byte_count, tobjarray(tbranch_hdr(context)))
+                .context("ttree branches")
+                .complete()
+                .context("length-prefixed data")
+                .parse(i)?;
+
+        let (i, fleaves) =
+            length_value(checked_byte_count, tobjarray(TLeaf::parse(context)))
+                .context("ttree leaves")
+                .complete()
+                .context("length-prefixed data")
+                .parse(i)?;
+
+        let (i, faliases) = none_or_u8_buf.context("faliases").parse(i)?;
+        let (i, findexvalues) = tarray(be_f64).context("findexvalues").parse(i)?;
+        let (i, findex) = tarray(be_i32).context("findex").parse(i)?;
+        let (i, ftreeindex) = none_or_u8_buf.context("ftreeindex").parse(i)?;
+        let (i, ffriends) = none_or_u8_buf.context("ffriends").parse(i)?;
+        let (i, fuserinfo) = none_or_u8_buf.context("fuserinfo").parse(i)?;
+        let (i, fbranchref) = none_or_u8_buf.context("fbranchref").parse(i)?;
         let ftreeindex = ftreeindex.map(Pointer);
         let ffriends = ffriends.map(Pointer);
         let fuserinfo = fuserinfo.map(Pointer);
@@ -220,5 +238,7 @@ pub fn ttree<'s, E>(context: &'s Context) -> impl Parser<&'s [u8], Tree, E>
                 fbranchref,
             },
         ))
-    }
+    };
+
+    parser.context("ttree")
 }

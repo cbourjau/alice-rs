@@ -1,5 +1,4 @@
 use nom::{self,
-          IResult,
           number::complete::{be_i16, be_i32, be_u128, be_u16, be_u32, be_u64, be_u8}, Parser};
 use nom::sequence::tuple;
 use nom_supreme::{ParserExt, tag::complete::tag};
@@ -13,7 +12,7 @@ use crate::{
     core::tstreamer::streamers,
     MAP_OFFSET,
 };
-use crate::tree_reader::{ReadError, WriteError};
+use crate::core::{ReadError, WriteError};
 
 /// Size of serialized `FileHeader` in bytes
 const FILE_HEADER_SIZE: u64 = 75;
@@ -60,57 +59,60 @@ pub struct Directory {
 }
 
 /// Parse opening part of a root file
-fn file_header<'s, E: RootError<&'s [u8]>>(i: &'s [u8]) -> IResult<&'s [u8], FileHeader, E> {
-    fn version_dep_int<'s, E: RootError<&'s [u8]>>(i: &'s [u8], is_64_bit: bool) -> IResult<&'s [u8], u64, E> {
-        if is_64_bit {
-            be_u64(i)
-        } else {
-            let (i, end) = be_u32(i)?;
-            Ok((i, end as u64))
+fn file_header<'s, E: RootError<Span<'s>>>(i: Span<'s>) -> RResult<'s, FileHeader, E> {
+    let parser = |i| {
+        fn version_dep_int<'s, E: RootError<Span<'s>>>(i: Span<'s>, is_64_bit: bool) -> RResult<'s, u64, E> {
+            if is_64_bit {
+                be_u64(i)
+            } else {
+                let (i, end) = be_u32(i)?;
+                Ok((i, end as u64))
+            }
         }
-    }
-    let (i, _) = tag("root")(i)?;
-    let (i, version) = be_i32(i)?;
-    let is_64_bit = version > 1000000;
-    let (i, begin) = be_i32(i)?;
-    let (i, end) = version_dep_int(i, is_64_bit)?;
-    let (i, seek_free) = version_dep_int(i, is_64_bit)?;
-    let (i, nbytes_free) = be_i32(i)?;
-    let (i, n_entries_free) = be_i32(i)?;
-    let (i, n_bytes_name) = be_i32(i)?;
-    let (i, pointer_size) = be_u8(i)?;
-    let (i, compression) = be_i32(i)?;
-    let (i, seek_info) = version_dep_int(i, is_64_bit)?;
-    let (i, nbytes_info) = be_i32(i)?;
-    let (i, _uuid_version) = be_u16(i)?;
-    let (i, uuid) = be_u128(i)?;
+        let (i, _) = tag("root")(i)?;
+        let (i, version) = be_i32(i)?;
+        let is_64_bit = version > 1000000;
+        let (i, begin) = be_i32(i)?;
+        let (i, end) = version_dep_int(i, is_64_bit)?;
+        let (i, seek_free) = version_dep_int(i, is_64_bit)?;
+        let (i, nbytes_free) = be_i32(i)?;
+        let (i, n_entries_free) = be_i32(i)?;
+        let (i, n_bytes_name) = be_i32(i)?;
+        let (i, pointer_size) = be_u8(i)?;
+        let (i, compression) = be_i32(i)?;
+        let (i, seek_info) = version_dep_int(i, is_64_bit)?;
+        let (i, nbytes_info) = be_i32(i)?;
+        let (i, _uuid_version) = be_u16(i)?;
+        let (i, uuid) = be_u128(i)?;
 
-    let uuid = Uuid::from_u128(uuid);
-    let seek_dir = (begin + n_bytes_name) as u64;
-    Ok((
-        i,
-        FileHeader {
-            version,
-            begin,
-            end,
-            seek_free,
-            nbytes_free,
-            n_entries_free,
-            n_bytes_name,
-            pointer_size,
-            compression,
-            seek_info,
-            nbytes_info,
-            uuid,
-            seek_dir,
-        },
-    ))
+        let uuid = Uuid::from_u128(uuid);
+        let seek_dir = (begin + n_bytes_name) as u64;
+        Ok((
+            i,
+            FileHeader {
+                version,
+                begin,
+                end,
+                seek_free,
+                nbytes_free,
+                n_entries_free,
+                n_bytes_name,
+                pointer_size,
+                compression,
+                seek_info,
+                nbytes_info,
+                uuid,
+                seek_dir,
+            },
+        ))
+    };
+    parser.context("file header").parse(i)
 }
 
 /// Parse a file-pointer based on the version of the file
-fn versioned_pointer<'s, E>(version: i16) -> impl nom::Parser<&'s [u8], u64, E>
+fn versioned_pointer<'s, E>(version: i16) -> impl RParser<'s, u64, E>
     where
-        E: RootError<&'s [u8]>
+        E: RootError<Span<'s>>
 {
     move |i| {
         if version > 1000 {
@@ -122,9 +124,9 @@ fn versioned_pointer<'s, E>(version: i16) -> impl nom::Parser<&'s [u8], u64, E>
 }
 
 /// Directory within a root file; exists on ever file
-fn directory<'s, E>(input: &'s [u8]) -> IResult<&'s [u8], Directory, E>
+fn directory<'s, E>(input: Span<'s>) -> RResult<'s, Directory, E>
     where
-        E: RootError<&'s [u8]>
+        E: RootError<Span<'s>>
 {
     tuple((
         be_i16.context("directory version"),
@@ -158,7 +160,7 @@ impl RootFile {
     pub async fn new<S: Into<Source>>(source: S) -> Result<Self, ReadError> {
         let source = source.into();
         let hdr_buf = source.fetch(0, FILE_HEADER_SIZE).await?;
-        let hdr = wrap_parser(file_header.all_consuming())(&hdr_buf)?;
+        let hdr = wrap_parser(file_header.context("file header"))(&hdr_buf)?;
         //let hdr = _hdr?;
 
         // Jump to the TDirectory and parse it
@@ -179,13 +181,11 @@ impl RootFile {
     }
 
     pub async fn get_streamer_context(&self) -> Result<Context, ReadError> {
-        let seek_info_len = (self.hdr.nbytes_info + 4) as u64;
-        let info_key_buf = self
-            .source
+        let seek_info_len = (self.hdr.nbytes_info) as u64;
+        let info_key_buf = self.source
             .fetch(self.hdr.seek_info, seek_info_len)
             .await?;
-        let info_key = wrap_parser(tkey.all_consuming())(&info_key_buf)?;
-
+        let info_key = wrap_parser(tkey.all_consuming().context("streamer info key"))(&info_key_buf)?;
         let key_len = info_key.hdr.key_len;
         Ok(Context {
             source: self.source.clone(),
@@ -202,8 +202,7 @@ impl RootFile {
     /// Get the stream info of this file
     pub async fn streamer_infos(&self) -> Result<Vec<TStreamerInfo>, ReadError> {
         let ctx = self.get_streamer_context().await?;
-        let buf = ctx.s.as_slice();
-        let res = wrap_parser(streamers(&ctx))(buf)?;
+        let res = wrap_parser_ctx(streamers)(&ctx)?;
         Ok(res)
     }
 
@@ -326,7 +325,7 @@ mod test {
             .await
             .and_then(|buf| {
                 file_header(&buf)
-                    .map_err(|_| format_err!("Failed to parse file header"))
+                    .map_err(|_| ParseError(e))
                     .map(|(_i, o)| o)
             })
             .unwrap();
@@ -336,7 +335,7 @@ mod test {
             .await
             .and_then(|buf| {
                 directory(&buf)
-                    .map_err(|_| format_err!("Failed to parse file header"))
+                    .map_err(|e| ParseError(e))
                     .map(|(_i, o)| o)
             })
             .unwrap();
@@ -374,7 +373,7 @@ mod test {
             .await
             .and_then(|buf| {
                 tkey(&buf)
-                    .map_err(|_| format_err!("Failed to parse file header"))
+                    .map_err(|e| ParseError(e))
                     .map(|(_i, o)| o)
             })
             .unwrap();

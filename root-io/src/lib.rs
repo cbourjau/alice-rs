@@ -23,6 +23,7 @@ extern crate bitflags;
 extern crate flate2;
 extern crate lzma_rs;
 extern crate nom;
+extern crate nom_locate;
 #[macro_use]
 extern crate quote;
 extern crate reqwest;

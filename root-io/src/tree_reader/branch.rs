@@ -1,6 +1,5 @@
 use futures::prelude::*;
 use nom::{error::VerboseError, IResult, multi::{count, length_data, length_value}, number::complete::*, Parser};
-use nom::combinator::eof;
 use nom_supreme::ParserExt;
 
 use std::fmt::Debug;
@@ -116,13 +115,13 @@ impl TBranch {
     /// ```
     pub fn as_fixed_size_iterator<T, P>(&self, p: P) -> impl Stream<Item=T>
         where
-            P: Fn(&[u8]) -> IResult<&[u8], T, VerboseError<&[u8]>>,
+            P: Fn(Span) -> IResult<Span, T, VerboseError<Span>>,
     {
         stream::iter(self.containers().to_owned())
             .then(|basket| async move { basket.raw_data().await.unwrap() })
             .map(move |(n_events_in_basket, buffer)| {
                 // Parse the entire basket buffer; if something is left over its just junk
-                let x = count(&p, n_events_in_basket as usize)(&buffer);
+                let x = count(&p, n_events_in_basket as usize)(Span::new(&buffer));
                 let events = match x {
                     Ok((_rest, output)) => output,
                     Err(e) => panic!("Parser failed unexpectedly {:?}", e),
@@ -142,13 +141,13 @@ impl TBranch {
         el_counter: Vec<u32>,
     ) -> impl Stream<Item = Vec<T>>
     where
-        P: Fn(&[u8]) -> IResult<&[u8], T, VerboseError<&[u8]>>,
+        P: Fn(Span) -> IResult<Span, T, VerboseError<Span>>,
     {
         let mut elems_per_event = el_counter.into_iter();
         stream::iter(self.containers().to_owned())
             .then(|basket| async move { basket.raw_data().await.unwrap() })
             .map(move |(n_events_in_basket, buffer)| {
-                let mut buffer = buffer.as_slice();
+                let mut buffer = Span::new(&buffer);
                 let mut events = Vec::with_capacity(n_events_in_basket as usize);
                 for _ in 0..n_events_in_basket {
                     if let Some(n_elems_in_event) = elems_per_event.next() {
@@ -169,34 +168,42 @@ impl TBranch {
 
 /// `TBranchElements` are a subclass of `TBranch` if the content is an Object
 /// We ignore the extra information for now and just parse the TBranch"Header" in either case
-pub(crate) fn tbranch_hdr<'s, E>(ctxt: &'s Context) -> impl Parser<Raw<'s>, TBranch, E>
+pub(crate) fn tbranch_hdr<'s, E>(ctxt: &'s Context) -> impl RParser<'s, TBranch, E> + Copy
     where
-        E: RootError<&'s [u8]>,
+        E: RootError<Span<'s>>,
 {
-    move |raw: Raw<'s>| {
-        match raw.classinfo {
+    let parser = move |i| {
+        let (i, (classinfo, obj)) = class_name_and_buffer(ctxt).parse(i)?;
+
+        let (_, branch) = match classinfo {
             "TBranchElement" | "TBranchObject" => {
-                be_u16.precedes(length_value(checked_byte_count, tbranch(ctxt)))
-                    .terminated(eof)
-                    .parse(raw.obj)
+                be_u16.precedes(length_value(checked_byte_count, tbranch(ctxt)).complete().context("length-prefixed data"))
+                    .all_consuming()
+                    .context("tbranch object")
+                    .parse(obj)
             }
             "TBranch" =>
                 tbranch(ctxt)
-                    .terminated(eof)
-                    .parse(raw.obj),
+                    .all_consuming()
+                    .context("tbranch wrapper")
+                    .parse(obj),
             name => panic!("Unexpected Branch type {}", name),
-        }.map(|(i, res)| (Raw { classinfo: raw.classinfo, obj: i }, res))
-    }
+        }?;
+
+        Ok((i, branch))
+    };
+
+    parser.context("tbranch hdr")
 }
 
-fn tbranch<'s, E>(context: &'s Context) -> impl Parser<&'s [u8], TBranch, E>
+fn tbranch<'s, E>(context: &'s Context) -> impl RParser<'s, TBranch, E>
     where
-        E: RootError<&'s [u8]>,
+        E: RootError<Span<'s>>,
 {
-    move |inpt| {
-        let (i, _ver) = be_u16.verify(|v| [11, 12].contains(v)).parse(inpt)?;
-        let (i, tnamed) = length_value(checked_byte_count, tnamed).parse(i)?;
-        let (i, _tattfill) = length_data(checked_byte_count).parse(i)?;
+    let parser = move |inpt| {
+        let (i, _ver) = be_u16.verify(|v| [11, 12].contains(v)).context("assertion: branch version must be 11 or 12").parse(inpt)?;
+        let (i, tnamed) = length_value(checked_byte_count, tnamed).complete().context("tnamed").parse(i)?;
+        let (i, _tattfill) = length_data(checked_byte_count).context("tattrfill").parse(i)?;
         let (i, fcompress) = be_i32(i)?;
         let (i, fbasketsize) = be_i32(i)?;
         let (i, fentryoffsetlen) = be_i32(i)?;
@@ -210,16 +217,25 @@ fn tbranch<'s, E>(context: &'s Context) -> impl Parser<&'s [u8], TBranch, E>
         let (i, ftotbytes) = be_i64(i)?;
         let (i, fzipbytes) = be_i64(i)?;
         let (i, fbranches) =
-            length_value(checked_byte_count, tobjarray(tbranch_hdr, context))(i)?;
+            length_value(checked_byte_count, tobjarray(tbranch_hdr(context))).complete().context("fbranches").parse(i)?;
         let (i, fleaves) =
-            length_value(checked_byte_count, tobjarray(TLeaf::parse_from_raw, context))(i)?;
+            length_value(checked_byte_count, tobjarray(TLeaf::parse(context))).complete().context("fleaves").parse(i)?;
         let (i, fbaskets) =
             length_value(checked_byte_count,
-                         tobjarray(|_| |r: Raw<'s>| Ok((Raw { classinfo: r.classinfo, obj: &[] }, r.obj)), context))(i)?;
-        let (i, fbasketbytes) = be_u8.precedes(count(be_i32, fmaxbaskets as usize)).parse(i)?;
-        let (i, fbasketentry) = be_u8.precedes(count(be_i64, fmaxbaskets as usize)).parse(i)?;
-        let (i, fbasketseek) = be_u8.precedes(count(be_u64, fmaxbaskets as usize)).parse(i)?;
-        let (i, ffilename) = string(i)?;
+                         tobjarray(|i| class_name_and_buffer(context).map(|(_, buf)| buf).parse(i)))
+                .complete()
+                .context("fbaskets")
+                .parse(i)?;
+        let (i, fbasketbytes) = be_u8.precedes(count(be_i32, fmaxbaskets as usize))
+            .context("fbasketbytes")
+            .parse(i)?;
+        let (i, fbasketentry) = be_u8.precedes(count(be_i64, fmaxbaskets as usize))
+            .context("fbasketentry")
+            .parse(i)?;
+        let (i, fbasketseek) = be_u8.precedes(count(be_u64, fmaxbaskets as usize))
+            .context("fbasketseek")
+            .parse(i)?;
+        let (i, ffilename) = string.context("ffilename").parse(i)?;
 
         let name = tnamed.name;
         let fbaskets = fbaskets
@@ -263,5 +279,7 @@ fn tbranch<'s, E>(context: &'s Context) -> impl Parser<&'s [u8], TBranch, E>
                 containers,
             },
         ))
-    }
+    };
+
+    parser.context("tbranch")
 }

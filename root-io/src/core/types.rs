@@ -1,8 +1,9 @@
 use nom::HexDisplay;
+use nom_locate::LocatedSpan;
 
 use std::fmt;
 
-use crate::core::Source;
+use crate::core::{Source, Span};
 
 /// Absolute point in file to seek data
 pub(crate) type SeekPointer = u64;
@@ -55,9 +56,10 @@ pub struct TNamed {
 }
 
 /// A type holding nothing but the original data and a class info object
+#[derive(Clone, Copy)]
 pub struct Raw<'s> {
     pub(crate) classinfo: &'s str,
-    pub(crate) obj: &'s [u8],
+    pub(crate) obj: Span<'s>,
 }
 
 /// The context from which we are currently parsing
@@ -71,6 +73,12 @@ pub struct Context {
     pub(crate) offset: u64,
     /// The full buffer we are working on
     pub(crate) s: Vec<u8>,
+}
+
+impl Context {
+    pub fn span(&self) -> Span {
+        LocatedSpan::new(&self.s)
+    }
 }
 
 impl<'s> fmt::Debug for Raw<'s> {

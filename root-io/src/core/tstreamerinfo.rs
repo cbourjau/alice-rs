@@ -1,6 +1,5 @@
-use nom::{multi::length_value, number::complete::*, Parser};
-use nom::combinator::eof;
-use nom::error::dbg_dmp;
+use nom::{multi::length_value, number::complete::*};
+use nom_supreme::ParserExt;
 use quote::*;
 
 use std::fmt::Debug;
@@ -22,12 +21,12 @@ pub struct TStreamerInfo {
 }
 
 /// Parse one `TStreamerInfo` object (as found in the `TList`)
-pub(crate) fn tstreamerinfo<'s, E>(context: &'s Context) -> impl Parser<&'s [u8], TStreamerInfo, E>
+pub(crate) fn tstreamerinfo<'s, E>(context: &'s Context) -> impl RParser<'s, TStreamerInfo, E>
     where
-        E: RootError<&'s [u8]>,
+        E: RootError<Span<'s>>,
 {
-    move |i| {
-        let parse_members = tobjarray(|_| tstreamer, context);
+    let parser = move |i| {
+        let parse_members = tobjarray(tstreamer(context)).context("tstreamerinfo members");
 
         let (i, tstreamerinfo_ver) = be_u16(i)?;
         let (i, named) = length_value(checked_byte_count, tnamed)(i)?;
@@ -35,11 +34,7 @@ pub(crate) fn tstreamerinfo<'s, E>(context: &'s Context) -> impl Parser<&'s [u8]
         let (i, new_class_version) = be_u32(i)?;
         let (i, _size_tobjarray_with_class_info) = checked_byte_count(i)?;
         let (i, _class_info_objarray) = classinfo(i)?;
-        let (i, data_members) = length_value(
-            dbg_dmp(checked_byte_count, "byte count"),
-            dbg_dmp(parse_members, "parse_members"),
-        )(i)?;
-        let (i, _eof) = eof(i)?;
+        let (i, data_members) = length_value(checked_byte_count, parse_members)(i)?;
         Ok((
             i,
             TStreamerInfo {
@@ -50,7 +45,10 @@ pub(crate) fn tstreamerinfo<'s, E>(context: &'s Context) -> impl Parser<&'s [u8]
                 data_members,
             },
         ))
-    }
+    };
+
+    // TODO move all_consuming to call site?
+    parser.all_consuming().context("tstreamerinfo")
 }
 
 impl ToRustParser for TStreamerInfo {

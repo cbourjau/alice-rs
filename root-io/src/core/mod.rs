@@ -2,6 +2,7 @@
 //! the self-description of a root file. These parsers can be used to
 //! build new parsers using the [root-ls](https://github.com/cbourjau/alice-rs) cli.
 use thiserror::Error;
+use crate::core::ReadError::ParseError;
 
 pub(crate) use self::compression::*;
 pub use self::compression::DecompressionError;
@@ -35,4 +36,44 @@ pub enum SemanticError {
 #[derive(Debug)]
 pub enum Component {
     TStreamerElement
+}
+
+#[derive(Error, Debug)]
+pub enum ReadError {
+    #[error("Error reading data")]
+    IoError(#[from] std::io::Error),
+    #[error("Error fetching data from online source")]
+    ReqwestError(#[from] reqwest::Error),
+    #[error("Error decompressing data")]
+    DecompressionError(#[from] DecompressionError),
+    #[error("Error parsing data")]
+    ParseError(VerboseErrorInfo),
+}
+
+pub trait UnwrapPrint<T> {
+    fn unwrap_print(self) -> T;
+}
+
+impl <T> UnwrapPrint<T> for Result<T, ReadError> {
+    fn unwrap_print(self) -> T {
+        match self {
+            Ok(v) => v,
+            Err(ParseError(e))  => { panic!("Tried to unwrap a parse error:\n{}", e); },
+            Err(e)              => { panic!("Tried to unwrap a read error:\n{}", e) }
+        }
+    }
+}
+
+impl From<VerboseErrorInfo> for ReadError {
+    fn from(e: VerboseErrorInfo) -> ReadError {
+        ParseError(e)
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum WriteError {
+    #[error(transparent)]
+    ReadError(#[from] ReadError),
+    #[error(transparent)]
+    FmtError(#[from] std::fmt::Error)
 }

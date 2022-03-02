@@ -1,7 +1,6 @@
 #![cfg(not(target_arch = "wasm32"))]
 
 use nom::Parser;
-use nom::error::VerboseError;
 
 use std::path::PathBuf;
 
@@ -34,15 +33,21 @@ fn list_of_rules() {
     let context = Context {
         source: PathBuf::from("").into(),
         offset: 0,
-        s: vec![],
+        s: s.to_vec(),
     };
-    use nom::HexDisplay;
-    println!("{}", s.to_hex(16));
-    let (_, (_name, obj)) = class_name_and_buffer::<VerboseError<_>>(&context).parse(s).unwrap();
-    println!("{}", obj.to_hex(16));
-    let (obj, _ci) = classinfo::<VerboseError<_>>(obj).unwrap();
-    println!("{:?}", _ci);
-    println!("{}", obj.to_hex(16));
+
+
+    let mut parser = wrap_parser_ctx(|ctx| move |i| {
+        let (leftover, (name, obj)) = class_name_and_buffer(ctx).parse(i)?;
+        let (_, l) = tlist(ctx).parse(obj)?;
+        Ok((leftover, (name, l)))
+    });
+
+    let (name, l) = match parser(&context) {
+        Ok((name, l))   => (name, l),
+        Err(e)          => { println!("{}", e); assert!(false); unreachable!() }
+    };
+    println!("name = {}\nlist = {:?}", name, l);
     // let (_obj, l) = tlist(obj, &context).unwrap();
     // assert_eq!(l.name, "listOfRules");
     // assert_eq!(l.len, 2);

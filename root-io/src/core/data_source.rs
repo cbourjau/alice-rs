@@ -9,7 +9,7 @@ use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 use std::path::PathBuf;
 
-use crate::tree_reader::ReadError;
+use crate::core::ReadError;
 
 /// The source from where the Root file is read. Construct it using
 /// `.into()` on a `Url` or `Path`. The latter is not availible for

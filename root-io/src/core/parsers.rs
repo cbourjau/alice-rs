@@ -1,10 +1,14 @@
-use nom::{self, bytes::complete::{take, take_until}, combinator::{map_res, rest}, error::ParseError, IResult, multi::{count, length_data, length_value}, number::complete::{be_i32, be_u16, be_u32, be_u8}, Parser, sequence::{pair, tuple}};
+use nom::{self, bytes::complete::{take, take_until}, combinator::rest, error::ParseError, IResult, multi::{count, length_data, length_value}, number::complete::{be_i32, be_u16, be_u32, be_u8}, Parser, sequence::{pair, tuple}};
 use nom::branch::alt;
-use nom::combinator::{cond, eof};
+use nom::combinator::cond;
 use nom::error::{ContextError, FromExternalError, VerboseError};
+use nom::HexDisplay;
 use nom::multi::length_count;
+use nom::Slice;
+use nom_locate::LocatedSpan;
 use nom_supreme::parser_ext::ParserExt;
 use nom_supreme::tag::TagError;
+use ouroboros::self_referencing;
 
 /// Parsers of the ROOT core types. Note that objects in ROOT files
 /// are often, but not always, preceeded by their size. The parsers in
@@ -38,23 +42,147 @@ impl<I, T: ParseError<I>
 + FromExternalError<I, DecompressionError>
 + Debug> RootError<I> for T {}
 
+pub type Span<'s> = LocatedSpan<&'s [u8]>;
+pub type RResult<'s, O, E> = IResult<Span<'s>, O, E>;
+
+pub trait RParser<'s, O, E: RootError<Span<'s>>>: Parser<Span<'s>, O, E> {}
+
+impl<'s, O, E: RootError<Span<'s>>, T: Parser<Span<'s>, O, E>> RParser<'s, O, E> for T {}
+
 
 /// Corerce a closure to a Fn, for use with map_res et al.
 pub(crate) fn make_fn<T, U, F: Fn(T) -> U>(f: F) -> F {
     f
 }
 
+#[self_referencing]
+#[derive(Debug)]
+pub struct VerboseErrorInfo {
+    input: Vec<u8>,
+    #[borrows(input)]
+    #[covariant]
+    error: VerboseError<Span<'this>>,
+}
 
-pub(crate) fn wrap_parser<'s, O>(parser: impl Parser<&'s [u8], O, VerboseError<&'s [u8]>>) -> impl FnMut(&'s [u8]) -> Result<O, VerboseError<Vec<u8>>>
+impl std::fmt::Display for VerboseErrorInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        use nom::error::VerboseErrorKind::*;
+        use nom::error::ErrorKind as Kind;
+
+        writeln!(f, "Error while parsing this block of data:")?;
+        if self.borrow_input().len() > 0x100 {
+            write!(f, "{}", self.borrow_input()[..0x100].to_hex(16))?;
+            writeln!(f, "        \t[0x{:x} of 0x{:x} bytes omitted]", self.borrow_input().len() - 0x100, self.borrow_input().len())?;
+        } else {
+            write!(f, "{}", self.borrow_input().to_hex(16))?;
+        }
+
+        for (span, kind) in self.borrow_error().errors.iter().rev() {
+            match kind {
+                Context(context)    => write!(f, "\nWhile trying to parse {}:", context)?,
+                Char(c)             => write!(f, "\nWhile trying to match a '{}':", c)?,
+                Nom(Kind::Verify)       => continue,
+                Nom(Kind::Complete)     => { write!(f, "\nExpected length exceeds buffer")?; continue },
+                Nom(Kind::Eof)          => if span.fragment().is_empty() {
+                    // Yes, EOF is returned both for parsers expecting more input (the be_uXX
+                    // parsers for us, mostly), but also by parsers expecting *no more* input
+                    // such as all_consuming.
+                    // We distinguish based on the remaining input - if everything was consumed,
+                    // it must have been a premature EOF
+                    write!(f, "\nUnexpected EOF")?
+                } else {
+                    write!(f, "\nExpected EOF, but found excess data")?
+                },
+                Nom(kind)       => write!(f, "\nIn {:?}:", kind)?
+            };
+
+            let fragment_begin = span.location_offset();
+            let fragment_end = match kind {
+                Context(_) | Nom(_)     => span.location_offset() + std::cmp::max(1, std::cmp::min(0x100, span.fragment().len())),
+                Char(_)                 => span.location_offset() + 1
+            };
+            // Align hexdump to 16-byte blocks
+            let hexdump_begin = fragment_begin / 16 * 16;
+            let hexdump_first_line_end = std::cmp::min(self.borrow_input().len(), hexdump_begin + 16);
+            let hexdump_end = (fragment_end + 16) / 16 * 16;
+            let hexdump_end = std::cmp::min(self.borrow_input().len(), hexdump_end);
+
+            // 2 letters per byte + one space
+            let fragment_begin_in_dump = 3 * (fragment_begin % 16);
+            let fragment_end_in_dump = 3 * ((fragment_end - 1) % 16) + 1;
+
+            write!(f, "\n{}", self.borrow_input()[hexdump_begin..hexdump_first_line_end].to_hex_from(16, hexdump_begin))?;
+            if fragment_begin == self.borrow_input().len() {
+                write!(f, "        \t{: >skip$} [at end of input]", '^', skip=fragment_begin_in_dump + 1)?;
+            } else if fragment_begin / 16 == fragment_end / 16 {
+                write!(f, "        \t{: >skip$}{:~>len$}",
+                                 '^', '~',
+                                 skip = fragment_begin_in_dump + 1,
+                                 len = fragment_end_in_dump - fragment_begin_in_dump)?
+            } else {
+                write!(f, "        \t{: >skip$}{:~>len$}",
+                                 '^', '~',
+                                 skip = fragment_begin_in_dump + 1,
+                                 len = (3 * 15 + 1) - fragment_begin_in_dump)?;
+                write!(f, "\n{}", self.borrow_input()[hexdump_begin + 16..hexdump_end].to_hex_from(16, hexdump_begin + 16))?;
+                if span.fragment().len() > 0x100 {
+                    write!(f, "        \t[0x{:x} bytes omitted]", span.fragment().len() - 0x100)?;
+                } else {
+                    write!(f, "        \t{:~>len$}", '~', len = fragment_end_in_dump + 1)?;
+                }
+            }
+            writeln!(f)?;
+        }
+
+        Ok(())
+    }
+}
+
+fn reborrow_spans<'s, 't>(new_base: &'s [u8], error: VerboseError<Span<'t>>) -> VerboseError<Span<'s>> {
+    let reborrow = |span: &Span<'_>| unsafe {
+        Span::new_from_raw_offset(span.location_offset(),
+                                  span.location_line(),
+                                  &new_base[span.location_offset()..span.location_offset() + span.fragment().len()],
+                                  ())
+    };
+    VerboseError {
+        errors: error.errors.iter().map(|(span, kind)| (reborrow(span), kind.clone())).collect::<Vec<_>>()
+    }
+}
+
+pub fn wrap_parser<'s, O>(parser: impl Parser<Span<'s>, O, VerboseError<Span<'s>>>) -> impl FnMut(&'s [u8]) -> Result<O, VerboseErrorInfo>
 {
     let mut parser = parser.complete();
 
-    move |input| match parser.parse(input) {
+    move |input| match parser.parse(Span::new(input)) {
         Ok((_, parsed)) => Ok(parsed),
         Err(nom::Err::Error(err)) | Err(nom::Err::Failure(err)) => {
-            let errors = err.errors.iter().map(|(i, kind)| (i.to_vec(), kind.clone())).collect();
-            Err(VerboseError { errors })
-        },
+            let info = VerboseErrorInfoBuilder {
+                input: input.to_vec(),
+                error_builder: |input| reborrow_spans(input, err),
+            };
+            Err(info.build())
+        }
+        Err(nom::Err::Incomplete(..)) => {
+            unreachable!("Complete combinator should make this impossible")
+        }
+    }
+}
+
+pub fn wrap_parser_ctx<'s, O, F, P>(parser_gen: F) -> impl FnMut(&'s Context) -> Result<O, VerboseErrorInfo>
+    where
+        P: Parser<Span<'s>, O, VerboseError<Span<'s>>>,
+        F: Fn(&'s Context) -> P
+{
+    move |ctx| match parser_gen(ctx).complete().parse(ctx.span()) {
+        Ok((_, parsed)) => Ok(parsed),
+        Err(nom::Err::Error(err)) | Err(nom::Err::Failure(err)) => {
+            let info = VerboseErrorInfoBuilder {
+                input: ctx.s.to_vec(),
+                error_builder: |input| reborrow_spans(input, err),
+            };
+            Err(info.build())
+        }
         Err(nom::Err::Incomplete(..)) => {
             unreachable!("Complete combinator should make this impossible")
         }
@@ -68,44 +196,44 @@ fn is_byte_count(v: &u32) -> bool {
 
 /// Return the size in bytes of the following object in the input. The
 /// count is the remainder of this object minus the size of the count.
-pub fn checked_byte_count<'s, E>(input: &'s [u8]) -> IResult<&[u8], u32, E>
+pub fn checked_byte_count<'s, E>(input: Span<'s>) -> RResult<'s, u32, E>
     where
-        E: RootError<&'s [u8]>,
+        E: RootError<Span<'s>>,
 {
-    be_u32.verify(is_byte_count).context("does not match bytecount mask")
-        .map(|v| v & Flags::BYTE_COUNT_MASK.bits())
-        .verify(|&v| v != 0).context("byte count must not be 0")
-        .verify(|&v| v < 0x4000_0000).context("highest bit in byte count must be unset")
+    be_u32.verify(is_byte_count).context("assertion: byte count matches bytecount mask")
+        .map(|v| v & !Flags::BYTE_COUNT_MASK.bits())
+        .verify(|&v| v != 0).context("assertion: byte count must not be 0")
+        .verify(|&v| v < 0x8000_0000).context("assertion: highest bit in byte count must be unset")
         .parse(input)
 }
 
 /// Read ROOT's string length prefix, which is usually a u8, but can be extended
 /// to a u32 (for a total of 5 bytes) if the first byte is 255
-fn string_length_prefix<'s, E>(input: &'s [u8]) -> IResult<&'s [u8], u32, E>
+fn string_length_prefix<'s, E>(input: Span<'s>) -> RResult<'s, u32, E>
     where
-        E: RootError<&'s [u8]>,
+        E: RootError<Span<'s>>,
 {
     alt((
-        be_u8.verify(|&v| v == 255).precedes(be_u32).cut().context("extended string length prefix"),
+        be_u8.verify(|&v| v == 255).precedes(be_u32).context("extended string length prefix"),
         be_u8.verify(|&v| v != 255).map(|v| v as u32).context("short string length prefix")
     ))(input)
 }
 
 /// Read ROOT's version of short and long strings (preceeded by u8). Does not read null terminated!
-pub fn string<'s, E>(input: &'s [u8]) -> nom::IResult<&'s [u8], &'s str, E>
+pub fn string<'s, E>(input: Span<'s>) -> RResult<'s, &'s str, E>
     where
-        E: RootError<&'s [u8]>,
+        E: RootError<Span<'s>>,
 {
     length_data(string_length_prefix)
-        .map_res(str::from_utf8)
+        .map_res(|s| str::from_utf8(&s))
         .context("length-prefixed string")
         .parse(input)
 }
 
 /// Parser for the most basic of ROOT types
-pub fn tobject<'s, E>(input: &'s [u8]) -> nom::IResult<&[u8], TObject, E>
+pub fn tobject<'s, E>(input: Span<'s>) -> RResult<'s, TObject, E>
     where
-        E: RootError<&'s [u8]>,
+        E: RootError<Span<'s>>,
 {
     tuple((
         be_u16.context("tobject version"),
@@ -120,40 +248,45 @@ pub fn tobject<'s, E>(input: &'s [u8]) -> nom::IResult<&[u8], TObject, E>
 }
 
 /// Parse a `TList`
-pub fn tlist<'s, E>(context: &'s Context) -> impl Parser<&'s [u8], Vec<Raw<'s>>, E>
+pub fn tlist<'s, E>(ctx: &'s Context) -> impl RParser<'s, Vec<Raw<'s>>, E>
     where
-        E: RootError<&'s [u8]>,
+        E: RootError<Span<'s>>,
 {
-    RootContextParser {
-        context,
-        parser: |ctx, inpt| {
-            let (i, _ver) = be_u16.context("tlist version")
-                .verify(|&v| v == 5).context("tlist version must be 5").parse(inpt)?;
-            let (i, (_tobj, _name, num_obj)) = tuple((tobject, string, be_i32))(i)?;
-            let (i, objs) = count(
-                |i| {
-                    let (i, obj) = length_value(checked_byte_count, raw(ctx))
-                        .context("entry in tlist")
-                        .parse(i)?;
-                    // TODO verify remaining entry data
-                    let (i, _) = length_data(be_u8)(i)?;
-                    Ok((i, obj))
-                },
-                num_obj as usize,
-            )(i)?;
+    let parser = move |inpt| {
+        let (i, _ver) = be_u16.context("tlist version")
+            .verify(|&v| v == 5).context("assertion: tlist version must be 5").parse(inpt)?;
+        let (i, (_tobj, _name, num_obj)) = tuple((
+            tobject.context("tlist object header"),
+            string.context("tlist name"),
+            be_i32.context("tlist element count")
+        ))(i)?;
 
-            // TODO: Verify rest
-            let (i, _) = rest(i)?;
-            Ok((i, objs))
-        },
-    }//.context("tlist")
+        let (i, objs) = count(
+            |i: Span<'s>| {
+                let (i, obj) = length_value(checked_byte_count, raw(ctx))
+                    .complete()
+                    .context("length-prefixed data")
+                    .parse(i)?;
+                // TODO verify remaining entry data
+                // TODO u8 prefix or extended string prefix?
+                let (i, _x) = length_data(be_u8).complete().parse(i)?;
+                Ok((i, obj))
+            },
+            num_obj as usize,
+        )(i)?;
+
+        // TODO: Verify rest
+        let (i, _) = rest(i)?;
+        Ok((i, objs))
+    };
+    parser.context("tlist")
 }
 
 /// Parser for `TNamed` objects
 #[rustfmt::skip::macros(do_parse)]
-pub fn tnamed<'s, E>(input: &'s [u8]) -> nom::IResult<&'s [u8], TNamed, E>
+pub fn tnamed<'s, E>(input: Span<'s>) -> RResult<'s, TNamed, E>
     where
-        E: RootError<&'s [u8]>,
+        E: RootError<Span<'s>>,
 {
     tuple((
         be_u16.context("version"),
@@ -166,30 +299,31 @@ pub fn tnamed<'s, E>(input: &'s [u8]) -> nom::IResult<&'s [u8], TNamed, E>
 }
 
 /// Parse a `TObjArray`
-pub fn tobjarray<'s, E, F, P, O>(parser: F, context: &'s Context) -> impl Fn(&'s [u8]) -> IResult<&'s [u8], Vec<O>, E>
+pub fn tobjarray<'s, E, P, O>(parser: P) -> impl RParser<'s, Vec<O>, E>
     where
-        F: Fn(&'s Context) -> P,
-        P: Parser<Raw<'s>, O, E>,
-        E: RootError<&'s [u8]>,
+        P: RParser<'s, O, E> + Copy,
+        E: RootError<Span<'s>>,
 {
-    make_fn(move |i| {
+    let parser  = move |i| {
         let (i, _ver) = be_u16(i)?;
         let (i, _tobj) = tobject(i)?;
         let (i, _name) = c_string(i)?;
         let (i, size) = be_i32(i)?;
         let (i, _low) = be_i32(i)?;
-        let (i, objs): (&'s [u8], Vec<O>) = count(
-            raw(context).and_then(parser(context)),
+        let (i, objs): (_, Vec<O>) = count(
+            parser,
             size as usize,
         )(i)?;
         Ok((i, objs))
-    })
+    };
+
+    parser.context("tobjarray")
 }
 
 /// Parse a `TObjArray` which does not have references pointing outside of the input buffer
-pub fn tobjarray_no_context<'s, E>(input: &'s [u8]) -> nom::IResult<&'s [u8], Vec<(ClassInfo, &'s [u8])>, E>
+pub fn tobjarray_no_context<'s, E>(input: Span<'s>) -> RResult<'s, Vec<(ClassInfo, Span<'s>)>, E>
     where
-        E: RootError<&'s [u8]>,
+        E: RootError<Span<'s>>,
 {
     tuple((
         be_u16.context("TObjArray header version"),
@@ -204,49 +338,49 @@ pub fn tobjarray_no_context<'s, E>(input: &'s [u8]) -> nom::IResult<&'s [u8], Ve
     //                     |v| v.into_iter().map(|(ci, s)| (ci, s)).collect()) >>
 }
 
-pub fn tobjstring<'s, E>(input: &'s [u8]) -> nom::IResult<&'s [u8], &'s str, E>
+pub fn tobjstring<'s, E>(input: Span<'s>) -> RResult<'s, &'s str, E>
     where
-        E: RootError<&'s [u8]>,
+        E: RootError<Span<'s>>,
 {
+    // TODO move all_consuming to call site
     tuple((
         be_u16.context("tobjstring version"),
         tobject.context("tobjstring object"),
         string.context("tobjstring name"),
-        eof.context("tobjstring must consume input")
-    )).map(|(_, _, name, _)| name)
+    )).all_consuming()
+        .context("tobjstring")
+        .map(|(_, _, name)| name)
         .parse(input)
 }
 
 /// Parse a so-called `TArray`. Note that ROOT's `TArray`s are actually not fixed size.
 /// Example usage for TArrayI: `tarray(nom::complete::be_i32).parse(input_slice)`
-pub fn tarray<'s, E, F, O>(parser: F) -> impl nom::Parser<&'s [u8], Vec<O>, E>
+pub fn tarray<'s, E, F, O>(parser: F) -> impl RParser<'s, Vec<O>, E>
     where
-        F: Parser<&'s [u8], O, E>,
-        E: RootError<&'s [u8]>,
+        F: RParser<'s, O, E>,
+        E: RootError<Span<'s>>,
 {
     length_count(be_u32, parser).context("tarray")
 }
 
 /// Parse a null terminated string
-pub fn c_string<'s, E>(i: &'s [u8]) -> nom::IResult<&[u8], &str, E>
+pub fn c_string<'s, E>(input: Span<'s>) -> RResult<'s, &str, E>
     where
-        E: RootError<&'s [u8]>,
+        E: RootError<Span<'s>>,
 {
-    map_res(
-        take_until(b"\x00".as_ref()).terminated(be_u8.verify(|&v| v == 0)),
-        str::from_utf8,
-    )
+    take_until(b"\x00".as_ref()).terminated(be_u8.verify(|&v| v == 0))
+        .map_res(|s: Span| str::from_utf8(&s))
         .context("c string")
-        .parse(i)
+        .parse(input)
 }
 
 /// Figure out the class we are looking at. The data might not be
 /// saved locally but rather in a reference to some other place in the
 /// buffer.This is modeled after ROOT's `TBufferFile::ReadObjectAny` and
 /// `TBufferFile::ReadClass`
-pub fn classinfo<'s, E>(i: &'s [u8]) -> nom::IResult<&[u8], ClassInfo, E>
+pub fn classinfo<'s, E>(input: Span<'s>) -> RResult<'s, ClassInfo, E>
     where
-        E: RootError<&'s [u8]>,
+        E: RootError<Span<'s>>,
 {
     let (i, tag) = alt((
         be_u32
@@ -256,12 +390,12 @@ pub fn classinfo<'s, E>(i: &'s [u8]) -> nom::IResult<&[u8], ClassInfo, E>
             .verify(|&v| is_byte_count(&v) && v != Flags::NEW_CLASSTAG.bits())
             .context("class info: class tag preceded by byte count")
             .precedes(be_u32)
-    )).parse(i)?;
+    )).parse(input)?;
 
 
     match tag as u32 {
         0xFFFF_FFFF => { // new classtag mask
-            c_string.map(ClassInfo::New).parse(i)
+            c_string.map(ClassInfo::New).context("new classtag").parse(i)
         }
         tag => {
             if Flags::from_bits_truncate(tag).contains(Flags::CLASS_MASK) {
@@ -273,15 +407,38 @@ pub fn classinfo<'s, E>(i: &'s [u8]) -> nom::IResult<&[u8], ClassInfo, E>
     }
 }
 
-struct RootContextParser<'s, I, O, E> {
-    context: &'s Context,
-    parser: fn(&'s Context, I) -> IResult<I, O, E>,
-}
+pub fn class_name<'s, E>(ctx: &'s Context) -> impl RParser<'s, &'s str, E>
+    where
+        E: RootError<Span<'s>>
+{
+    let parser = move |i| {
+        let ctx_offset = u32::try_from(ctx.offset)
+            .expect("Encountered pointer larger than 32 bits. Please file a bug.");
 
-impl<'s, I, O, E> Parser<I, O, E> for RootContextParser<'s, I, O, E> {
-    fn parse(&mut self, input: I) -> IResult<I, O, E> {
-        self.parser(self.context, input)
-    }
+        let (i, ci) = classinfo(i)?;
+        match ci {
+            ClassInfo::New(name) => Ok((i, name)),
+            ClassInfo::Exists(tag) => {
+                let abs_offset = tag & !Flags::CLASS_MASK.bits();
+                // TODO handle insufficient buffer length, abs_offset < ctx_offset
+                let s = ctx.span().slice(((abs_offset - ctx_offset) as usize)..);
+                let (_, name) = class_name(ctx).context("pre-existing class name").parse(s)?;
+                Ok((i, name))
+            }
+            ClassInfo::References(tag) => {
+                let abs_offset = tag;
+                if abs_offset == 0 {
+                    Ok((i, ""))
+                } else {
+                    // TODO as above
+                    let s = ctx.span().slice(((abs_offset - ctx_offset) as usize)..);
+                    let (_, name) = class_name(ctx).context("reference to class name").parse(s)?;
+                    Ok((i, name))
+                }
+            }
+        }
+    };
+    parser.context("class name")
 }
 
 /// Figure out the class we are looking at. This parser immediately
@@ -289,57 +446,55 @@ impl<'s, I, O, E> Parser<I, O, E> for RootContextParser<'s, I, O, E> {
 /// this buffer and the associated data. This function needs a
 /// `Context`, though, which may not be available. If so, have a look
 /// at the `classinfo` parser.
-pub fn class_name_and_buffer<'s, E>(context: &'s Context) -> impl Parser<&'s [u8], (&'s str, &'s [u8]), E>
+pub fn class_name_and_buffer<'s, E>(ctx: &'s Context) -> impl RParser<'s, (&'s str, Span<'s>), E>
     where
-        E: RootError<&'s [u8]>,
+        E: RootError<Span<'s>>,
 {
-    RootContextParser {
-        context,
-        parser: (|ctx, i| {
-            let ctx_offset = u32::try_from(ctx.offset)
-                .expect("Encountered pointer larger than 32 bits. Please file a bug.");
-            let (i, ci) = classinfo(i)?;
-            Ok(match ci {
-                ClassInfo::New(s) => {
-                    let (i, buf) = length_value(checked_byte_count, rest)(i)?;
-                    (i, (s, buf))
-                }
-                ClassInfo::Exists(tag) => {
-                    let name = {
-                        let abs_offset = tag & !Flags::CLASS_MASK.bits();
-                        // TODO handle insufficient buffer length, abs_offset < ctx_offset
-                        let s = &ctx.s[((abs_offset - ctx_offset) as usize)..];
-                        let (_, (name, _)) = class_name_and_buffer(ctx).parse(s)?;
-                        name
-                    };
-                    let (i, buf) = length_value(checked_byte_count, rest)(i)?;
-                    (i, (name, buf))
-                }
-                ClassInfo::References(tag) => {
-                    let (name, buf) = {
-                        let abs_offset = tag;
-                        // Sometimes, the reference points to `0`; so we return an empty slice
-                        if abs_offset == 0 {
-                            ("", &ctx.s[..0])
-                        } else {
-                            // TODO as above
-                            let s = &ctx.s[((abs_offset - ctx_offset) as usize)..];
-                            let (_, (name, buf)) = class_name_and_buffer(ctx).parse(s)?;
-                            (name, buf)
-                        }
-                    };
-                    (i, (name, buf))
-                }
-            })
-        }),
-    }
+    let parser = move |i| {
+        let ctx_offset = u32::try_from(ctx.offset)
+            .expect("Encountered pointer larger than 32 bits. Please file a bug.");
+        let (i, ci) = classinfo(i)?;
+        Ok(match ci {
+            ClassInfo::New(s) => {
+                let (i, buf) = length_value(checked_byte_count, rest).complete().context("length-prefixed data").parse(i)?;
+                (i, (s, buf))
+            }
+            ClassInfo::Exists(tag) => {
+                let name = {
+                    let abs_offset = tag & !Flags::CLASS_MASK.bits();
+                    // TODO handle insufficient buffer length, abs_offset < ctx_offset
+                    let s = ctx.span().slice(((abs_offset - ctx_offset) as usize)..);
+                    let (_, name) = class_name(ctx).context("pre-existing class name").parse(s)?;
+                    name
+                };
+                let (i, buf) = length_value(checked_byte_count, rest).complete().context("length-prefixed data").parse(i)?;
+                (i, (name, buf))
+            }
+            ClassInfo::References(tag) => {
+                let (name, buf) = {
+                    let abs_offset = tag;
+                    // Sometimes, the reference points to `0`; so we return an empty slice
+                    if abs_offset == 0 {
+                        ("", ctx.span().slice(..0))
+                    } else {
+                        // TODO as above
+                        let s = ctx.span().slice(((abs_offset - ctx_offset) as usize)..);
+                        let (_, (name, buf)) = class_name_and_buffer(ctx).context("reference to class").parse(s)?;
+                        (name, buf)
+                    }
+                };
+                (i, (name, buf))
+            }
+        })
+    };
+    parser.context("class name and buffer")
 }
 
 /// Parse a `Raw` chunk from the given input buffer. This is useful when one does not
 /// know the exact type at the time of parsing
-pub fn raw<'s, E>(context: &'s Context) -> impl Parser<&'s [u8], Raw<'s>, E>
+pub fn raw<'s, E>(context: &'s Context) -> impl RParser<'s, Raw<'s>, E>
     where
-        E: RootError<&'s [u8]>,
+        E: RootError<Span<'s>>,
 {
     class_name_and_buffer(context)
         .map(|(classinfo, obj)| Raw { classinfo, obj })
@@ -348,20 +503,24 @@ pub fn raw<'s, E>(context: &'s Context) -> impl Parser<&'s [u8], Raw<'s>, E>
 /// Same as `raw` but doesn't require a `Context` as input. Panics if
 /// a `Context` is required to parse the underlying buffer (i.e., the
 /// given buffer contains a reference to some other part of the file.
-pub fn raw_no_context<'s, E>(input: &'s [u8]) -> nom::IResult<&'s [u8], (ClassInfo, &[u8]), E>
+pub fn raw_no_context<'s, E>(input: Span<'s>) -> RResult<'s, (ClassInfo, Span<'s>), E>
     where
-        E: RootError<&'s [u8]>,
+        E: RootError<Span<'s>>,
 {
     use super::ClassInfo::*;
-    let (input, ci) = classinfo.parse(input)?;
+    let parser = |input| {
+        let (input, ci) = classinfo.parse(input)?;
 
-    match ci {
-        // point to beginning of slice
-        References(0) => take(0usize).map(|o| (ci, o)).parse(input),
-        New(_) | Exists(_) => length_data(checked_byte_count).map(|o| (ci, o)).parse(input),
-        // If its a reference to any other thing but 0 it needs a context
-        _ => panic!("Object needs context!"),
-    }
+        match ci {
+            // point to beginning of slice
+            References(0) => take(0usize).map(|o| (ci, o)).parse(input),
+            New(_) | Exists(_) => length_data(checked_byte_count).complete().context("length-prefixed data").map(|o| (ci, o)).parse(input),
+            // If its a reference to any other thing but 0 it needs a context
+            _ => panic!("Object needs context!"),
+        }
+    };
+
+    parser.context("raw (no context)").parse(input)
 }
 
 /// ESD trigger classes are strings describing a particular
@@ -369,12 +528,12 @@ pub fn raw_no_context<'s, E>(input: &'s [u8]) -> nom::IResult<&'s [u8], (ClassIn
 /// different "menu" of available triggers. The trigger menu is saved
 /// as an `TObjArray` of `TNamed` objects for each event. This breaks
 /// it down to a simple vector
-pub fn parse_tobjarray_of_tnameds<'s, E>(input: &'s [u8]) -> nom::IResult<&[u8], Vec<String>, E>
+pub fn parse_tobjarray_of_tnameds<'s, E>(input: Span<'s>) -> RResult<'s, Vec<String>, E>
     where
-        E: RootError<&'s [u8]>,
+        E: RootError<Span<'s>>,
 {
     // each element of the tobjarray has a Vec<u8>
-    let (input, vals) = length_value(checked_byte_count, tobjarray_no_context)(input)?;
+    let (input, vals) = length_value(checked_byte_count, tobjarray_no_context).complete().context("length-prefixed array").parse(input)?;
     let strings = vals
         .into_iter()
         .map(|(ci, el)| {
@@ -392,9 +551,9 @@ pub fn parse_tobjarray_of_tnameds<'s, E>(input: &'s [u8]) -> nom::IResult<&[u8],
 /// number of bytes can be found in the comment string of the
 /// generated YAML code (for ALICE ESD files at least).  This function
 /// reconstructs a float from the exponent and mantissa
-pub fn parse_custom_mantissa<'s, E>(input: &'s [u8], nbits: usize) -> nom::IResult<&[u8], f32, E>
+pub fn parse_custom_mantissa<'s, E>(input: Span<'s>, nbits: usize) -> RResult<'s, f32, E>
     where
-        E: RootError<&'s [u8]>,
+        E: RootError<Span<'s>>,
 {
     // TODO: Use ByteOrder crate to be cross-platform?
     pair(be_u8, be_u16).map(|(exp, man)| {
@@ -410,12 +569,16 @@ pub fn parse_custom_mantissa<'s, E>(input: &'s [u8], nbits: usize) -> nom::IResu
 mod classinfo_test {
     use nom::error::VerboseError;
 
+    use crate::core::Span;
+
     use super::classinfo;
 
     /// There is an issue where the following is parsed differently on
     /// nightly ( rustc 1.25.0-nightly (79a521bb9 2018-01-15)), than
     /// on stable, if verbose-errors are enabled for nom in the
     /// cargo.toml
+    ///
+    /// Passes again as of rustc nightly 1.60.0 (2022-01-12)
     #[test]
     fn classinfo_not_complete_read() {
         let i = vec![
@@ -435,7 +598,7 @@ mod classinfo_test {
             105, 116, 108, 101, 0, 0, 0, 65, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 84, 83, 116, 114, 105, 110, 103,
         ];
-        let i = i.as_slice();
+        let i = Span::new(i.as_slice());
         let (i, _ci) = classinfo::<VerboseError<_>>(i).unwrap();
         // The error manifests in the entire input being (wrongly)
         // consumed, instead of having some left overs

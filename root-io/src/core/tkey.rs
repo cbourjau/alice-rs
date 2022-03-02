@@ -35,9 +35,9 @@ pub struct TKey {
 /// Header of a TKey
 /// Usually, TKeys are followed up by their content, but there is one "index" in every
 /// root file where only the TKey headers are stored for faster later `Seek`ing
-pub fn tkey_header<'s, E>(input: &'s [u8]) -> IResult<&'s [u8], TKeyHeader, E>
+pub fn tkey_header<'s, E>(input: Span<'s>) -> RResult<'s, TKeyHeader, E>
     where
-        E: RootError<&'s [u8]>
+        E: RootError<Span<'s>>
 {
     tuple((
         be_u32.context("total size"),
@@ -68,9 +68,9 @@ pub fn tkey_header<'s, E>(input: &'s [u8]) -> IResult<&'s [u8], TKeyHeader, E>
 }
 
 /// Parse a file-pointer based on the version of the file
-fn seek_point<'s, E>(version: u16) -> impl Parser<&'s [u8], u64, E>
+fn seek_point<'s, E>(version: u16) -> impl RParser<'s, u64, E>
     where
-        E: RootError<&'s [u8]>
+        E: RootError<Span<'s>>
 {
     move |i| {
         if version > 1000 {
@@ -82,9 +82,9 @@ fn seek_point<'s, E>(version: u16) -> impl Parser<&'s [u8], u64, E>
 }
 
 /// Parse a full TKey including its payload
-pub fn tkey<'s, E>(input: &'s [u8]) -> IResult<&'s [u8], TKey, E>
+pub fn tkey<'s, E>(input: Span<'s>) -> RResult<'s, TKey, E>
     where
-        E: RootError<&'s [u8]>
+        E: RootError<Span<'s>>
 {
     let (i, hdr) = tkey_header.parse(input)?;
     let buflen = hdr.total_size - hdr.key_len as u32;
@@ -92,9 +92,9 @@ pub fn tkey<'s, E>(input: &'s [u8]) -> IResult<&'s [u8], TKey, E>
 
     let mut opthdr = Some(hdr);
 
-    take(buflen).map_res::<_, _, DecompressionError>(|buf: &[u8]| {
+    take(buflen).map_res::<_, _, DecompressionError>(|buf: Span| {
         let obj = if uncomp_len as usize > buf.len() {
-            decompress(buf)?
+            decompress(&buf)?
         } else {
             buf.to_vec()
         };
@@ -103,9 +103,9 @@ pub fn tkey<'s, E>(input: &'s [u8]) -> IResult<&'s [u8], TKey, E>
 }
 
 /// Special thing for the keylist in the file header
-pub(crate) fn tkey_headers<'s, E>(input: &'s [u8]) -> IResult<&'s [u8], Vec<TKeyHeader>, E>
+pub(crate) fn tkey_headers<'s, E>(input: Span<'s>) -> RResult<'s, Vec<TKeyHeader>, E>
     where
-        E: RootError<&'s [u8]>
+        E: RootError<Span<'s>>
 {
-    length_count(be_u32, tkey_header).parse(input)
+    length_count(be_u32, tkey_header).complete().context("count-prefixed data").parse(input)
 }

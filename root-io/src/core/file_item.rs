@@ -3,7 +3,8 @@ use nom_supreme::ParserExt;
 
 use crate::core::{checked_byte_count, Context, Source, TKeyHeader, wrap_parser};
 use crate::core::compression::decompress;
-use crate::tree_reader::{ReadError, Tree, ttree};
+use crate::core::ReadError;
+use crate::tree_reader::{Tree, ttree};
 
 /// Describes a single item within this file (e.g. a `Tree`)
 #[derive(Debug)]
@@ -61,8 +62,10 @@ impl FileItem {
         let ctx = self.get_context().await?;
         let buf = ctx.s.as_slice();
 
-        let res = wrap_parser(
-            length_value(checked_byte_count, ttree(&ctx)).all_consuming()
+        let res = wrap_parser(length_value(checked_byte_count, ttree(&ctx))
+            .complete()
+            .all_consuming()
+            .context("ttree wrapper")
         )(buf)?;
         Ok(res)
     }
@@ -73,15 +76,15 @@ mod tests {
     use std::path::Path;
 
     use crate::core::RootFile;
+    use crate::core::UnwrapPrint;
 
     #[tokio::test]
     async fn open_simple() {
         let path = Path::new("./src/test_data/simple.root");
-        let f = RootFile::new(path).await.expect("Failed to open file");
+        let f = RootFile::new(path).await.unwrap_print();
         assert_eq!(f.items().len(), 1);
         assert_eq!(f.items()[0].tkey_hdr.obj_name, "tree");
-        // Only streamers; not rules
-        assert_eq!(f.streamer_infos().await.unwrap().len(), 18);
+        assert_eq!(f.streamer_infos().await.unwrap_print().len(), 18);
     }
 
     #[tokio::test]
@@ -90,13 +93,11 @@ mod tests {
         use alice_open_data;
         let path = alice_open_data::test_file().unwrap();
 
-        let f = RootFile::new(path.as_path())
-            .await
-            .expect("Failed to open file");
+        let f = RootFile::new(path.as_path()).await.unwrap_print();
 
         assert_eq!(f.items().len(), 2);
         assert_eq!(f.items()[0].tkey_hdr.obj_name, "esdTree");
         assert_eq!(f.items()[1].tkey_hdr.obj_name, "HLTesdTree");
-        assert_eq!(f.streamer_infos().await.unwrap().len(), 87);
+        assert_eq!(f.streamer_infos().await.unwrap_print().len(), 87);
     }
 }

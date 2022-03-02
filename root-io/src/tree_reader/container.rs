@@ -1,12 +1,11 @@
 use nom::*;
 use nom::combinator::rest;
-use nom::number::complete::{be_i8, be_u16};
-use nom::number::streaming::be_u32;
+use nom::number::complete::{be_i8, be_u16, be_u32};
 use nom::sequence::tuple;
 use nom_supreme::ParserExt;
 
 use crate::core::*;
-use crate::tree_reader::ReadError;
+use crate::core::ReadError;
 
 #[derive(Debug, Clone)]
 pub(crate) enum Container {
@@ -40,9 +39,9 @@ impl Container {
 
 /// Return a tuple indicating the number of elements in this basket
 /// and the content as a Vec<u8>
-fn tbasket2vec<'s, E>(input: &'s [u8]) -> IResult<&'s [u8], (u32, Vec<u8>), E>
+fn tbasket2vec<'s, E>(input: Span<'s>) -> RResult<'s, (u32, Vec<u8>), E>
     where
-        E : RootError<&'s [u8]>
+        E : RootError<Span<'s>>
 {
     tuple((
         tkey_header.context("header"),
@@ -55,7 +54,7 @@ fn tbasket2vec<'s, E>(input: &'s [u8]) -> IResult<&'s [u8], (u32, Vec<u8>), E>
         rest.context("buffer")
     )).map_res::<_, _, DecompressionError>(|(hdr, _, _, _, n_entry_buf, last, _, buf)| {
         let buf = if hdr.uncomp_len as usize > buf.len() {
-            decompress(buf)?
+            decompress(&buf)?
         } else {
             buf.to_vec()
         };
@@ -76,7 +75,7 @@ mod tests {
 
     use crate::core::tkey_header;
     use crate::core::wrap_parser;
-    use crate::tree_reader::ReadError;
+    use crate::core::ReadError;
 
     use super::tbasket2vec;
 

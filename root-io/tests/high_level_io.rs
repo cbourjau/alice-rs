@@ -56,22 +56,22 @@ fn local_paths() -> Vec<PathBuf> {
 #[cfg(not(target_arch = "wasm32"))]
 mod local {
     use super::*;
+    use root_io::core::UnwrapPrint;
 
     #[tokio::test]
     async fn root_file_methods() {
         let paths = local_paths();
         for p in paths {
             println!("{:?}", p);
-            let f = RootFile::new(p.as_path())
-                .await
-                .expect("Failed to open file");
+            let f = RootFile::new(p.as_path()).await.unwrap_print();
+            f.streamer_infos().await.unwrap_print();
             let mut s = String::new();
             f.streamer_info_as_yaml(&mut s).await.unwrap();
             f.streamer_info_as_rust(&mut s).await.unwrap();
             for item in f.items() {
                 item.name();
                 if item.verbose_info().contains("TTree") {
-                    item.as_tree().await.unwrap();
+                    item.as_tree().await.unwrap_print();
                 }
             }
         }
