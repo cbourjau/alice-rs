@@ -1,5 +1,3 @@
-extern crate rustfmt as rustfmt_crate;
-
 use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -92,24 +90,8 @@ async fn sinfo_to_yaml(f: &RootFile) {
 async fn to_rust(f: &RootFile, sub_matches: &ArgMatches<'_>) -> Result<(), Error> {
     let mut s = String::new();
     f.streamer_info_as_rust(&mut s).await?;
-    if sub_matches.is_present("rustfmt") {
-        let mut path = env::temp_dir();
-        path.push("root2rust.rs");
-        {
-            let mut f = File::create(&path)?;
-            f.write_all(s.as_bytes())?;
-            let config = rustfmt_crate::config::Config::default();
-            rustfmt_crate::config::Config::default();
-            let summary = rustfmt_crate::run(rustfmt::Input::File(path.clone()), &config);
-            if !summary.has_no_errors() {
-                return Err(format_err!("Error formating source code: {:?}", summary));
-            }
-        }
-        // reopen the file and read the content to a string
-        let mut f = File::open(&path)?;
-        s = String::new();
-        f.read_to_string(&mut s)?;
-    }
-    println!("{}", s);
+    let tree = syn::parse_file(&s)?;
+    println!("{}", prettyplease::unparse(&tree));
+
     Ok(())
 }
