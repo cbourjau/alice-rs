@@ -33,8 +33,7 @@ async fn main() {
             SubCommand::with_name("to-rust")
                 .about("Generate Rust structs and parsers form the StreamerInfo")
                 .args_from_usage(
-                    "--output=[OUTPUT] 'Output is written to this file'
-                         --rustfmt 'Format the output with `Rustfmt` (slow!)'",
+                    "--fmt 'Pretty print the output'",
                 ),
         )
         .get_matches();
@@ -90,8 +89,12 @@ async fn sinfo_to_yaml(f: &RootFile) {
 async fn to_rust(f: &RootFile, sub_matches: &ArgMatches<'_>) -> Result<(), Error> {
     let mut s = String::new();
     f.streamer_info_as_rust(&mut s).await?;
-    let tree = syn::parse_file(&s)?;
-    println!("{}", prettyplease::unparse(&tree));
+    if sub_matches.is_present("fmt") {
+        let tree = syn::parse_file(&s)?;
+        println!("{}", prettyplease::unparse(&tree));
+    } else {
+        println!("{}", s)
+    }
 
     Ok(())
 }
