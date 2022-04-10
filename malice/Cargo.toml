@@ -20,7 +20,7 @@ bitflags = "1"
 failure = "0.1"
 futures = "0.3"
 nom = "7"
-root-io = { version="0.3", path="../root-io" }
+root-io = { version="0.4", path="../root-io" }
 # Optional dependencies
 alice-sys = { version="0.1", optional = true }
 itertools = "0.10"
