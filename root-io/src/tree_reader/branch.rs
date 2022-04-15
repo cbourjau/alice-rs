@@ -138,12 +138,11 @@ impl TBranch {
     /// number of elements per entry.  See the file
     /// [`read_esd.rs`](https://github.com/cbourjau/root-io/blob/master/src/tests/read_esd.rs)
     /// in the repository for a comprehensive example
-    pub fn as_var_size_iterator<'a, 'b, T, P>(&self, p: P, el_counter: &'b[u32]) -> impl Stream<Item = Vec<T>> + 'a
+    pub fn as_var_size_iterator<T, P>(&self, p: P, el_counter: Vec<u32>) -> impl Stream<Item = Vec<T>>
     where
-        P: Fn(&[u8]) -> IResult<&[u8], T, VerboseError<&[u8]>> + 'a,
-        'a: 'b
+        P: Fn(&[u8]) -> IResult<&[u8], T, VerboseError<&[u8]>>,
     {
-        let mut elems_per_event = el_counter.to_vec().into_iter();
+        let mut elems_per_event = el_counter.into_iter();
         stream::iter(self.containers().to_owned())
             .then(|basket| async move { basket.raw_data().await.unwrap() })
             .map(move |(n_events_in_basket, buffer)| {
