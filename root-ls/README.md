@@ -19,9 +19,9 @@ cargo install root-ls
 root-ls ./simple.root to-yaml
 ```
 
-- Create rust structs and parsers for the objects in this file; formatting the code with rustfmt
+- Create rust structs and parsers for the objects in this file
 ``` bash
-root-ls ./simple.root to-rust --rustfmt
+root-ls ./simple.root to-rust
 
 ```
 

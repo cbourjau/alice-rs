@@ -31,10 +31,7 @@ async fn main() {
         )
         .subcommand(
             SubCommand::with_name("to-rust")
-                .about("Generate Rust structs and parsers form the StreamerInfo")
-                .args_from_usage(
-                    "--fmt 'Pretty print the output'",
-                ),
+                .about("Generate Rust structs and parsers form the StreamerInfo"),
         )
         .get_matches();
     let in_path = Path::new(matches.value_of("INPUT").unwrap());
@@ -46,8 +43,8 @@ async fn main() {
         inspect_file(&f, matches).await;
     } else if matches.subcommand_matches("to-yaml").is_some() {
         sinfo_to_yaml(&f).await;
-    } else if let Some(matches) = matches.subcommand_matches("to-rust") {
-        to_rust(&f, matches).await.unwrap();
+    } else if matches.subcommand_matches("to-rust").is_some() {
+        to_rust(&f).await.unwrap();
     } else {
         // Write help if no sub command is given
         println!("{}", matches.usage());
@@ -86,15 +83,10 @@ async fn sinfo_to_yaml(f: &RootFile) {
     }
 }
 
-async fn to_rust(f: &RootFile, sub_matches: &ArgMatches<'_>) -> Result<(), Error> {
+async fn to_rust(f: &RootFile) -> Result<(), Error> {
     let mut s = String::new();
     f.streamer_info_as_rust(&mut s).await?;
-    if sub_matches.is_present("fmt") {
-        let tree = syn::parse_file(&s)?;
-        println!("{}", prettyplease::unparse(&tree));
-    } else {
-        println!("{}", s)
-    }
-
+    let tree = syn::parse_file(&s)?;
+    println!("{}", prettyplease::unparse(&tree));
     Ok(())
 }
