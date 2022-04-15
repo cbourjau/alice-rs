@@ -11,8 +11,8 @@ license = "MPL-2.0"
 edition = "2018"
 
 [dependencies]
-indicatif = "^0.6.0"
+indicatif = "0.16"
 clap = "^2"
 alice-open-data = { version="0.5", path="../alice-open-data" }
-failure = "0.1.5"
-tokio = "0.2.9"
+failure = "0.1"
+tokio = { version = "1", features = ["rt-multi-thread"] }
