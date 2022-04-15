@@ -50,7 +50,7 @@ fn do_thing() -> Result<(), failure::Error> {
     if total >= max_vol {
         return Ok(());
     }
-    let mut rt = Runtime::new()?;
+    let rt = Runtime::new()?;
     let urls = runs
         .iter()
         .map(|r| rt.block_on(get_file_list(*r)))

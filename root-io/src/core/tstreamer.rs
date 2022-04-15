@@ -20,6 +20,7 @@ use crate::{
 /// <https://root.cern.ch/doc/master/classTStreamerElement.html>
 /// for inheritence of ROOT classes
 #[derive(Debug)]
+#[allow(dead_code)]
 pub(crate) enum TStreamer {
     Base {
         el: TStreamerElement,
@@ -80,6 +81,7 @@ pub(crate) enum TStreamer {
 
 /// Every `TStreamer` inherits from `TStreamerElement`
 #[derive(Debug)]
+#[allow(dead_code)]
 pub(crate) struct TStreamerElement {
     ver: u16,
     name: TNamed,
@@ -175,7 +177,7 @@ where
     // Dunno why we are 4 bytes off with the size of the streamer info...
 
     // This TList in the payload has a bytecount in front...
-    let (i, tlist_objs) = length_value(checked_byte_count, |i| tlist(i, &ctx))(i)?;
+    let (i, tlist_objs) = length_value(checked_byte_count, |i| tlist(i, ctx))(i)?;
     // Mainly this is a TList of `TStreamerInfo`s, but there might
     // be some "rules" in the end
     let streamers = tlist_objs
@@ -184,7 +186,7 @@ where
             "TStreamerInfo" => Some(raw.obj),
             _ => None,
         })
-        .map(|i| tstreamerinfo::<VerboseError<&'s [u8]>>(i, &ctx).unwrap().1)
+        .map(|i| tstreamerinfo::<VerboseError<&'s [u8]>>(i, ctx).unwrap().1)
         .collect();
     // Parse the "rules", if any, from the same tlist
     let _rules: Vec<_> = tlist_objs
@@ -194,7 +196,7 @@ where
             _ => None,
         })
         .map(|i| {
-            let tl = tlist::<VerboseError<&[u8]>>(i, &ctx).unwrap().1;
+            let tl = tlist::<VerboseError<&[u8]>>(i, ctx).unwrap().1;
             // Each `Rule` is a TList of `TObjString`s
             tl.iter()
                 .map(|el| tobjstring(el.obj).unwrap().1)
@@ -294,11 +296,7 @@ impl ToRustType for TStreamer {
             TStreamer::BasicType { ref el } => match el.el_type {
                 Primitive(ref id) => id.type_name(),
                 Offset(ref id) => {
-                    let s = Ident::new(format!(
-                        "[{}; {}]",
-                        id.type_name().to_string(),
-                        el.array_len
-                    ));
+                    let s = Ident::new(format!("[{}; {}]", id.type_name(), el.array_len));
                     quote! {#s}
                 }
                 _ => panic!("{:#?}", self),
@@ -308,7 +306,7 @@ impl ToRustType for TStreamer {
                     Array(ref id) => {
                         // Arrays are preceeded by a byte and then have a length given by a
                         // previous member
-                        let s = Ident::new(format!("Vec<{}>", id.type_name().to_string()));
+                        let s = Ident::new(format!("Vec<{}>", id.type_name()));
                         quote! {#s}
                     }
                     _ => panic!("{:#?}", self),

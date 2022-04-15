@@ -37,6 +37,7 @@ pub enum ClassInfo<'s> {
 
 /// The most basic ROOT object from which almost everything inherits
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct TObject {
     pub(crate) ver: u16,
     pub(crate) id: u32,

@@ -109,7 +109,7 @@ where
     const BUFFERED_EVENTS: usize = 10;
     let (sender, receiver) = sync_channel(BUFFERED_EVENTS);
     spawn(|| {
-        let mut rt = tokio::runtime::Runtime::new().expect("Failed to start IO runtime");
+        let rt = tokio::runtime::Runtime::new().expect("Failed to start IO runtime");
         rt.block_on(async move {
             stream::iter(sources)
                 .then(event_stream_from_esd_file)
@@ -141,10 +141,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use alice_open_data;
+
     use futures::{future, StreamExt};
     use root_io::RootFile;
-    use tokio;
 
     use super::{default_event_filter, default_track_filter, event_stream_from_tree};
 

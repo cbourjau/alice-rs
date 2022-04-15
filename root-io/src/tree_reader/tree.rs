@@ -40,6 +40,7 @@ impl fmt::Debug for Pointer {
 /// for the purpose of creating `ColumnFixedIntoIter` and
 /// `ColumnVarIntoIter` objects from it.
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Tree {
     /// Version of the read layout
     ver: u16,

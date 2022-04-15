@@ -51,7 +51,6 @@ async fn test_download_file() {
 #[cfg(test)]
 mod tests_x86 {
     use std::{env, fs};
-    use tokio;
 
     #[tokio::test]
     async fn download_partial() {

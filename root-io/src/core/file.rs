@@ -235,7 +235,7 @@ impl RootFile {
         // generate structs
         for el in &streamer_infos {
             // The structs contain comments which introduce line breaks; i.e. readable
-            writeln!(s, "{}", el.to_struct().to_string())?;
+            writeln!(s, "{}", el.to_struct())?;
         }
 
         // generate parsers
@@ -245,7 +245,7 @@ impl RootFile {
             // is inconvinient since the comments in the structs might contain
             // the patterns
             let parsers = el.to_named_parser().to_string();
-            let parsers = parsers.replace(",", ",\n");
+            let parsers = parsers.replace(',', ",\n");
             let parsers = parsers.replace(">>", ">>\n");
             // macro names are generated as my_macro ! (...) by `quote`
             let parsers = parsers.replace(" ! (", "!(");

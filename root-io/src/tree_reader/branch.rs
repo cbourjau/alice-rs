@@ -18,6 +18,7 @@ use crate::{
 /// file, it is hard coded in this library to provide a reliable API
 /// for working with `TTree`s
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct TBranch {
     /// The name of this object
     pub name: String,
@@ -138,11 +139,15 @@ impl TBranch {
     /// number of elements per entry.  See the file
     /// [`read_esd.rs`](https://github.com/cbourjau/root-io/blob/master/src/tests/read_esd.rs)
     /// in the repository for a comprehensive example
-    pub fn as_var_size_iterator<T, P>(&self, p: P, el_counter: &[u32]) -> impl Stream<Item = Vec<T>>
+    pub fn as_var_size_iterator<T, P>(
+        &self,
+        p: P,
+        el_counter: Vec<u32>,
+    ) -> impl Stream<Item = Vec<T>>
     where
         P: Fn(&[u8]) -> IResult<&[u8], T, VerboseError<&[u8]>>,
     {
-        let mut elems_per_event = el_counter.to_owned().into_iter();
+        let mut elems_per_event = el_counter.into_iter();
         stream::iter(self.containers().to_owned())
             .then(|basket| async move { basket.raw_data().await.unwrap() })
             .map(move |(n_events_in_basket, buffer)| {
@@ -150,7 +155,7 @@ impl TBranch {
                 let mut events = Vec::with_capacity(n_events_in_basket as usize);
                 for _ in 0..n_events_in_basket {
                     if let Some(n_elems_in_event) = elems_per_event.next() {
-                        match count(&p, n_elems_in_event as usize)(&buffer) {
+                        match count(&p, n_elems_in_event as usize)(buffer) {
                             Ok((rest, output)) => {
                                 buffer = rest;
                                 events.push(output)

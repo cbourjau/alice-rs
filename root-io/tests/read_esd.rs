@@ -30,7 +30,7 @@ struct Model {
 }
 
 impl Model {
-    async fn stream_from_tree(t: &Tree) -> Result<impl Stream<Item = Self>, Error> {
+    async fn stream_from_tree(t: &Tree) -> Result<impl Stream<Item = Self> + '_, Error> {
         let track_counter: Vec<_> = t
             .branch_by_name("Tracks")?
             .as_fixed_size_iterator(|i| be_u32(i))
@@ -48,25 +48,25 @@ impl Model {
             t.branch_by_name("PrimaryVertex.AliVertex.fNContributors")?
                 .as_fixed_size_iterator(|i| be_i32(i)),
             t.branch_by_name("Tracks.fX")?
-                .as_var_size_iterator(|i| be_f32(i), &track_counter),
+                .as_var_size_iterator(|i| be_f32(i), track_counter.to_owned()),
             t.branch_by_name("Tracks.fP[5]")?.as_var_size_iterator(
                 |i| tuple((be_f32, be_f32, be_f32, be_f32, be_f32))(i),
-                &track_counter
+                track_counter.to_owned()
             ),
             t.branch_by_name("Tracks.fAlpha")?
-                .as_var_size_iterator(|i| be_f32(i), &track_counter),
+                .as_var_size_iterator(|i| be_f32(i), track_counter.to_owned()),
             t.branch_by_name("Tracks.fFlags")?
-                .as_var_size_iterator(|i| be_u64(i), &track_counter),
+                .as_var_size_iterator(|i| be_u64(i), track_counter.to_owned()),
             t.branch_by_name("Tracks.fITSchi2")?
-                .as_var_size_iterator(|i| parse_custom_mantissa(i, 8), &track_counter),
+                .as_var_size_iterator(|i| parse_custom_mantissa(i, 8), track_counter.to_owned()),
             t.branch_by_name("Tracks.fITSncls")?
-                .as_var_size_iterator(|i| be_i8(i), &track_counter),
+                .as_var_size_iterator(|i| be_i8(i), track_counter.to_owned()),
             t.branch_by_name("Tracks.fITSClusterMap")?
-                .as_var_size_iterator(|i| be_u8(i), &track_counter),
+                .as_var_size_iterator(|i| be_u8(i), track_counter.to_owned()),
             t.branch_by_name("Tracks.fTPCncls")?
-                .as_var_size_iterator(|i| be_u16(i), &track_counter),
+                .as_var_size_iterator(|i| be_u16(i), track_counter.to_owned()),
             t.branch_by_name("Tracks.fTPCchi2")?
-                .as_var_size_iterator(|i| parse_custom_mantissa(i, 8), &track_counter),
+                .as_var_size_iterator(|i| parse_custom_mantissa(i, 8), track_counter),
         )
         .map(
             |(
@@ -133,9 +133,8 @@ mod wasm {
 #[cfg(not(target_arch = "wasm32"))]
 mod x64 {
     use super::*;
-    use alice_open_data;
+
     use reqwest::Url;
-    use tokio;
 
     const REMOTE_FILE: &str =
 	"http://opendata.web.cern.ch/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root";
@@ -144,8 +143,6 @@ mod x64 {
     async fn read_esd_local_and_remote() {
         let path = alice_open_data::test_file().unwrap();
         let files = [
-            // There is an issue on MacOs with opening the ESD test files
-            #[cfg(not(target_os = "macos"))]
             RootFile::new(path).await.expect("Failed to open file"),
             RootFile::new(Url::parse(REMOTE_FILE).unwrap())
                 .await
@@ -229,7 +226,7 @@ async fn test_branch_iterators(tree: &Tree) {
         [-0.006383737, 0.3380862, 2.938151]
     );
     assert_eq!(
-        tracks_fp.iter().flat_map(|i| i).fold(0.0, |acc, el| {
+        tracks_fp.iter().flatten().fold(0.0, |acc, el| {
             acc + [el.0, el.1, el.2, el.3, el.4].iter().sum::<f32>()
         }),
         39584.777

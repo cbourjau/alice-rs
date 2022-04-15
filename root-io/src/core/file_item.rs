@@ -61,7 +61,7 @@ impl FileItem {
         let ctx = self.get_context().await?;
         let buf = ctx.s.as_slice();
 
-        let res = length_value(checked_byte_count, |i| ttree::<VerboseError<_>>(i, &ctx))(&buf);
+        let res = length_value(checked_byte_count, |i| ttree::<VerboseError<_>>(i, &ctx))(buf);
         match res {
             Ok((_, obj)) => Ok(obj),
             Err(nom::Err::Error(e)) | Err(nom::Err::Failure(e)) => {
@@ -89,7 +89,7 @@ mod tests {
 
     // Skip this test on MacOs since the downloaded file is not working on Travis
     #[tokio::test]
-    #[cfg(all(not(target_os = "macos"), not(target_arch = "wasm32")))]
+    #[cfg(not(target_arch = "wasm32"))]
     async fn open_esd() {
         use alice_open_data;
         let path = alice_open_data::test_file().unwrap();

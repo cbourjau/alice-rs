@@ -49,7 +49,7 @@ impl SimpleAnalysis {
         if let Some(prime_vtx) = event.primary_vertex() {
             for track in event
                 .tracks()
-                .filter(|tr| default_track_filter(&tr, &prime_vtx))
+                .filter(|tr| default_track_filter(tr, &prime_vtx))
             {
                 self.single_particles.fill(&[
                     f64::from(track.eta()),
@@ -61,7 +61,7 @@ impl SimpleAnalysis {
             self.z_vertex.fill(&[f64::from(prime_vtx.z)]);
             self.multiplicity.fill(&[event
                 .tracks()
-                .filter(|tr| default_track_filter(&tr, &prime_vtx))
+                .filter(|tr| default_track_filter(tr, &prime_vtx))
                 .count() as f64]);
         };
     }

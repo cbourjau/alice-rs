@@ -153,34 +153,34 @@ pub async fn event_stream_from_tree(t: &Tree) -> Result<impl Stream<Item = Event
         t.branch_by_name("PrimaryVertex.AliVertex.fNContributors")?
             .as_fixed_size_iterator(|i| be_i32(i)),
         t.branch_by_name("Tracks.fX")?
-            .as_var_size_iterator(|i| be_f32(i), &track_counter),
+            .as_var_size_iterator(|i| be_f32(i), track_counter.to_owned()),
         t.branch_by_name("Tracks.fP[5]")?.as_var_size_iterator(
             |i| map(tuple((be_f32, be_f32, be_f32, be_f32, be_f32)), |p| {
                 TrackParameters::new(&p)
             })(i),
-            &track_counter
+            track_counter.to_owned()
         ),
         t.branch_by_name("Tracks.fAlpha")?
-            .as_var_size_iterator(|i| be_f32(i), &track_counter),
+            .as_var_size_iterator(|i| be_f32(i), track_counter.to_owned()),
         t.branch_by_name("Tracks.fFlags")?.as_var_size_iterator(
             |i| map(be_u64, |uint| Flags::from_bits(uint).unwrap())(i),
-            &track_counter
+            track_counter.to_owned()
         ),
         t.branch_by_name("Tracks.fITSchi2")?
-            .as_var_size_iterator(|i| parse_custom_mantissa(i, 8), &track_counter),
+            .as_var_size_iterator(|i| parse_custom_mantissa(i, 8), track_counter.to_owned()),
         t.branch_by_name("Tracks.fITSncls")?
-            .as_var_size_iterator(|i| be_i8(i), &track_counter),
+            .as_var_size_iterator(|i| be_i8(i), track_counter.to_owned()),
         t.branch_by_name("Tracks.fITSClusterMap")?
             .as_var_size_iterator(
                 |i| map(be_u8, |uint| ItsClusters::from_bits(uint).unwrap())(i),
-                &track_counter
+                track_counter.to_owned()
             ),
         t.branch_by_name("Tracks.fTPCncls")?
-            .as_var_size_iterator(|i| be_u16(i), &track_counter),
+            .as_var_size_iterator(|i| be_u16(i), track_counter.to_owned()),
         t.branch_by_name("Tracks.fTPCchi2")?
-            .as_var_size_iterator(|i| parse_custom_mantissa(i, 8), &track_counter),
+            .as_var_size_iterator(|i| parse_custom_mantissa(i, 8), track_counter.to_owned()),
         t.branch_by_name("Tracks.fR[5]")?
-            .as_var_size_iterator(|i| parse_pid_probabilities(i), &track_counter),
+            .as_var_size_iterator(|i| parse_pid_probabilities(i), track_counter),
     )
     .map(
         |(

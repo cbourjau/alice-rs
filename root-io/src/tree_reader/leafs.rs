@@ -44,7 +44,7 @@ impl TLeaf {
     where
         E: ParseError<&'s [u8]> + Debug,
     {
-        Self::parse(raw.obj, ctxt, &raw.classinfo)
+        Self::parse(raw.obj, ctxt, raw.classinfo)
     }
 }
 
@@ -92,6 +92,7 @@ macro_rules! make_tleaf_variant {
     };
     ($struct_name:ident, $field_type:ty, $parser:ident, $size_of_el:expr) => {
         #[derive(Debug, Clone)]
+        #[allow(dead_code)]
         struct $struct_name {
             base: TLeafBase,
             fminimum: $field_type,
@@ -143,6 +144,7 @@ make_tleaf_variant! {TLeafO, bool, be_bool}
 make_tleaf_variant! {TLeafD32, f32, be_f32}
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct TLeafElement {
     base: TLeafBase,
     fid: i32,
@@ -163,6 +165,7 @@ impl TLeafElement {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct TLeafBase {
     /// Version of the read layout
     ver: u16,
@@ -202,7 +205,7 @@ impl TLeafBase {
                 let (i, r) = raw(i, context)?;
                 // We don't parse from the input buffer. TODO: Check
                 // that we consumed all bytes
-                let (_, tleaf) = TLeafVariant::parse(r.obj, context, &r.classinfo)?;
+                let (_, tleaf) = TLeafVariant::parse(r.obj, context, r.classinfo)?;
                 (i, Some(Box::new(tleaf)))
             }
         };

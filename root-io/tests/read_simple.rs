@@ -9,6 +9,7 @@ use root_io::{core::parsers::string, stream_zip, tree_reader::Tree, RootFile};
 /// A model for the (or a subset) of the data.
 /// This is the object which contains the data of one "event"
 #[derive(Debug)]
+#[allow(dead_code)]
 struct Model {
     one: i32,
     two: f32,
@@ -43,7 +44,6 @@ async fn read_simple(f: RootFile) {
 mod x64 {
     use super::*;
     use std::path::Path;
-    use tokio;
 
     #[tokio::test]
     async fn read_simple_local() {
