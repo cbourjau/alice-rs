@@ -89,7 +89,7 @@ mod tests {
 
     // Skip this test on MacOs since the downloaded file is not working on Travis
     #[tokio::test]
-    #[cfg(all(not(target_os = "macos"), not(target_arch = "wasm32")))]
+    #[cfg(not(target_arch = "wasm32"))]
     async fn open_esd() {
         use alice_open_data;
         let path = alice_open_data::test_file().unwrap();

@@ -141,10 +141,8 @@ mod x64 {
 
     #[tokio::test]
     async fn read_esd_local_and_remote() {
-        let _path = alice_open_data::test_file().unwrap();
+        let path = alice_open_data::test_file().unwrap();
         let files = [
-            // There is an issue on MacOs with opening the ESD test files
-            #[cfg(not(target_os = "macos"))]
             RootFile::new(path).await.expect("Failed to open file"),
             RootFile::new(Url::parse(REMOTE_FILE).unwrap())
                 .await

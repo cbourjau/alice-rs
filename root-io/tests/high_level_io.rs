@@ -77,7 +77,6 @@ mod local {
         }
     }
 
-    #[cfg(not(target_os = "macos"))]
     #[tokio::test]
     async fn root_file_methods_esd() {
         use alice_open_data;
