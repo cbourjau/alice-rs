@@ -49,7 +49,7 @@ fn var_size_branch() {
         let iter = t
             .branch_by_name("Tracks.fX")
             .unwrap()
-            .as_var_size_iterator(|i| be_f32(i), &track_counter);
+            .as_var_size_iterator(|i| be_f32(i), track_counter);
         iter.for_each(|el| async {
             black_box(el);
         })

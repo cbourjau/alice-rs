@@ -66,7 +66,7 @@ impl Model {
             t.branch_by_name("Tracks.fTPCncls")?
                 .as_var_size_iterator(|i| be_u16(i), track_counter.to_owned()),
             t.branch_by_name("Tracks.fTPCchi2")?
-                .as_var_size_iterator(|i| parse_custom_mantissa(i, 8), track_counter.to_owned()),
+                .as_var_size_iterator(|i| parse_custom_mantissa(i, 8), track_counter),
         )
         .map(
             |(

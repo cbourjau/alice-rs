@@ -61,7 +61,7 @@ impl FileItem {
         let ctx = self.get_context().await?;
         let buf = ctx.s.as_slice();
 
-        let res = length_value(checked_byte_count, |i| ttree::<VerboseError<_>>(i, &ctx))(&buf);
+        let res = length_value(checked_byte_count, |i| ttree::<VerboseError<_>>(i, &ctx))(buf);
         match res {
             Ok((_, obj)) => Ok(obj),
             Err(nom::Err::Error(e)) | Err(nom::Err::Failure(e)) => {

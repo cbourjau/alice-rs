@@ -44,7 +44,7 @@ impl TLeaf {
     where
         E: ParseError<&'s [u8]> + Debug,
     {
-        Self::parse(raw.obj, ctxt, &raw.classinfo)
+        Self::parse(raw.obj, ctxt, raw.classinfo)
     }
 }
 
@@ -202,7 +202,7 @@ impl TLeafBase {
                 let (i, r) = raw(i, context)?;
                 // We don't parse from the input buffer. TODO: Check
                 // that we consumed all bytes
-                let (_, tleaf) = TLeafVariant::parse(r.obj, context, &r.classinfo)?;
+                let (_, tleaf) = TLeafVariant::parse(r.obj, context, r.classinfo)?;
                 (i, Some(Box::new(tleaf)))
             }
         };

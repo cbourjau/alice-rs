@@ -55,7 +55,7 @@ where
                            255 => call!(be_u32) |
                            a => value!(u32::from(a))) >>
               s: map!(
-                  map_res!(take!(len), |s| str::from_utf8(s)),
+                  map_res!(take!(len), str::from_utf8),
                   |s| s.to_string()) >>
               (s)
     )
@@ -134,9 +134,9 @@ where
     let (i, _low) = be_i32(i)?;
     let (i, objs) = count(
         map_res(
-            |i| raw(i, &context),
+            |i| raw(i, context),
             |r| {
-                let res = parser(&r, &context).map(|(_i, res)| res);
+                let res = parser(&r, context).map(|(_i, res)| res);
                 if res.is_err() {
                     res.as_ref().unwrap();
                 }
@@ -195,7 +195,7 @@ fn decode_reader(bytes: &[u8], magic: &str) -> Result<Vec<u8>, Error> {
     let mut ret = vec![];
     match magic {
         "ZL" => {
-            let mut decoder = ZlibDecoder::new(&bytes[..]);
+            let mut decoder = ZlibDecoder::new(bytes);
             decoder.read_to_end(&mut ret)?;
         }
         "XZ" => {
@@ -360,7 +360,7 @@ where
             if let ClassInfo::References(0) = ci {
                 Ok("".to_string())
             } else {
-                tnamed(&el).map(|(_input, tn)| tn.name)
+                tnamed(el).map(|(_input, tn)| tn.name)
             }
         })
         .collect::<Result<Vec<String>, _>>();

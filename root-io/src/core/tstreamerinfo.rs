@@ -28,7 +28,7 @@ pub(crate) fn tstreamerinfo<'s, E>(
 where
     E: ParseError<&'s [u8]> + Debug,
 {
-    let parse_members = |i| tobjarray(|raw_obj, _context| tstreamer(raw_obj), i, &context);
+    let parse_members = |i| tobjarray(|raw_obj, _context| tstreamer(raw_obj), i, context);
 
     let (i, tstreamerinfo_ver) = be_u16(i)?;
     let (i, named) = length_value!(i, checked_byte_count, tnamed)?;
@@ -149,12 +149,7 @@ impl TStreamerInfo {
         s += "  members:\n";
         for obj in &self.data_members {
             s += format!("      # {}\n", obj.member_comment()).as_str();
-            s += format!(
-                "      {}: {}\n",
-                obj.member_name().to_string(),
-                obj.type_name().to_string()
-            )
-            .as_str();
+            s += format!("      {}: {}\n", obj.member_name(), obj.type_name()).as_str();
         }
         s += "\n";
         s
