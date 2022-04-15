@@ -31,7 +31,7 @@ async fn main() {
         )
         .subcommand(
             SubCommand::with_name("to-rust")
-                .about("Generate Rust structs and parsers form the StreamerInfo")
+                .about("Generate Rust structs and parsers form the StreamerInfo"),
         )
         .get_matches();
     let in_path = Path::new(matches.value_of("INPUT").unwrap());
