@@ -5,6 +5,7 @@ use nom::*;
 use crate::core::*;
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct TKeyHeader {
     pub(crate) total_size: u32,
     version: u16,

@@ -18,6 +18,7 @@ use crate::{
 /// file, it is hard coded in this library to provide a reliable API
 /// for working with `TTree`s
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct TBranch {
     /// The name of this object
     pub name: String,

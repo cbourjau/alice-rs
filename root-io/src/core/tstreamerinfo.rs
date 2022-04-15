@@ -11,6 +11,7 @@ use crate::{
 };
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct TStreamerInfo {
     tstreamerinfo_ver: u16,
     named: TNamed,

@@ -20,6 +20,7 @@ use crate::{
 /// <https://root.cern.ch/doc/master/classTStreamerElement.html>
 /// for inheritence of ROOT classes
 #[derive(Debug)]
+#[allow(dead_code)]
 pub(crate) enum TStreamer {
     Base {
         el: TStreamerElement,
@@ -80,6 +81,7 @@ pub(crate) enum TStreamer {
 
 /// Every `TStreamer` inherits from `TStreamerElement`
 #[derive(Debug)]
+#[allow(dead_code)]
 pub(crate) struct TStreamerElement {
     ver: u16,
     name: TNamed,
