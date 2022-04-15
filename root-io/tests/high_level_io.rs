@@ -56,7 +56,6 @@ fn local_paths() -> Vec<PathBuf> {
 #[cfg(not(target_arch = "wasm32"))]
 mod local {
     use super::*;
-    use tokio;
 
     #[tokio::test]
     async fn root_file_methods() {

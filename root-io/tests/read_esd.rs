@@ -133,16 +133,15 @@ mod wasm {
 #[cfg(not(target_arch = "wasm32"))]
 mod x64 {
     use super::*;
-    use alice_open_data;
+
     use reqwest::Url;
-    use tokio;
 
     const REMOTE_FILE: &str =
 	"http://opendata.web.cern.ch/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root";
 
     #[tokio::test]
     async fn read_esd_local_and_remote() {
-        let path = alice_open_data::test_file().unwrap();
+        let _path = alice_open_data::test_file().unwrap();
         let files = [
             // There is an issue on MacOs with opening the ESD test files
             #[cfg(not(target_os = "macos"))]
@@ -229,7 +228,7 @@ async fn test_branch_iterators(tree: &Tree) {
         [-0.006383737, 0.3380862, 2.938151]
     );
     assert_eq!(
-        tracks_fp.iter().flat_map(|i| i).fold(0.0, |acc, el| {
+        tracks_fp.iter().flatten().fold(0.0, |acc, el| {
             acc + [el.0, el.1, el.2, el.3, el.4].iter().sum::<f32>()
         }),
         39584.777

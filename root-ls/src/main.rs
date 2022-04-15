@@ -1,10 +1,9 @@
 use std::env;
-use std::fs::File;
-use std::io::{Read, Write};
+
 use std::path::Path;
 
 use clap::{crate_version, value_t, App, AppSettings, Arg, ArgMatches, SubCommand};
-use failure::{format_err, Error};
+use failure::Error;
 use root_io::RootFile;
 
 #[tokio::main]

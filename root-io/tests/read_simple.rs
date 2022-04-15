@@ -43,7 +43,6 @@ async fn read_simple(f: RootFile) {
 mod x64 {
     use super::*;
     use std::path::Path;
-    use tokio;
 
     #[tokio::test]
     async fn read_simple_local() {

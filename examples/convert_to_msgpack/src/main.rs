@@ -31,7 +31,7 @@ impl<'a> From<&'a Event> for MiniEvent {
         let tracks: Vec<_> = event
             .tracks()
             // Apply a sensible default "cut" on the valid tracks
-            .filter(|tr| default_track_filter(&tr, &prime_vtx))
+            .filter(|tr| default_track_filter(tr, &prime_vtx))
             .collect();
         let etas: Vec<_> = tracks.iter().map(|tr| tr.eta()).collect();
         let phis: Vec<_> = tracks.iter().map(|tr| tr.phi()).collect();
