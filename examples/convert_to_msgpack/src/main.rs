@@ -4,6 +4,7 @@ use std::io::Write;
 
 use rmp_serde::Serializer;
 use serde::Serialize;
+use serde_derive::Serialize;
 
 use malice::event_iterator_from_files;
 use malice::{default_event_filter, default_track_filter, Event};

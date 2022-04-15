@@ -15,5 +15,6 @@ edition = "2018"
 clap = "^2"
 failure = "0.1.5"
 root-io = { version="0.3.0", path="../root-io" }
-rustfmt = "0.9.0"
+prettyplease = "0.1"
+syn = "1"
 tokio = { version = "0.2", features = ["full"] }

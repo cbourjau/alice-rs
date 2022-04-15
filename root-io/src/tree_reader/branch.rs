@@ -127,7 +127,7 @@ impl TBranch {
                 let x = count(&p, n_events_in_basket as usize)(&buffer);
                 let events = match x {
                     Ok((_rest, output)) => output,
-                    Err(e) => panic!(format!("Parser failed unexpectedly {:?}", e)),
+                    Err(e) => panic!("Parser failed unexpectedly {:?}", e),
                 };
                 stream::iter(events)
             })
@@ -155,7 +155,7 @@ impl TBranch {
                                 buffer = rest;
                                 events.push(output)
                             }
-                            Err(e) => panic!(format!("Parser failed unexpectedly {:?}", e)),
+                            Err(e) => panic!("Parser failed unexpectedly {:?}", e),
                         }
                     }
                 }

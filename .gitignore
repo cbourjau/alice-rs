@@ -5,3 +5,5 @@
 *tar.gz
 *.clang_complete
 *.root
+
+.idea/

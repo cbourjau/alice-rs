@@ -16,9 +16,9 @@ use malice::event_stream_from_esd_file;
 async fn read_rust(n_files: usize) {
     let files = alice_open_data::all_files_10h().unwrap().into_iter();
     let _max_chi2 = stream::iter(files)
-        .take(n_files as u64)
+        .take(n_files)
         .then(|f| event_stream_from_esd_file(f))
-        .map(|res_event_stream| res_event_stream.unwrap())
+        .map(|res_event_stream| res_event_stream.map(|evt| evt.unwrap()))
         .flatten()
         .map(|event| {
             event
