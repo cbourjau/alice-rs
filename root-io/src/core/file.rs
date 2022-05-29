@@ -280,120 +280,138 @@ mod test {
         }
     }
 
+    async fn file_header_test(source: Source) {
+        let hdr = source
+            .fetch(0, FILE_HEADER_SIZE)
+            .await
+            .and_then(|buf| {
+                file_header(&buf)
+                    .map_err(|_| format_err!("Failed to parse file header"))
+                    .map(|(_i, o)| o)
+            })
+            .unwrap();
+
+        let should = FileHeader {
+            version: 60600,
+            begin: 100,
+            end: 5614,
+            seek_free: 5559,
+            nbytes_free: 55,
+            n_entries_free: 1,
+            n_bytes_name: 58,
+            pointer_size: 4,
+            compression: 1,
+            seek_info: 1117,
+            nbytes_info: 4442,
+            uuid: Uuid::from_u128(154703765255331693287451041600576143087),
+            seek_dir: 158,
+        };
+        assert_eq!(hdr, should);
+    }
+
     #[tokio::test]
-    async fn file_header_test() {
+    async fn file_header_test_local() {
         let local = Source::new(Path::new("./src/test_data/simple.root"));
-        let remote = Source::new(Url::parse(SIMPLE_FILE_REMOTE).unwrap());
-        let sources: Vec<Source> = vec![local, remote];
-        for source in &sources {
-            let hdr = source
-                .fetch(0, FILE_HEADER_SIZE)
-                .await
-                .and_then(|buf| {
-                    file_header(&buf)
-                        .map_err(|_| format_err!("Failed to parse file header"))
-                        .map(|(_i, o)| o)
-                })
-                .unwrap();
+        file_header_test(local).await;
+    }
 
-            let should = FileHeader {
-                version: 60600,
-                begin: 100,
-                end: 5614,
-                seek_free: 5559,
-                nbytes_free: 55,
-                n_entries_free: 1,
+    #[tokio::test]
+    async fn file_header_test_remote() {
+        let remote = Source::new(Url::parse(SIMPLE_FILE_REMOTE).unwrap());
+        file_header_test(remote).await;
+    }
+
+    async fn directory_test(source: Source) {
+        let hdr = source
+            .fetch(0, FILE_HEADER_SIZE)
+            .await
+            .and_then(|buf| {
+                file_header(&buf)
+                    .map_err(|_| format_err!("Failed to parse file header"))
+                    .map(|(_i, o)| o)
+            })
+            .unwrap();
+
+        let dir = source
+            .fetch(hdr.seek_dir, TDIRECTORY_MAX_SIZE)
+            .await
+            .and_then(|buf| {
+                directory(&buf)
+                    .map_err(|_| format_err!("Failed to parse file header"))
+                    .map(|(_i, o)| o)
+            })
+            .unwrap();
+        assert_eq!(
+            dir,
+            Directory {
+                version: 5,
+                c_time: 1418768412,
+                m_time: 1418768412,
+                n_bytes_keys: 96,
                 n_bytes_name: 58,
-                pointer_size: 4,
-                compression: 1,
-                seek_info: 1117,
-                nbytes_info: 4442,
-                uuid: Uuid::from_u128(154703765255331693287451041600576143087),
-                seek_dir: 158,
-            };
-            assert_eq!(hdr, should);
-        }
+                seek_dir: 100,
+                // TODO: This should probably be an Option
+                seek_parent: 0,
+                seek_keys: 1021
+            }
+        );
     }
 
     #[tokio::test]
-    async fn directory_test() {
+    async fn directory_test_local() {
         let local = Path::new("./src/test_data/simple.root").into();
+        directory_test(local).await;
+    }
+
+    #[tokio::test]
+    async fn directory_test_remote() {
         let remote = Source::new(Url::parse(SIMPLE_FILE_REMOTE).unwrap());
-        let sources: Vec<Source> = vec![local, remote];
-        for source in &sources {
-            let hdr = source
-                .fetch(0, FILE_HEADER_SIZE)
-                .await
-                .and_then(|buf| {
-                    file_header(&buf)
-                        .map_err(|_| format_err!("Failed to parse file header"))
-                        .map(|(_i, o)| o)
-                })
-                .unwrap();
+        directory_test(remote).await;
+    }
 
-            let dir = source
-                .fetch(hdr.seek_dir, TDIRECTORY_MAX_SIZE)
-                .await
-                .and_then(|buf| {
-                    directory(&buf)
-                        .map_err(|_| format_err!("Failed to parse file header"))
-                        .map(|(_i, o)| o)
-                })
-                .unwrap();
-            assert_eq!(
-                dir,
-                Directory {
-                    version: 5,
-                    c_time: 1418768412,
-                    m_time: 1418768412,
-                    n_bytes_keys: 96,
-                    n_bytes_name: 58,
-                    seek_dir: 100,
-                    // TODO: This should probably be an Option
-                    seek_parent: 0,
-                    seek_keys: 1021
-                }
-            );
-        }
+    async fn streamerinfo_test(source: Source) {
+        let key = source
+            .fetch(1117, 4446)
+            .await
+            .and_then(|buf| {
+                tkey(&buf)
+                    .map_err(|_| format_err!("Failed to parse file header"))
+                    .map(|(_i, o)| o)
+            })
+            .unwrap();
+        assert_eq!(key.hdr.obj_name, "StreamerInfo");
+
+        let key_len = key.hdr.key_len;
+        let k_map_offset = 2;
+        let context = Context {
+            source: source.clone(),
+            offset: (key_len + k_map_offset) as u64,
+            s: key.obj,
+        };
+
+        match length_value(checked_byte_count, |i| {
+            tlist::<VerboseError<_>>(i, &context)
+        })(&context.s)
+        {
+            Ok((_, l)) => {
+                assert_eq!(l.len(), 19);
+            }
+            Err(_e) => panic!("Not parsed as TList!"),
+        };
     }
 
     #[tokio::test]
-    async fn streamerinfo_test() {
+    async fn streamerinfo_test_local() {
         let local = Path::new("./src/test_data/simple.root").into();
+        streamerinfo_test(local).await;
+    }
+
+    #[tokio::test]
+    async fn streamerinfo_test_remote() {
         let remote = Url::parse(
 	    "https://github.com/cbourjau/alice-rs/blob/master/root-io/src/test_data/simple.root?raw=true")
 	    .unwrap()
 	    .into();
-        let sources: Vec<Source> = vec![local, remote];
-        for source in &sources {
-            let key = source
-                .fetch(1117, 4446)
-                .await
-                .and_then(|buf| {
-                    tkey(&buf)
-                        .map_err(|_| format_err!("Failed to parse file header"))
-                        .map(|(_i, o)| o)
-                })
-                .unwrap();
-            assert_eq!(key.hdr.obj_name, "StreamerInfo");
-
-            let key_len = key.hdr.key_len;
-            let k_map_offset = 2;
-            let context = Context {
-                source: source.clone(),
-                offset: (key_len + k_map_offset) as u64,
-                s: key.obj,
-            };
-
-            match length_value(checked_byte_count, |i| {
-                tlist::<VerboseError<_>>(i, &context)
-            })(&context.s)
-            {
-                Ok((_, l)) => {
-                    assert_eq!(l.len(), 19);
-                }
-                Err(_e) => panic!("Not parsed as TList!"),
-            };
-        }
+        streamerinfo_test(remote).await;
     }
 }

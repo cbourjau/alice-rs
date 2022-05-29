@@ -118,7 +118,6 @@ mod wasm {
     #[wasm_bindgen_test(async)]
     async fn read_esd_wasm() {
         let files = [
-            // There is an issue on MacOs with opening the ESD test files
             RootFile::new(
                 Url::parse("http://127.0.0.1:3030/opendata/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root").unwrap()
             ).await.expect("Failed to open file"),

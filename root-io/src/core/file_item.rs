@@ -87,7 +87,6 @@ mod tests {
         assert_eq!(f.streamer_infos().await.unwrap().len(), 18);
     }
 
-    // Skip this test on MacOs since the downloaded file is not working on Travis
     #[tokio::test]
     #[cfg(not(target_arch = "wasm32"))]
     async fn open_esd() {
