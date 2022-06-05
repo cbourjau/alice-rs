@@ -168,9 +168,9 @@ impl RootFile {
         let dir = wrap_parser(directory)(&dir_buf)?;
 
         let tkey_buf = source.fetch(dir.seek_keys, dir.n_bytes_keys as u64).await?;
-        let tkey_of_keys = wrap_parser(tkey.all_consuming())(&tkey_buf)?;
+        let tkey_of_keys = wrap_parser(tkey.all_consuming().context("root file key listing"))(&tkey_buf)?;
 
-        let keys = wrap_parser(tkey_headers.all_consuming())(&tkey_of_keys.obj)?;
+        let keys = wrap_parser(tkey_headers.context("root file keys"))(&tkey_of_keys.obj)?;
 
         let items = keys
             .iter()
@@ -262,6 +262,7 @@ mod test {
     use std::path::Path;
 
     use super::*;
+    use self::UnwrapPrint;
 
     const SIMPLE_FILE_REMOTE: &str =
         "https://github.com/cbourjau/alice-rs/blob/master/root-io/src/test_data/simple.root?raw=true";
@@ -269,12 +270,12 @@ mod test {
     #[tokio::test]
     async fn read_cms_file_remote() {
         let url = "http://opendata.web.cern.ch/eos/opendata/cms/hidata/HIRun2010/HIAllPhysics/RECO/ZS-v2/0000/001DA267-7243-E011-B38F-001617C3B6CE.root";
-        let f = RootFile::new(Url::parse(url).unwrap()).await.unwrap();
+        let f = RootFile::new(Url::parse(url).unwrap()).await.unwrap_print();
         let mut s = String::new();
         f.streamer_info_as_yaml(&mut s).await.unwrap();
         println!("{}", s);
         for item in f.items() {
-            item.as_tree().await.unwrap();
+            item.as_tree().await.unwrap_print();
         }
     }
 

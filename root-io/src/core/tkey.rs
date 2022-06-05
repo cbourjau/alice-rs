@@ -39,7 +39,7 @@ pub fn tkey_header<'s, E>(input: Span<'s>) -> RResult<'s, TKeyHeader, E>
     where
         E: RootError<Span<'s>>
 {
-    tuple((
+    let (i, hdr) = tuple((
         be_u32.context("total size"),
         be_u16.context("version"),
         be_u32.context("uncompressed length"),
@@ -64,7 +64,9 @@ pub fn tkey_header<'s, E>(input: Span<'s>) -> RResult<'s, TKeyHeader, E>
         class_name: class_name.to_string(),
         obj_name: obj_name.to_string(),
         obj_title: obj_title.to_string(),
-    }))).context("tkey header").parse(input)
+    }))).context("tkey header").parse(input)?;
+
+    Ok((i, hdr))
 }
 
 /// Parse a file-pointer based on the version of the file
@@ -101,8 +103,10 @@ pub fn tkey<'s, E>(input: Span<'s>) -> RResult<'s, TKey, E>
         Ok(TKey { hdr: opthdr.take().unwrap(), obj })
     }).context("tkey").parse(i)
 }
-
+// Note that tkey current
 /// Special thing for the keylist in the file header
+// Note that tkey_headers currently does not parse the entire input buffer
+// See: read_cms_file_remote for an example
 pub(crate) fn tkey_headers<'s, E>(input: Span<'s>) -> RResult<'s, Vec<TKeyHeader>, E>
     where
         E: RootError<Span<'s>>

@@ -36,18 +36,24 @@ fn list_of_rules() {
         s: s.to_vec(),
     };
 
-
+    // TODO we parse this object pretty weirdly
     let mut parser = wrap_parser_ctx(|ctx| move |i| {
+        use nom::HexDisplay;
         let (leftover, (name, obj)) = class_name_and_buffer(ctx).parse(i)?;
-        let (_, l) = tlist(ctx).parse(obj)?;
-        Ok((leftover, (name, l)))
+        let len = obj.fragment().len();
+        println!("{name}: Located span of length {len}");
+        println!("{}", obj.fragment().to_hex(16));
+        //let (_, l) = tlist(ctx).parse(obj)?;
+        let (leftover, ci) = classinfo(obj)?;
+        println!("As classinfo: {ci:?}");
+        Ok((leftover, (name, obj)))
     });
 
     let (name, l) = match parser(&context) {
         Ok((name, l))   => (name, l),
         Err(e)          => { println!("{}", e); assert!(false); unreachable!() }
     };
-    println!("name = {}\nlist = {:?}", name, l);
+    //println!("name = {}\nlist = {:?}", name, l);
     // let (_obj, l) = tlist(obj, &context).unwrap();
     // assert_eq!(l.name, "listOfRules");
     // assert_eq!(l.len, 2);

@@ -86,7 +86,6 @@ impl TBranch {
     ///
     /// # Example
     /// ```
-    /// extern crate failure;
     /// extern crate nom;
     /// extern crate root_io;
     /// use futures::StreamExt;
@@ -178,13 +177,10 @@ pub(crate) fn tbranch_hdr<'s, E>(ctxt: &'s Context) -> impl RParser<'s, TBranch,
         let (_, branch) = match classinfo {
             "TBranchElement" | "TBranchObject" => {
                 be_u16.precedes(length_value(checked_byte_count, tbranch(ctxt)).complete().context("length-prefixed data"))
-                    .all_consuming()
-                    .context("tbranch object")
                     .parse(obj)
             }
             "TBranch" =>
                 tbranch(ctxt)
-                    .all_consuming()
                     .context("tbranch wrapper")
                     .parse(obj),
             name => panic!("Unexpected Branch type {}", name),
@@ -196,6 +192,7 @@ pub(crate) fn tbranch_hdr<'s, E>(ctxt: &'s Context) -> impl RParser<'s, TBranch,
     parser.context("tbranch hdr")
 }
 
+// TODO: tbranch currently does not parse tbranch objects in its entirety (see e.g.
 fn tbranch<'s, E>(context: &'s Context) -> impl RParser<'s, TBranch, E>
     where
         E: RootError<Span<'s>>,

@@ -134,6 +134,7 @@ mod wasm {
 mod x64 {
     use super::*;
     use reqwest::Url;
+    use root_io::core::UnwrapPrint;
 
     const REMOTE_FILE: &str =
         "http://opendata.web.cern.ch/eos/opendata/alice/2010/LHC10h/000139038/ESD/0001/AliESDs.root";
@@ -142,13 +143,13 @@ mod x64 {
     async fn read_esd_local_and_remote() {
         let path = alice_open_data::test_file().unwrap();
         let files = [
-            RootFile::new(path).await.expect("Failed to open file"),
+            RootFile::new(path).await.unwrap_print(),
             RootFile::new(Url::parse(REMOTE_FILE).unwrap())
                 .await
-                .expect("Failed to open file"),
+                .unwrap_print(),
         ];
         for f in &files {
-            let t = f.items()[0].as_tree().await.unwrap();
+            let t = f.items()[0].as_tree().await.unwrap_print();
             test_branch_iterators(&t).await;
         }
     }
