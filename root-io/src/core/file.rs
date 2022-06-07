@@ -260,6 +260,7 @@ mod test {
     use tokio;
 
     use std::path::Path;
+    use crate::core::ReadError;
 
     use super::*;
     use self::UnwrapPrint;
@@ -279,16 +280,13 @@ mod test {
         }
     }
 
-    async fn file_header_test(source: Source) {
-        let hdr = source
-            .fetch(0, FILE_HEADER_SIZE)
-            .await
-            .and_then(|buf| {
-                file_header(&buf)
-                    .map_err(|_| format_err!("Failed to parse file header"))
-                    .map(|(_i, o)| o)
-            })
-            .unwrap();
+    async fn file_header_test(source: Source) -> Result<(), ReadError> {
+        let buf = source.fetch(0, FILE_HEADER_SIZE).await?;
+
+        let hdr = match wrap_parser(file_header)(&buf) {
+            Ok(hdr) => hdr,
+            Err(e)  => return Err(ReadError::ParseError(e))
+        };
 
         let should = FileHeader {
             version: 60600,
@@ -306,40 +304,29 @@ mod test {
             seek_dir: 158,
         };
         assert_eq!(hdr, should);
+
+        Ok(())
     }
 
     #[tokio::test]
     async fn file_header_test_local() {
         let local = Source::new(Path::new("./src/test_data/simple.root"));
-        file_header_test(local).await;
+        file_header_test(local).await.unwrap_print();
     }
 
     #[tokio::test]
     async fn file_header_test_remote() {
         let remote = Source::new(Url::parse(SIMPLE_FILE_REMOTE).unwrap());
-        file_header_test(remote).await;
+        file_header_test(remote).await.unwrap_print();
     }
 
-    async fn directory_test(source: Source) {
-        let hdr = source
-            .fetch(0, FILE_HEADER_SIZE)
-            .await
-            .and_then(|buf| {
-                file_header(&buf)
-                    .map_err(|_| ParseError(e))
-                    .map(|(_i, o)| o)
-            })
-            .unwrap();
+    async fn directory_test(source: Source) -> Result<(), ReadError> {
+        let hdr_buf = source.fetch(0, FILE_HEADER_SIZE).await?;
+        let hdr = wrap_parser(file_header)(&hdr_buf)?;
 
-        let dir = source
-            .fetch(hdr.seek_dir, TDIRECTORY_MAX_SIZE)
-            .await
-            .and_then(|buf| {
-                directory(&buf)
-                    .map_err(|e| ParseError(e))
-                    .map(|(_i, o)| o)
-            })
-            .unwrap();
+        let dir_buf = source.fetch(hdr.seek_dir, TDIRECTORY_MAX_SIZE).await?;
+        let dir = wrap_parser(directory)(&dir_buf)?;
+
         assert_eq!(
             dir,
             Directory {
@@ -354,30 +341,26 @@ mod test {
                 seek_keys: 1021
             }
         );
+
+        Ok(())
     }
 
     #[tokio::test]
     async fn directory_test_local() {
         let local = Path::new("./src/test_data/simple.root").into();
-        directory_test(local).await;
+        directory_test(local).await.unwrap_print();
     }
 
     #[tokio::test]
     async fn directory_test_remote() {
         let remote = Source::new(Url::parse(SIMPLE_FILE_REMOTE).unwrap());
-        directory_test(remote).await;
+        directory_test(remote).await.unwrap_print();
     }
 
-    async fn streamerinfo_test(source: Source) {
-        let key = source
-            .fetch(1117, 4446)
-            .await
-            .and_then(|buf| {
-                tkey(&buf)
-                    .map_err(|e| ParseError(e))
-                    .map(|(_i, o)| o)
-            })
-            .unwrap();
+    async fn streamerinfo_test(source: Source) -> Result<(), ReadError> {
+        let buf = source.fetch(1117, 4446).await?;
+        let key = wrap_parser(tkey)(&buf)?;
+
         assert_eq!(key.hdr.obj_name, "StreamerInfo");
 
         let key_len = key.hdr.key_len;
@@ -388,22 +371,23 @@ mod test {
             s: key.obj,
         };
 
-        match length_value(checked_byte_count, |i| {
-            tlist::<VerboseError<_>>(i, &context)
-        })(&context.s)
-        {
-            Ok((_, l)) => {
-                assert_eq!(l.len(), 19);
-            }
-            Err(_e) => panic!("Not parsed as TList!"),
-        };
+        let mut tlist_parser = wrap_parser_ctx(|ctx| {
+            length_value(checked_byte_count, move |i| {
+                tlist::<VerboseError<_>>(&ctx).parse(i)
+            }).all_consuming()
+        });
+
+        let tlist = tlist_parser(&context)?;
+        assert_eq!(tlist.len(), 19);
+
+        Ok(())
     }
 
     #[tokio::test]
     async fn streamerinfo_test_local() {
 
         let local = Path::new("./src/test_data/simple.root").into();
-        streamerinfo_test(local).await;
+        streamerinfo_test(local).await.unwrap_print();
     }
 
     #[tokio::test]
@@ -412,6 +396,6 @@ mod test {
 	    "https://github.com/cbourjau/alice-rs/blob/master/root-io/src/test_data/simple.root?raw=true")
 	    .unwrap()
 	    .into();
-        streamerinfo_test(remote).await;
+        streamerinfo_test(remote).await.unwrap_print();
     }
 }

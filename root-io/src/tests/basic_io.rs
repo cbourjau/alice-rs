@@ -44,7 +44,7 @@ fn list_of_rules() {
         println!("{name}: Located span of length {len}");
         println!("{}", obj.fragment().to_hex(16));
         //let (_, l) = tlist(ctx).parse(obj)?;
-        let (leftover, ci) = classinfo(obj)?;
+        let (_leftover, ci) = classinfo(obj)?;
         println!("As classinfo: {ci:?}");
         Ok((leftover, (name, obj)))
     });
@@ -53,8 +53,8 @@ fn list_of_rules() {
         Ok((name, l))   => (name, l),
         Err(e)          => { println!("{}", e); assert!(false); unreachable!() }
     };
-    //println!("name = {}\nlist = {:?}", name, l);
+    println!("name = {}\nlist = {:?}", name, l);
     // let (_obj, l) = tlist(obj, &context).unwrap();
-    // assert_eq!(l.name, "listOfRules");
+    //assert_eq!(l, "listOfRules");
     // assert_eq!(l.len, 2);
 }
