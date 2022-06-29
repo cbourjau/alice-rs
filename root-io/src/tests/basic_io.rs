@@ -1,8 +1,10 @@
 #![cfg(not(target_arch = "wasm32"))]
 
-use crate::core::*;
-use nom::error::VerboseError;
+use nom::Parser;
+
 use std::path::PathBuf;
+
+use crate::core::*;
 
 #[test]
 fn list_of_rules() {
@@ -31,16 +33,34 @@ fn list_of_rules() {
     let context = Context {
         source: PathBuf::from("").into(),
         offset: 0,
-        s: vec![],
+        s: s.to_vec(),
     };
-    use nom::HexDisplay;
-    println!("{}", s.to_hex(16));
-    let (_, (_name, obj)) = class_name_and_buffer::<VerboseError<_>>(s, &context).unwrap();
-    println!("{}", obj.to_hex(16));
-    let (obj, _ci) = classinfo::<VerboseError<_>>(obj).unwrap();
-    println!("{:?}", _ci);
-    println!("{}", obj.to_hex(16));
+
+    // TODO we parse this object pretty weirdly
+    let mut parser = wrap_parser_ctx(|ctx| {
+        move |i| {
+            use nom::HexDisplay;
+            let (leftover, (name, obj)) = class_name_and_buffer(ctx).parse(i)?;
+            let len = obj.fragment().len();
+            println!("{name}: Located span of length {len}");
+            println!("{}", obj.fragment().to_hex(16));
+            //let (_, l) = tlist(ctx).parse(obj)?;
+            let (_leftover, ci) = classinfo(obj)?;
+            println!("As classinfo: {ci:?}");
+            Ok((leftover, (name, obj)))
+        }
+    });
+
+    let (name, l) = match parser(&context) {
+        Ok((name, l)) => (name, l),
+        Err(e) => {
+            println!("{}", e);
+            assert!(false);
+            unreachable!()
+        }
+    };
+    println!("name = {}\nlist = {:?}", name, l);
     // let (_obj, l) = tlist(obj, &context).unwrap();
-    // assert_eq!(l.name, "listOfRules");
+    //assert_eq!(l, "listOfRules");
     // assert_eq!(l.len, 2);
 }

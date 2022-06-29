@@ -1,14 +1,15 @@
+use reqwest::{
+    header::{RANGE, USER_AGENT},
+    Client, Url,
+};
+
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 use std::path::PathBuf;
 
-use failure::Error;
-use reqwest::{
-    header::{RANGE, USER_AGENT},
-    Client, Url,
-};
+use crate::core::ReadError;
 
 /// The source from where the Root file is read. Construct it using
 /// `.into()` on a `Url` or `Path`. The latter is not availible for
@@ -33,7 +34,7 @@ impl Source {
         thing.into()
     }
 
-    pub async fn fetch(&self, start: u64, len: u64) -> Result<Vec<u8>, Error> {
+    pub async fn fetch(&self, start: u64, len: u64) -> Result<Vec<u8>, ReadError> {
         match &self.0 {
             SourceInner::Local(path) => {
                 let mut f = File::open(&path)?;

@@ -3,10 +3,9 @@ extern crate criterion;
 extern crate nom;
 extern crate root_io;
 
-use nom::number::complete::{be_f32, be_i32, be_u32};
-
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use futures::StreamExt;
+use nom::number::complete::{be_f32, be_i32, be_u32};
 use tokio::runtime::Runtime;
 
 use root_io::RootFile;

@@ -1,15 +1,13 @@
-use std::fmt::Debug;
-
-use nom::{
-    error::{ParseError, VerboseError},
-    multi::length_data,
-    multi::length_value,
-    number::complete::*,
-    IResult,
-};
-
+use nom::multi::{count, length_count, length_value};
+use nom::number::complete::{be_i32, be_u16, be_u32};
+use nom::sequence::{pair, tuple};
+use nom::Parser;
+use nom_supreme::ParserExt;
 use quote::*;
 
+use std::fmt::Debug;
+
+use crate::core::SemanticError::VersionNotSupported;
 use crate::{
     code_gen::rust::{ToRustParser, ToRustType},
     code_gen::utils::{alias_or_lifetime, sanitize, type_is_core},
@@ -68,14 +66,14 @@ pub(crate) enum TStreamer {
         /// type of STL vector
         vtype: StlTypeID,
         /// STL contained type
-        ctype: TypeID,
+        ctype: TypeId,
     },
     StlString {
         el: TStreamerElement,
         /// type of STL vector
         vtype: StlTypeID,
         /// STL contained type
-        ctype: TypeID,
+        ctype: TypeId,
     },
 }
 
@@ -85,7 +83,7 @@ pub(crate) enum TStreamer {
 pub(crate) struct TStreamerElement {
     ver: u16,
     name: TNamed,
-    el_type: TypeID,
+    el_type: TypeId,
     size: i32,
     array_len: i32,
     array_dim: i32,
@@ -99,141 +97,240 @@ pub(crate) struct TStreamerElement {
 
 /// Parse a `TStreamer` from a `Raw` buffer. This is usually the case
 /// after reading the `TList` of `TStreamerInfo`s from a ROOT file
-#[rustfmt::skip::macros(do_parse)]
-pub(crate) fn tstreamer<'s, E>(raw: &Raw<'s>) -> IResult<&'s [u8], TStreamer, E>
+pub(crate) fn tstreamer<'s, E>(ctx: &'s Context) -> impl RParser<'s, TStreamer, E> + Copy
 where
-    E: ParseError<&'s [u8]> + Debug,
+    E: RootError<Span<'s>>,
 {
-    let wrapped_tstreamerelem = |i| length_value!(i, checked_byte_count, tstreamerelement);
-    match raw.classinfo {
-        "TStreamerBase" => do_parse!(raw.obj,
-                                     _ver: be_u16 >>
-                                     el: wrapped_tstreamerelem >>
-                                     version_base: be_i32 >>
-                                     (TStreamer::Base {el, version_base})),
-        "TStreamerBasicType" => do_parse!(raw.obj,
-                                          _ver: be_u16 >>
-                                          el: wrapped_tstreamerelem >>
-                                          (TStreamer::BasicType {el})),
-        "TStreamerBasicPointer" => do_parse!(raw.obj,
-                                             _ver: be_u16 >>
-                                             el: wrapped_tstreamerelem >>
-                                             cvers: be_i32 >>
-                                             cname: string >>
-                                             ccls: string >>
-                                             (TStreamer::BasicPointer {el, cvers, cname, ccls})),
-        "TStreamerLoop" => do_parse!(raw.obj,
-                                     _ver: be_u16 >>
-                                     el: wrapped_tstreamerelem >>
-                                     cvers: be_i32 >>
-                                     cname: string >>
-                                     ccls: string >>
-                                     (TStreamer::Loop {el, cvers, cname, ccls})),
-        "TStreamerObject" => do_parse!(raw.obj,
-                                       _ver: be_u16 >>
-                                       el: wrapped_tstreamerelem >>
-                                       (TStreamer::Object {el})),
-        "TStreamerObjectPointer" => do_parse!(raw.obj,
-                                              _ver: be_u16 >>
-                                              el: wrapped_tstreamerelem >>
-                                              (TStreamer::ObjectPointer {el})),
-        "TStreamerObjectAny" => do_parse!(raw.obj,
-                                    _ver: be_u16 >>
-                                    el: wrapped_tstreamerelem >>
-                                          (TStreamer::ObjectAny {el})),
-        "TStreamerObjectAnyPointer" => do_parse!(raw.obj,
-                                                 _ver: be_u16 >>
-                                                 el: wrapped_tstreamerelem >>
-                                                 (TStreamer::ObjectAnyPointer {el})),
-        "TStreamerString" => do_parse!(raw.obj,
-                                       _ver: be_u16 >>
-                                       el: wrapped_tstreamerelem >>
-                                       (TStreamer::String {el})),
-        "TStreamerSTL" => do_parse!(raw.obj,
-                                    _ver: be_u16 >>
-                                    el: wrapped_tstreamerelem >>
-                                    vtype: map!(be_i32, StlTypeID::new) >>
-                                    ctype: map_res!(be_i32, TypeID::new) >>
-                                    (TStreamer::Stl {el, vtype, ctype})),
-        "TStreamerSTLstring" => {
-            // Two version bcs `stlstring` derives from `stl`
-            let (i, _ver) = be_u16(raw.obj)?;
-            let (_, stl_buffer) = length_data(checked_byte_count)(i)?;
-            let (stl_buffer, _ver) = be_u16(stl_buffer)?;
-            let (stl_buffer, el) = wrapped_tstreamerelem(stl_buffer)?;
-            let (stl_buffer, vtype) = map!(stl_buffer, be_i32, StlTypeID::new)?;
-            let (_stl_buffer, ctype) = map_res!(stl_buffer, be_i32, TypeID::new)?;
-            Ok((i, TStreamer::StlString { el, vtype, ctype }))
-        }
-        ci => unimplemented!("Unknown TStreamer {}", ci),
-    }
+    let parser = move |i| {
+        let (i, (classinfo, obj)) = class_name_and_buffer(ctx).parse(i)?;
+
+        let wrapped_tstreamerelem = length_value(checked_byte_count, tstreamerelement);
+
+        let (_, streamer) = match classinfo {
+            "TStreamerBase" => tuple((
+                be_u16.context("version"),
+                wrapped_tstreamerelem,
+                be_i32.context("version base"),
+            ))
+            .map(|(_ver, el, version_base)| TStreamer::Base { el, version_base })
+            .all_consuming()
+            .context("tstreamer (base)")
+            .parse(obj),
+
+            "TStreamerBasicType" => pair(be_u16.context("version"), wrapped_tstreamerelem)
+                .map(|(_ver, el)| TStreamer::BasicType { el })
+                .all_consuming()
+                .context("tstreamer (basic type)")
+                .parse(obj),
+
+            "TStreamerBasicPointer" => tuple((
+                be_u16.context("version"),
+                wrapped_tstreamerelem,
+                be_i32.context("cvers"),
+                string.context("cname"),
+                string.context("ccls"),
+            ))
+            .map(|(_ver, el, cvers, cname, ccls)| TStreamer::BasicPointer {
+                el,
+                cvers,
+                cname: cname.to_string(),
+                ccls: ccls.to_string(),
+            })
+            .all_consuming()
+            .context("tstreamer (basic pointer)")
+            .parse(obj),
+
+            "TStreamerLoop" => tuple((
+                be_u16.context("version"),
+                wrapped_tstreamerelem,
+                be_i32.context("cvers"),
+                string.context("cname"),
+                string.context("ccls"),
+            ))
+            .map(|(_ver, el, cvers, cname, ccls)| TStreamer::Loop {
+                el,
+                cvers,
+                cname: cname.to_string(),
+                ccls: ccls.to_string(),
+            })
+            .all_consuming()
+            .context("tstreamer (loop)")
+            .parse(obj),
+
+            "TStreamerObject" => pair(be_u16.context("version"), wrapped_tstreamerelem)
+                .map(|(_ver, el)| TStreamer::Object { el })
+                .all_consuming()
+                .context("tstreamer (object)")
+                .parse(obj),
+
+            "TStreamerObjectPointer" => pair(be_u16.context("version"), wrapped_tstreamerelem)
+                .map(|(_ver, el)| TStreamer::ObjectPointer { el })
+                .all_consuming()
+                .context("tstreamer (object pointer)")
+                .parse(obj),
+
+            "TStreamerObjectAny" => pair(be_u16.context("version"), wrapped_tstreamerelem)
+                .map(|(_ver, el)| TStreamer::ObjectAny { el })
+                .all_consuming()
+                .context("tstreamer (object (any))")
+                .parse(obj),
+
+            "TStreamerObjectAnyPointer" => pair(be_u16.context("version"), wrapped_tstreamerelem)
+                .map(|(_ver, el)| TStreamer::ObjectAnyPointer { el })
+                .all_consuming()
+                .context("tstreamer (object pointer (any))")
+                .parse(obj),
+
+            "TStreamerString" => pair(be_u16.context("version"), wrapped_tstreamerelem)
+                .map(|(_ver, el)| TStreamer::String { el })
+                .all_consuming()
+                .context("tstreamer (string)")
+                .parse(obj),
+
+            "TStreamerSTL" => tuple((
+                be_u16.context("version"),
+                wrapped_tstreamerelem,
+                be_i32.map(StlTypeID::new).context("vtype"),
+                be_i32.map_res(TypeId::new).context("ctype"),
+            ))
+            .map(|(_ver, el, vtype, ctype)| TStreamer::Stl { el, vtype, ctype })
+            .all_consuming()
+            .context("tstreamer (stl)")
+            .parse(obj),
+
+            "TStreamerSTLstring" => {
+                // Two version bcs `stlstring` derives from `stl`
+                be_u16
+                    .precedes(length_value(
+                        checked_byte_count,
+                        tuple((
+                            be_u16.context("version"),
+                            wrapped_tstreamerelem,
+                            be_i32.map(StlTypeID::new).context("vtype"),
+                            be_i32.map_res(TypeId::new).context("ctype"),
+                        )),
+                    ))
+                    .map(|(_ver, el, vtype, ctype)| TStreamer::StlString { el, vtype, ctype })
+                    .all_consuming()
+                    .context("tstreamer (stl string)")
+                    .parse(obj)
+            }
+            ci => unimplemented!("Unknown TStreamer {}", ci),
+        }?;
+
+        Ok((i, streamer))
+    };
+
+    parser.context("tstreamer")
 }
 
 /// Return all `TSreamerInfo` for the data in this file
-pub fn streamers<'s, E>(i: &'s [u8], ctx: &'s Context) -> IResult<&'s [u8], Vec<TStreamerInfo>, E>
+pub fn streamers<'s, E>(ctx: &'s Context) -> impl RParser<'s, Vec<TStreamerInfo>, E> + 's
 where
-    E: ParseError<&'s [u8]> + Debug,
+    E: RootError<Span<'s>>,
 {
-    // Dunno why we are 4 bytes off with the size of the streamer info...
+    let parser = move |i| {
+        // Dunno why we are 4 bytes off with the size of the streamer info...
 
-    // This TList in the payload has a bytecount in front...
-    let (i, tlist_objs) = length_value(checked_byte_count, |i| tlist(i, ctx))(i)?;
-    // Mainly this is a TList of `TStreamerInfo`s, but there might
-    // be some "rules" in the end
-    let streamers = tlist_objs
-        .iter()
-        .filter_map(|raw| match raw.classinfo {
-            "TStreamerInfo" => Some(raw.obj),
-            _ => None,
-        })
-        .map(|i| tstreamerinfo::<VerboseError<&'s [u8]>>(i, ctx).unwrap().1)
-        .collect();
-    // Parse the "rules", if any, from the same tlist
-    let _rules: Vec<_> = tlist_objs
-        .iter()
-        .filter_map(|raw| match raw.classinfo {
-            "TList" => Some(raw.obj),
-            _ => None,
-        })
-        .map(|i| {
-            let tl = tlist::<VerboseError<&[u8]>>(i, ctx).unwrap().1;
-            // Each `Rule` is a TList of `TObjString`s
-            tl.iter()
-                .map(|el| tobjstring(el.obj).unwrap().1)
-                .collect::<Vec<_>>()
-        })
-        .collect();
-    Ok((i, streamers))
+        // This TList in the payload has a bytecount in front...
+        let (i, tlist_objs) = length_value(checked_byte_count, tlist(ctx))(i)?;
+        // Mainly this is a TList of `TStreamerInfo`s, but there might
+        // be some "rules" in the end
+        let _streamers: Result<Vec<_>, _> = tlist_objs
+            .iter()
+            .filter_map(|raw| match raw.classinfo {
+                "TStreamerInfo" => Some(raw.obj),
+                _ => None,
+            })
+            .map(|buf| {
+                Ok(tstreamerinfo(ctx)
+                    .context("in streamers listing")
+                    .parse(buf)?
+                    .1)
+            })
+            .collect();
+        let streamers = _streamers?;
+
+        // Parse the "rules", if any, from the same tlist
+        let _rules: Result<Vec<_>, _> = tlist_objs
+            .iter()
+            .filter_map(|raw| match raw.classinfo {
+                "TList" => Some(raw.obj),
+                _ => None,
+            })
+            .map(|buf| {
+                let tl = tlist(ctx).parse(buf)?.1;
+                // Each `Rule` is a TList of `TObjString`s
+                tl.iter()
+                    .map(|el| tobjstring::<'s, E>(el.obj))
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .collect();
+        let _rules = _rules?;
+
+        for raw in tlist_objs {
+            match raw.classinfo {
+                "TStreamerInfo" | "TList" => {}
+                other => println!("Got unexpected class in streamers list: {other}"),
+            }
+        }
+
+        Ok((i, streamers))
+    };
+
+    parser.context("streamers")
 }
 
-#[rustfmt::skip::macros(do_parse)]
 /// The element which is wrapped in a TStreamer
-fn tstreamerelement<'s, E>(i: &'s [u8]) -> IResult<&'s [u8], TStreamerElement, E>
+fn tstreamerelement<'s, E>(input: Span<'s>) -> RResult<'s, TStreamerElement, E>
 where
-    E: ParseError<&'s [u8]> + Debug,
+    E: RootError<Span<'s>>,
 {
-    do_parse!(i,
-              ver: be_u16 >>
-              name: length_value!(checked_byte_count, tnamed) >>
-              el_type: map_res!(be_i32, TypeID::new) >>
-              size: be_i32 >>
-              array_len: be_i32 >>
-              array_dim: be_i32 >>
-              max_idx: switch!(value!(ver),
-                               1 => length_count!(be_i32, be_u32) |
-                               _ => count!(be_u32, 5)) >>
-              type_name: string >>
-              _eof: eof!() >>
-              ({
-                  if ver <= 3 {
-                      unimplemented!();
-                  }
-                  TStreamerElement {
-                      ver, name, el_type, size, array_len,
-                      array_dim, max_idx, type_name
-                  }
-              })
-    )
+    tuple((
+        be_u16.context("version"),
+        length_value(checked_byte_count, tnamed).context("name"),
+        be_i32.map_res(TypeId::new).context("element type"),
+        be_i32.context("size"),
+        be_i32.context("array length"),
+        be_i32.context("array dimensions"),
+    ))
+    .flat_map(make_fn(
+        |(ver, name, el_type, size, array_len, array_dim): (u16, TNamed, TypeId, i32, i32, i32)| {
+            let mut optname = Some(name);
+            tuple((
+                move |i| {
+                    if ver == 1 {
+                        length_count(be_u32, be_u32)(i)
+                    } else {
+                        count(be_u32, 5)(i)
+                    }
+                },
+                string,
+            ))
+            .map_res(move |(max_idx, type_name)| {
+                if ver <= 3 {
+                    Err(VersionNotSupported(
+                        Component::TStreamerElement,
+                        ver as u32,
+                        "must be >= 4",
+                    ))
+                } else {
+                    Ok(TStreamerElement {
+                        ver,
+                        name: optname.take().unwrap(),
+                        el_type,
+                        size,
+                        array_len,
+                        array_dim,
+                        max_idx,
+                        type_name: type_name.to_string(),
+                    })
+                }
+            })
+        },
+    ))
+    .context("tstreamer element")
+    .parse(input)
 }
 
 impl TStreamer {
@@ -282,7 +379,7 @@ impl ToTokens for TStreamer {
 
 impl ToRustType for TStreamer {
     fn type_name(&self) -> Tokens {
-        use self::TypeID::*;
+        use self::TypeId::*;
         let name = Ident::new(alias_or_lifetime(&self.elem().name.name.to_owned()));
         match self {
             TStreamer::Base { ref el, .. } => {
@@ -362,7 +459,7 @@ impl ToRustType for TStreamer {
 
 impl ToRustParser for TStreamer {
     fn to_inline_parser(&self) -> Tokens {
-        use self::TypeID::*;
+        use self::TypeId::*;
         let name = match self {
             //  `Base` types, i.e. types from which the current object inherited;
             // In that case the name is actually the type

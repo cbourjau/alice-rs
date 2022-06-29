@@ -1,8 +1,9 @@
+use nom::HexDisplay;
+use nom_locate::LocatedSpan;
+
 use std::fmt;
 
-use crate::core::Source;
-
-use nom::HexDisplay;
+use crate::core::{Source, Span};
 
 /// Absolute point in file to seek data
 pub(crate) type SeekPointer = u64;
@@ -25,7 +26,7 @@ bitflags! {
 /// Used in `TStreamerInfo`
 /// Describes if the following entry is a new class or if it was
 /// already described.
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum ClassInfo<'s> {
     /// Class name of the new class
     New(&'s str),
@@ -42,6 +43,7 @@ pub struct TObject {
     pub(crate) ver: u16,
     pub(crate) id: u32,
     pub(crate) bits: TObjectFlags,
+    pub(crate) _ref: Option<u16>,
 }
 
 /// A ROOT object with a name and a title
@@ -54,9 +56,10 @@ pub struct TNamed {
 }
 
 /// A type holding nothing but the original data and a class info object
+#[derive(Clone, Copy)]
 pub struct Raw<'s> {
     pub(crate) classinfo: &'s str,
-    pub(crate) obj: &'s [u8],
+    pub(crate) obj: Span<'s>,
 }
 
 /// The context from which we are currently parsing
@@ -70,6 +73,12 @@ pub struct Context {
     pub(crate) offset: u64,
     /// The full buffer we are working on
     pub(crate) s: Vec<u8>,
+}
+
+impl Context {
+    pub fn span(&self) -> Span {
+        LocatedSpan::new(&self.s)
+    }
 }
 
 impl<'s> fmt::Debug for Raw<'s> {

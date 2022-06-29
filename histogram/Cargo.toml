@@ -1,6 +1,6 @@
 [package]
 name = "histogram"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["cbourjau <c.bourjau@posteo.de>"]
 edition = "2018"
 

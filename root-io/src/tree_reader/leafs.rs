@@ -1,20 +1,16 @@
-use std::fmt::Debug;
-
-use nom::{
-    combinator::{map_res, verify},
-    error::ParseError,
-    multi::length_value,
-    number::complete::*,
-    IResult,
-};
-
+use nom::branch::alt;
+use nom::sequence::tuple;
+use nom::{combinator::verify, multi::length_value, number::complete::*, Parser};
+use nom_supreme::ParserExt;
 use quote::{Ident, Tokens};
+
+use std::fmt::Debug;
 
 use crate::{code_gen::rust::ToRustType, core::*};
 
 /// Parse a bool from a big endian u8
-fn be_bool<'a, E: ParseError<&'a [u8]>>(i: &'a [u8]) -> IResult<&[u8], bool, E> {
-    let (i, byte) = verify(be_u8, |&byte| byte == 0 || byte == 1)(i)?;
+fn be_bool<'s, E: RootError<Span<'s>>>(i: Span<'s>) -> RResult<'s, bool, E> {
+    let (i, byte) = be_u8.verify(|&byte| byte == 0 || byte == 1).parse(i)?;
     Ok((i, byte == 1))
 }
 
@@ -25,26 +21,18 @@ pub struct TLeaf {
 }
 
 impl TLeaf {
-    pub fn parse<'s, E>(
-        i: &'s [u8],
-        context: &'s Context,
-        c_name: &str,
-    ) -> IResult<&'s [u8], Self, E>
-    where
-        E: ParseError<&'s [u8]> + Debug,
-    {
-        TLeafVariant::parse(i, context, c_name).map(|(i, var)| (i, Self { variant: var }))
-    }
-
     // A helper function to get around some lifetime issues on the caller sider
-    pub(crate) fn parse_from_raw<'s, E>(
-        raw: &Raw<'s>,
-        ctxt: &'s Context,
-    ) -> IResult<&'s [u8], Self, E>
+    pub(crate) fn parse<'s, E>(ctxt: &'s Context) -> impl RParser<'s, Self, E> + Copy
     where
-        E: ParseError<&'s [u8]> + Debug,
+        E: RootError<Span<'s>>,
     {
-        Self::parse(raw.obj, ctxt, raw.classinfo)
+        let parser = move |i| {
+            let (i, (classinfo, obj)) = class_name_and_buffer(ctxt).parse(i)?;
+            let (_, variant) = TLeafVariant::parse(ctxt, classinfo, obj)?;
+            Ok((i, Self { variant }))
+        };
+
+        parser.context("tleaf")
     }
 }
 
@@ -63,11 +51,11 @@ enum TLeafVariant {
 }
 
 impl TLeafVariant {
-    fn parse<'s, E>(i: &'s [u8], context: &'s Context, c_name: &str) -> IResult<&'s [u8], Self, E>
+    fn parse<'s, E>(context: &'s Context, classinfo: &'s str, i: Span<'s>) -> RResult<'s, Self, E>
     where
-        E: ParseError<&'s [u8]> + Debug,
+        E: RootError<Span<'s>>,
     {
-        match c_name {
+        match classinfo {
             "TLeafB" => TLeafB::parse(i, context).map(|(i, l)| (i, TLeafVariant::TLeafB(l))),
             "TLeafS" => TLeafS::parse(i, context).map(|(i, l)| (i, TLeafVariant::TLeafS(l))),
             "TLeafI" => TLeafI::parse(i, context).map(|(i, l)| (i, TLeafVariant::TLeafI(l))),
@@ -77,9 +65,9 @@ impl TLeafVariant {
             "TLeafC" => TLeafC::parse(i, context).map(|(i, l)| (i, TLeafVariant::TLeafC(l))),
             "TLeafO" => TLeafO::parse(i, context).map(|(i, l)| (i, TLeafVariant::TLeafO(l))),
             "TLeafD32" => TLeafD32::parse(i, context).map(|(i, l)| (i, TLeafVariant::TLeafD32(l))),
-            "TLeafElement" => {
-                TLeafElement::parse(i, context).map(|(i, l)| (i, TLeafVariant::TLeafElement(l)))
-            }
+            "TLeafElement" => TLeafElement::parse(context)
+                .map(TLeafVariant::TLeafElement)
+                .parse(i),
             name => unimplemented!("Unexpected Leaf type {}", name),
         }
     }
@@ -99,14 +87,13 @@ macro_rules! make_tleaf_variant {
             fmaximum: $field_type,
         }
         impl $struct_name {
-            fn parse<'s, E>(i: &'s [u8], context: &'s Context) -> IResult<&'s [u8], Self, E>
+            fn parse<'s, E>(input: Span<'s>, context: &'s Context) -> RResult<'s, Self, E>
             where
-                E: ParseError<&'s [u8]> + Debug,
+                E: RootError<Span<'s>>,
             {
                 // All known descendens have version 1
-                let (i, _) = verify(be_u16, |&ver| ver == 1)(i)?;
-                let (i, base) =
-                    length_value(checked_byte_count, |i| TLeafBase::parse(i, context))(i)?;
+                let (i, _) = verify(be_u16, |&ver| ver == 1)(input)?;
+                let (i, base) = length_value(checked_byte_count, TLeafBase::parse(context))(i)?;
                 let (i, fminimum) = $parser(i)?;
                 let (i, fmaximum) = $parser(i)?;
                 let obj = Self {
@@ -148,19 +135,25 @@ make_tleaf_variant! {TLeafD32, f32, be_f32}
 struct TLeafElement {
     base: TLeafBase,
     fid: i32,
-    ftype: TypeID,
+    ftype: TypeId,
 }
 
 impl TLeafElement {
-    fn parse<'s, E>(i: &'s [u8], context: &'s Context) -> IResult<&'s [u8], Self, E>
+    fn parse<'s, E>(context: &'s Context) -> impl RParser<'s, Self, E>
     where
-        E: ParseError<&'s [u8]> + Debug,
+        E: RootError<Span<'s>>,
     {
-        let (i, _) = verify(be_u16, |&ver| ver == 1)(i)?;
-        let (i, base) = length_value(checked_byte_count, |i| TLeafBase::parse(i, context))(i)?;
-        let (i, fid) = be_i32(i)?;
-        let (i, ftype) = map_res(be_i32, TypeID::new)(i)?;
-        Ok((i, Self { base, fid, ftype }))
+        be_u16
+            .verify(|&ver| ver == 1)
+            .precedes(
+                tuple((
+                    length_value(checked_byte_count, TLeafBase::parse(context)),
+                    be_i32,
+                    be_i32.map_res(TypeId::new),
+                ))
+                .map(make_fn(|(base, fid, ftype)| Self { base, fid, ftype })),
+            )
+            .context("TLeaf")
     }
 }
 
@@ -186,42 +179,39 @@ struct TLeafBase {
 }
 
 impl TLeafBase {
-    fn parse<'s, E>(i: &'s [u8], context: &'s Context) -> IResult<&'s [u8], Self, E>
+    fn parse<'s, E>(context: &'s Context) -> impl RParser<'s, Self, E>
     where
-        E: ParseError<&'s [u8]> + std::fmt::Debug,
+        E: RootError<Span<'s>>,
     {
-        let (i, ver) = be_u16(i)?;
-        let (i, tnamed) = length_value(checked_byte_count, tnamed)(i)?;
-        let (i, flen) = be_i32(i)?;
-        let (i, flentype) = be_i32(i)?;
-        let (i, foffset) = be_i32(i)?;
-        let (i, fisrange) = be_bool(i)?;
-        let (i, fisunsigned) = be_bool(i)?;
-        let (i, fleafcount) = {
-            if peek!(i, be_u32)?.1 == 0 {
-                // Consume the bytes but we have no nested leafs
-                be_u32(i).map(|(i, _)| (i, None))?
-            } else {
-                let (i, r) = raw(i, context)?;
-                // We don't parse from the input buffer. TODO: Check
-                // that we consumed all bytes
-                let (_, tleaf) = TLeafVariant::parse(r.obj, context, r.classinfo)?;
-                (i, Some(Box::new(tleaf)))
-            }
-        };
-        Ok((
-            i,
-            Self {
-                ver,
-                tnamed,
-                flen,
-                flentype,
-                foffset,
-                fisrange,
-                fisunsigned,
-                fleafcount,
-            },
-        ))
+        move |i| {
+            let (i, ver) = be_u16(i)?;
+            let (i, tnamed) = length_value(checked_byte_count, tnamed)(i)?;
+            let (i, flen) = be_i32(i)?;
+            let (i, flentype) = be_i32(i)?;
+            let (i, foffset) = be_i32(i)?;
+            let (i, fisrange) = be_bool(i)?;
+            let (i, fisunsigned) = be_bool(i)?;
+            let (i, fleafcount) = {
+                alt((
+                    be_u32.verify(|&v| v == 0).map(|_| None),
+                    TLeaf::parse(context).map(|TLeaf { variant }| Some(Box::new(variant))),
+                ))
+                .parse(i)?
+            };
+            Ok((
+                i,
+                Self {
+                    ver,
+                    tnamed,
+                    flen,
+                    flentype,
+                    foffset,
+                    fisrange,
+                    fisunsigned,
+                    fleafcount,
+                },
+            ))
+        }
     }
 }
 

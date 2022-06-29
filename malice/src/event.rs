@@ -4,10 +4,12 @@ use std::fmt::Debug;
 use failure::Error;
 use futures::prelude::*;
 use itertools::izip;
-use nom::{combinator::map, error::ParseError, number::complete::*, sequence::tuple, IResult};
+use nom::{combinator::map, number::complete::*, sequence::tuple};
 use wasm_bindgen::prelude::*;
 
-use root_io::core::parsers::{parse_custom_mantissa, parse_tobjarray_of_tnameds};
+use root_io::core::parsers::{
+    parse_custom_mantissa, parse_tobjarray_of_tnameds, RResult, RootError, Span,
+};
 use root_io::stream_zip;
 use root_io::tree_reader::Tree;
 
@@ -241,9 +243,9 @@ fn string_to_mask(s: &str, run_number: i32) -> TriggerMask {
     }
 }
 
-fn parse_pid_probabilities<'s, E>(input: &'s [u8]) -> IResult<&'s [u8], PidProbabilities, E>
+fn parse_pid_probabilities<'s, E>(input: Span<'s>) -> RResult<'s, PidProbabilities, E>
 where
-    E: ParseError<&'s [u8]> + Debug,
+    E: RootError<Span<'s>>,
 {
     let (input, electron) = parse_custom_mantissa(input, 8)?;
     let (input, muon) = parse_custom_mantissa(input, 8)?;
