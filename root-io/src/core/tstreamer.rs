@@ -1,18 +1,18 @@
-use nom::Parser;
 use nom::multi::{count, length_count, length_value};
 use nom::number::complete::{be_i32, be_u16, be_u32};
 use nom::sequence::{pair, tuple};
+use nom::Parser;
 use nom_supreme::ParserExt;
 use quote::*;
 
 use std::fmt::Debug;
 
+use crate::core::SemanticError::VersionNotSupported;
 use crate::{
     code_gen::rust::{ToRustParser, ToRustType},
     code_gen::utils::{alias_or_lifetime, sanitize, type_is_core},
     core::*,
 };
-use crate::core::SemanticError::VersionNotSupported;
 
 /// Union of all posible `TStreamers`. See figure at
 /// <https://root.cern.ch/doc/master/classTStreamerElement.html>
@@ -98,12 +98,11 @@ pub(crate) struct TStreamerElement {
 /// Parse a `TStreamer` from a `Raw` buffer. This is usually the case
 /// after reading the `TList` of `TStreamerInfo`s from a ROOT file
 pub(crate) fn tstreamer<'s, E>(ctx: &'s Context) -> impl RParser<'s, TStreamer, E> + Copy
-    where
-        E: RootError<Span<'s>>,
+where
+    E: RootError<Span<'s>>,
 {
     let parser = move |i| {
         let (i, (classinfo, obj)) = class_name_and_buffer(ctx).parse(i)?;
-
 
         let wrapped_tstreamerelem = length_value(checked_byte_count, tstreamerelement);
 
@@ -111,81 +110,110 @@ pub(crate) fn tstreamer<'s, E>(ctx: &'s Context) -> impl RParser<'s, TStreamer, 
             "TStreamerBase" => tuple((
                 be_u16.context("version"),
                 wrapped_tstreamerelem,
-                be_i32.context("version base")
-            )).map(|(_ver, el, version_base)| TStreamer::Base { el, version_base })
-                .all_consuming().context("tstreamer (base)").parse(obj),
+                be_i32.context("version base"),
+            ))
+            .map(|(_ver, el, version_base)| TStreamer::Base { el, version_base })
+            .all_consuming()
+            .context("tstreamer (base)")
+            .parse(obj),
 
-            "TStreamerBasicType" => pair(
-                be_u16.context("version"),
-                wrapped_tstreamerelem,
-            ).map(|(_ver, el)| TStreamer::BasicType { el })
-                .all_consuming().context("tstreamer (basic type)").parse(obj),
+            "TStreamerBasicType" => pair(be_u16.context("version"), wrapped_tstreamerelem)
+                .map(|(_ver, el)| TStreamer::BasicType { el })
+                .all_consuming()
+                .context("tstreamer (basic type)")
+                .parse(obj),
 
             "TStreamerBasicPointer" => tuple((
                 be_u16.context("version"),
                 wrapped_tstreamerelem,
                 be_i32.context("cvers"),
                 string.context("cname"),
-                string.context("ccls")
-            )).map(|(_ver, el, cvers, cname, ccls)| TStreamer::BasicPointer { el, cvers, cname: cname.to_string(), ccls: ccls.to_string() })
-                .all_consuming().context("tstreamer (basic pointer)").parse(obj),
+                string.context("ccls"),
+            ))
+            .map(|(_ver, el, cvers, cname, ccls)| TStreamer::BasicPointer {
+                el,
+                cvers,
+                cname: cname.to_string(),
+                ccls: ccls.to_string(),
+            })
+            .all_consuming()
+            .context("tstreamer (basic pointer)")
+            .parse(obj),
 
             "TStreamerLoop" => tuple((
                 be_u16.context("version"),
                 wrapped_tstreamerelem,
                 be_i32.context("cvers"),
                 string.context("cname"),
-                string.context("ccls")
-            )).map(|(_ver, el, cvers, cname, ccls)| TStreamer::Loop { el, cvers, cname: cname.to_string(), ccls: ccls.to_string() })
-                .all_consuming().context("tstreamer (loop)").parse(obj),
+                string.context("ccls"),
+            ))
+            .map(|(_ver, el, cvers, cname, ccls)| TStreamer::Loop {
+                el,
+                cvers,
+                cname: cname.to_string(),
+                ccls: ccls.to_string(),
+            })
+            .all_consuming()
+            .context("tstreamer (loop)")
+            .parse(obj),
 
-            "TStreamerObject" => pair(
-                be_u16.context("version"),
-                wrapped_tstreamerelem,
-            ).map(|(_ver, el)| TStreamer::Object { el })
-                .all_consuming().context("tstreamer (object)").parse(obj),
+            "TStreamerObject" => pair(be_u16.context("version"), wrapped_tstreamerelem)
+                .map(|(_ver, el)| TStreamer::Object { el })
+                .all_consuming()
+                .context("tstreamer (object)")
+                .parse(obj),
 
-            "TStreamerObjectPointer" => pair(
-                be_u16.context("version"),
-                wrapped_tstreamerelem,
-            ).map(|(_ver, el)| TStreamer::ObjectPointer { el })
-                .all_consuming().context("tstreamer (object pointer)").parse(obj),
+            "TStreamerObjectPointer" => pair(be_u16.context("version"), wrapped_tstreamerelem)
+                .map(|(_ver, el)| TStreamer::ObjectPointer { el })
+                .all_consuming()
+                .context("tstreamer (object pointer)")
+                .parse(obj),
 
-            "TStreamerObjectAny" => pair(
-                be_u16.context("version"),
-                wrapped_tstreamerelem,
-            ).map(|(_ver, el)| TStreamer::ObjectAny { el })
-                .all_consuming().context("tstreamer (object (any))").parse(obj),
+            "TStreamerObjectAny" => pair(be_u16.context("version"), wrapped_tstreamerelem)
+                .map(|(_ver, el)| TStreamer::ObjectAny { el })
+                .all_consuming()
+                .context("tstreamer (object (any))")
+                .parse(obj),
 
-            "TStreamerObjectAnyPointer" => pair(
-                be_u16.context("version"),
-                wrapped_tstreamerelem,
-            ).map(|(_ver, el)| TStreamer::ObjectAnyPointer { el })
-                .all_consuming().context("tstreamer (object pointer (any))").parse(obj),
+            "TStreamerObjectAnyPointer" => pair(be_u16.context("version"), wrapped_tstreamerelem)
+                .map(|(_ver, el)| TStreamer::ObjectAnyPointer { el })
+                .all_consuming()
+                .context("tstreamer (object pointer (any))")
+                .parse(obj),
 
-            "TStreamerString" => pair(
-                be_u16.context("version"),
-                wrapped_tstreamerelem,
-            ).map(|(_ver, el)| TStreamer::String { el })
-                .all_consuming().context("tstreamer (string)").parse(obj),
+            "TStreamerString" => pair(be_u16.context("version"), wrapped_tstreamerelem)
+                .map(|(_ver, el)| TStreamer::String { el })
+                .all_consuming()
+                .context("tstreamer (string)")
+                .parse(obj),
 
             "TStreamerSTL" => tuple((
                 be_u16.context("version"),
                 wrapped_tstreamerelem,
                 be_i32.map(StlTypeID::new).context("vtype"),
-                be_i32.map_res(TypeId::new).context("ctype")
-            )).map(|(_ver, el, vtype, ctype)| TStreamer::Stl { el, vtype, ctype })
-                .all_consuming().context("tstreamer (stl)").parse(obj),
+                be_i32.map_res(TypeId::new).context("ctype"),
+            ))
+            .map(|(_ver, el, vtype, ctype)| TStreamer::Stl { el, vtype, ctype })
+            .all_consuming()
+            .context("tstreamer (stl)")
+            .parse(obj),
 
             "TStreamerSTLstring" => {
                 // Two version bcs `stlstring` derives from `stl`
-                be_u16.precedes(length_value(checked_byte_count, tuple((
-                    be_u16.context("version"),
-                    wrapped_tstreamerelem,
-                    be_i32.map(StlTypeID::new).context("vtype"),
-                    be_i32.map_res(TypeId::new).context("ctype")
-                )))).map(|(_ver, el, vtype, ctype)| TStreamer::StlString { el, vtype, ctype })
-                    .all_consuming().context("tstreamer (stl string)").parse(obj)
+                be_u16
+                    .precedes(length_value(
+                        checked_byte_count,
+                        tuple((
+                            be_u16.context("version"),
+                            wrapped_tstreamerelem,
+                            be_i32.map(StlTypeID::new).context("vtype"),
+                            be_i32.map_res(TypeId::new).context("ctype"),
+                        )),
+                    ))
+                    .map(|(_ver, el, vtype, ctype)| TStreamer::StlString { el, vtype, ctype })
+                    .all_consuming()
+                    .context("tstreamer (stl string)")
+                    .parse(obj)
             }
             ci => unimplemented!("Unknown TStreamer {}", ci),
         }?;
@@ -198,8 +226,8 @@ pub(crate) fn tstreamer<'s, E>(ctx: &'s Context) -> impl RParser<'s, TStreamer, 
 
 /// Return all `TSreamerInfo` for the data in this file
 pub fn streamers<'s, E>(ctx: &'s Context) -> impl RParser<'s, Vec<TStreamerInfo>, E> + 's
-    where
-        E: RootError<Span<'s>>,
+where
+    E: RootError<Span<'s>>,
 {
     let parser = move |i| {
         // Dunno why we are 4 bytes off with the size of the streamer info...
@@ -214,7 +242,12 @@ pub fn streamers<'s, E>(ctx: &'s Context) -> impl RParser<'s, Vec<TStreamerInfo>
                 "TStreamerInfo" => Some(raw.obj),
                 _ => None,
             })
-            .map(|buf| Ok(tstreamerinfo(ctx).context("in streamers listing").parse(buf)?.1))
+            .map(|buf| {
+                Ok(tstreamerinfo(ctx)
+                    .context("in streamers listing")
+                    .parse(buf)?
+                    .1)
+            })
             .collect();
         let streamers = _streamers?;
 
@@ -238,9 +271,9 @@ pub fn streamers<'s, E>(ctx: &'s Context) -> impl RParser<'s, Vec<TStreamerInfo>
         for raw in tlist_objs {
             match raw.classinfo {
                 "TStreamerInfo" | "TList" => {}
-                other => println!("Got unexpected class in streamers list: {other}")
+                other => println!("Got unexpected class in streamers list: {other}"),
             }
-        };
+        }
 
         Ok((i, streamers))
     };
@@ -250,39 +283,54 @@ pub fn streamers<'s, E>(ctx: &'s Context) -> impl RParser<'s, Vec<TStreamerInfo>
 
 /// The element which is wrapped in a TStreamer
 fn tstreamerelement<'s, E>(input: Span<'s>) -> RResult<'s, TStreamerElement, E>
-    where
-        E: RootError<Span<'s>>,
+where
+    E: RootError<Span<'s>>,
 {
-
     tuple((
         be_u16.context("version"),
         length_value(checked_byte_count, tnamed).context("name"),
         be_i32.map_res(TypeId::new).context("element type"),
         be_i32.context("size"),
         be_i32.context("array length"),
-        be_i32.context("array dimensions")
-    )).flat_map(make_fn(|(ver, name, el_type, size, array_len, array_dim): (u16, TNamed, TypeId, i32, i32, i32)| {
-        let mut optname = Some(name);
-        tuple((
-            move |i| if ver == 1 { length_count(be_u32, be_u32)(i) } else { count(be_u32, 5)(i) },
-            string,
-        )).map_res(move |(max_idx, type_name)| {
-            if ver <= 3 {
-                Err(VersionNotSupported(Component::TStreamerElement, ver as u32, "must be >= 4"))
-            } else {
-                Ok(TStreamerElement {
-                    ver,
-                    name: optname.take().unwrap(),
-                    el_type,
-                    size,
-                    array_len,
-                    array_dim,
-                    max_idx,
-                    type_name: type_name.to_string(),
-                })
-            }
-        })
-    })).context("tstreamer element").parse(input)
+        be_i32.context("array dimensions"),
+    ))
+    .flat_map(make_fn(
+        |(ver, name, el_type, size, array_len, array_dim): (u16, TNamed, TypeId, i32, i32, i32)| {
+            let mut optname = Some(name);
+            tuple((
+                move |i| {
+                    if ver == 1 {
+                        length_count(be_u32, be_u32)(i)
+                    } else {
+                        count(be_u32, 5)(i)
+                    }
+                },
+                string,
+            ))
+            .map_res(move |(max_idx, type_name)| {
+                if ver <= 3 {
+                    Err(VersionNotSupported(
+                        Component::TStreamerElement,
+                        ver as u32,
+                        "must be >= 4",
+                    ))
+                } else {
+                    Ok(TStreamerElement {
+                        ver,
+                        name: optname.take().unwrap(),
+                        el_type,
+                        size,
+                        array_len,
+                        array_dim,
+                        max_idx,
+                        type_name: type_name.to_string(),
+                    })
+                }
+            })
+        },
+    ))
+    .context("tstreamer element")
+    .parse(input)
 }
 
 impl TStreamer {

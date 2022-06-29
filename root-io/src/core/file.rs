@@ -1,18 +1,21 @@
-use nom::{self,
-          number::complete::{be_i16, be_i32, be_u128, be_u16, be_u32, be_u64, be_u8}, Parser};
 use nom::sequence::tuple;
-use nom_supreme::{ParserExt, tag::complete::tag};
+use nom::{
+    self,
+    number::complete::{be_i16, be_i32, be_u128, be_u16, be_u32, be_u64, be_u8},
+    Parser,
+};
+use nom_supreme::{tag::complete::tag, ParserExt};
 use uuid::Uuid;
 
 use std::fmt;
 
+use crate::core::{ReadError, WriteError};
 use crate::{
     code_gen::rust::{ToNamedRustParser, ToRustStruct},
-    core::*,
     core::tstreamer::streamers,
+    core::*,
     MAP_OFFSET,
 };
-use crate::core::{ReadError, WriteError};
 
 /// Size of serialized `FileHeader` in bytes
 const FILE_HEADER_SIZE: u64 = 75;
@@ -61,7 +64,10 @@ pub struct Directory {
 /// Parse opening part of a root file
 fn file_header<'s, E: RootError<Span<'s>>>(i: Span<'s>) -> RResult<'s, FileHeader, E> {
     let parser = |i| {
-        fn version_dep_int<'s, E: RootError<Span<'s>>>(i: Span<'s>, is_64_bit: bool) -> RResult<'s, u64, E> {
+        fn version_dep_int<'s, E: RootError<Span<'s>>>(
+            i: Span<'s>,
+            is_64_bit: bool,
+        ) -> RResult<'s, u64, E> {
             if is_64_bit {
                 be_u64(i)
             } else {
@@ -111,8 +117,8 @@ fn file_header<'s, E: RootError<Span<'s>>>(i: Span<'s>) -> RResult<'s, FileHeade
 
 /// Parse a file-pointer based on the version of the file
 fn versioned_pointer<'s, E>(version: i16) -> impl RParser<'s, u64, E>
-    where
-        E: RootError<Span<'s>>
+where
+    E: RootError<Span<'s>>,
 {
     move |i| {
         if version > 1000 {
@@ -125,22 +131,24 @@ fn versioned_pointer<'s, E>(version: i16) -> impl RParser<'s, u64, E>
 
 /// Directory within a root file; exists on ever file
 fn directory<'s, E>(input: Span<'s>) -> RResult<'s, Directory, E>
-    where
-        E: RootError<Span<'s>>
+where
+    E: RootError<Span<'s>>,
 {
     tuple((
         be_i16.context("directory version"),
         be_u32.context("directory time created"),
         be_u32.context("directory time modified"),
         be_i32.context("directory key byte count"),
-        be_i32.context("directory name byte count")
-    )).flat_map(make_fn(|(version, c_time, m_time, n_bytes_keys, n_bytes_name)| {
-        tuple((
-            versioned_pointer(version).context("seek dir"),
-            versioned_pointer(version).context("seek parent"),
-            versioned_pointer(version).context("seek keys")
-        )).map(move |(seek_dir, seek_parent, seek_keys)|
-            Directory {
+        be_i32.context("directory name byte count"),
+    ))
+    .flat_map(make_fn(
+        |(version, c_time, m_time, n_bytes_keys, n_bytes_name)| {
+            tuple((
+                versioned_pointer(version).context("seek dir"),
+                versioned_pointer(version).context("seek parent"),
+                versioned_pointer(version).context("seek keys"),
+            ))
+            .map(move |(seek_dir, seek_parent, seek_keys)| Directory {
                 version,
                 c_time,
                 m_time,
@@ -150,9 +158,11 @@ fn directory<'s, E>(input: Span<'s>) -> RResult<'s, Directory, E>
                 seek_parent,
                 seek_keys,
             })
-    })).context("ROOT directory").parse(input)
+        },
+    ))
+    .context("ROOT directory")
+    .parse(input)
 }
-
 
 impl RootFile {
     /// Open a new ROOT file either from a `Url`, or from a `Path`
@@ -168,7 +178,8 @@ impl RootFile {
         let dir = wrap_parser(directory)(&dir_buf)?;
 
         let tkey_buf = source.fetch(dir.seek_keys, dir.n_bytes_keys as u64).await?;
-        let tkey_of_keys = wrap_parser(tkey.all_consuming().context("root file key listing"))(&tkey_buf)?;
+        let tkey_of_keys =
+            wrap_parser(tkey.all_consuming().context("root file key listing"))(&tkey_buf)?;
 
         let keys = wrap_parser(tkey_headers.context("root file keys"))(&tkey_of_keys.obj)?;
 
@@ -182,10 +193,9 @@ impl RootFile {
 
     pub async fn get_streamer_context(&self) -> Result<Context, ReadError> {
         let seek_info_len = (self.hdr.nbytes_info) as u64;
-        let info_key_buf = self.source
-            .fetch(self.hdr.seek_info, seek_info_len)
-            .await?;
-        let info_key = wrap_parser(tkey.all_consuming().context("streamer info key"))(&info_key_buf)?;
+        let info_key_buf = self.source.fetch(self.hdr.seek_info, seek_info_len).await?;
+        let info_key =
+            wrap_parser(tkey.all_consuming().context("streamer info key"))(&info_key_buf)?;
         let key_len = info_key.hdr.key_len;
         Ok(Context {
             source: self.source.clone(),
@@ -259,11 +269,11 @@ mod test {
     use reqwest::Url;
     use tokio;
 
-    use std::path::Path;
     use crate::core::ReadError;
+    use std::path::Path;
 
-    use super::*;
     use self::UnwrapPrint;
+    use super::*;
 
     const SIMPLE_FILE_REMOTE: &str =
         "https://github.com/cbourjau/alice-rs/blob/master/root-io/src/test_data/simple.root?raw=true";
@@ -285,7 +295,7 @@ mod test {
 
         let hdr = match wrap_parser(file_header)(&buf) {
             Ok(hdr) => hdr,
-            Err(e)  => return Err(ReadError::ParseError(e))
+            Err(e) => return Err(ReadError::ParseError(e)),
         };
 
         let should = FileHeader {
@@ -374,7 +384,8 @@ mod test {
         let mut tlist_parser = wrap_parser_ctx(|ctx| {
             length_value(checked_byte_count, move |i| {
                 tlist::<VerboseError<_>>(&ctx).parse(i)
-            }).all_consuming()
+            })
+            .all_consuming()
         });
 
         let tlist = tlist_parser(&context)?;
@@ -385,7 +396,6 @@ mod test {
 
     #[tokio::test]
     async fn streamerinfo_test_local() {
-
         let local = Path::new("./src/test_data/simple.root").into();
         streamerinfo_test(local).await.unwrap_print();
     }

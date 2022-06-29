@@ -26,7 +26,7 @@ bitflags! {
 /// Used in `TStreamerInfo`
 /// Describes if the following entry is a new class or if it was
 /// already described.
-#[derive(Clone,Copy,Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum ClassInfo<'s> {
     /// Class name of the new class
     New(&'s str),

@@ -7,7 +7,9 @@ use itertools::izip;
 use nom::{combinator::map, number::complete::*, sequence::tuple};
 use wasm_bindgen::prelude::*;
 
-use root_io::core::parsers::{Span, RResult, parse_custom_mantissa, parse_tobjarray_of_tnameds, RootError};
+use root_io::core::parsers::{
+    parse_custom_mantissa, parse_tobjarray_of_tnameds, RResult, RootError, Span,
+};
 use root_io::stream_zip;
 use root_io::tree_reader::Tree;
 

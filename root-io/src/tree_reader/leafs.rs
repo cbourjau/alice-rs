@@ -1,6 +1,6 @@
-use nom::{combinator::verify, multi::length_value, number::complete::*, Parser};
 use nom::branch::alt;
 use nom::sequence::tuple;
+use nom::{combinator::verify, multi::length_value, number::complete::*, Parser};
 use nom_supreme::ParserExt;
 use quote::{Ident, Tokens};
 
@@ -10,9 +10,7 @@ use crate::{code_gen::rust::ToRustType, core::*};
 
 /// Parse a bool from a big endian u8
 fn be_bool<'s, E: RootError<Span<'s>>>(i: Span<'s>) -> RResult<'s, bool, E> {
-    let (i, byte) = be_u8
-        .verify(|&byte| byte == 0 || byte == 1)
-        .parse(i)?;
+    let (i, byte) = be_u8.verify(|&byte| byte == 0 || byte == 1).parse(i)?;
     Ok((i, byte == 1))
 }
 
@@ -24,11 +22,9 @@ pub struct TLeaf {
 
 impl TLeaf {
     // A helper function to get around some lifetime issues on the caller sider
-    pub(crate) fn parse<'s, E>(
-        ctxt: &'s Context,
-    ) -> impl RParser<'s, Self, E> + Copy
-        where
-            E: RootError<Span<'s>>,
+    pub(crate) fn parse<'s, E>(ctxt: &'s Context) -> impl RParser<'s, Self, E> + Copy
+    where
+        E: RootError<Span<'s>>,
     {
         let parser = move |i| {
             let (i, (classinfo, obj)) = class_name_and_buffer(ctxt).parse(i)?;
@@ -56,8 +52,8 @@ enum TLeafVariant {
 
 impl TLeafVariant {
     fn parse<'s, E>(context: &'s Context, classinfo: &'s str, i: Span<'s>) -> RResult<'s, Self, E>
-        where
-            E: RootError<Span<'s>>,
+    where
+        E: RootError<Span<'s>>,
     {
         match classinfo {
             "TLeafB" => TLeafB::parse(i, context).map(|(i, l)| (i, TLeafVariant::TLeafB(l))),
@@ -69,7 +65,9 @@ impl TLeafVariant {
             "TLeafC" => TLeafC::parse(i, context).map(|(i, l)| (i, TLeafVariant::TLeafC(l))),
             "TLeafO" => TLeafO::parse(i, context).map(|(i, l)| (i, TLeafVariant::TLeafO(l))),
             "TLeafD32" => TLeafD32::parse(i, context).map(|(i, l)| (i, TLeafVariant::TLeafD32(l))),
-            "TLeafElement" => TLeafElement::parse(context).map(TLeafVariant::TLeafElement).parse(i),
+            "TLeafElement" => TLeafElement::parse(context)
+                .map(TLeafVariant::TLeafElement)
+                .parse(i),
             name => unimplemented!("Unexpected Leaf type {}", name),
         }
     }
@@ -95,8 +93,7 @@ macro_rules! make_tleaf_variant {
             {
                 // All known descendens have version 1
                 let (i, _) = verify(be_u16, |&ver| ver == 1)(input)?;
-                let (i, base) =
-                    length_value(checked_byte_count, TLeafBase::parse(context))(i)?;
+                let (i, base) = length_value(checked_byte_count, TLeafBase::parse(context))(i)?;
                 let (i, fminimum) = $parser(i)?;
                 let (i, fmaximum) = $parser(i)?;
                 let obj = Self {
@@ -143,16 +140,20 @@ struct TLeafElement {
 
 impl TLeafElement {
     fn parse<'s, E>(context: &'s Context) -> impl RParser<'s, Self, E>
-        where
-            E: RootError<Span<'s>>,
+    where
+        E: RootError<Span<'s>>,
     {
-        be_u16.verify(|&ver| ver == 1).precedes(
-            tuple((
-                length_value(checked_byte_count, TLeafBase::parse(context)),
-                be_i32,
-                be_i32.map_res(TypeId::new)
-            )).map(make_fn(|(base, fid, ftype)| Self { base, fid, ftype }))
-        ).context("TLeaf")
+        be_u16
+            .verify(|&ver| ver == 1)
+            .precedes(
+                tuple((
+                    length_value(checked_byte_count, TLeafBase::parse(context)),
+                    be_i32,
+                    be_i32.map_res(TypeId::new),
+                ))
+                .map(make_fn(|(base, fid, ftype)| Self { base, fid, ftype })),
+            )
+            .context("TLeaf")
     }
 }
 
@@ -179,8 +180,8 @@ struct TLeafBase {
 
 impl TLeafBase {
     fn parse<'s, E>(context: &'s Context) -> impl RParser<'s, Self, E>
-        where
-            E: RootError<Span<'s>>,
+    where
+        E: RootError<Span<'s>>,
     {
         move |i| {
             let (i, ver) = be_u16(i)?;
@@ -193,9 +194,9 @@ impl TLeafBase {
             let (i, fleafcount) = {
                 alt((
                     be_u32.verify(|&v| v == 0).map(|_| None),
-                    TLeaf::parse(context)
-                        .map(|TLeaf { variant }| Some(Box::new(variant)))
-                )).parse(i)?
+                    TLeaf::parse(context).map(|TLeaf { variant }| Some(Box::new(variant))),
+                ))
+                .parse(i)?
             };
             Ok((
                 i,

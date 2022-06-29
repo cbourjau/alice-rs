@@ -22,8 +22,8 @@ pub struct TStreamerInfo {
 
 /// Parse one `TStreamerInfo` object (as found in the `TList`)
 pub(crate) fn tstreamerinfo<'s, E>(context: &'s Context) -> impl RParser<'s, TStreamerInfo, E>
-    where
-        E: RootError<Span<'s>>,
+where
+    E: RootError<Span<'s>>,
 {
     let parser = move |i| {
         let parse_members = tobjarray(tstreamer(context)).context("tstreamerinfo members");

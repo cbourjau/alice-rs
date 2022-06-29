@@ -21,7 +21,6 @@ pub enum InvalidPrimitive {
     Array(i32),
 }
 
-
 /// Integer ID describing a streamed type in a `TStreamer`
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum TypeId {

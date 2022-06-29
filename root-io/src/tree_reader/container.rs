@@ -1,11 +1,11 @@
-use nom::*;
 use nom::combinator::rest;
 use nom::number::complete::{be_i8, be_u16, be_u32};
 use nom::sequence::tuple;
+use nom::*;
 use nom_supreme::ParserExt;
 
-use crate::core::*;
 use crate::core::ReadError;
+use crate::core::*;
 
 #[derive(Debug, Clone)]
 pub(crate) enum Container {
@@ -14,7 +14,6 @@ pub(crate) enum Container {
     /// Filename, start byte, and len of a `TBasket` on disk
     OnDisk(Source, u64, u64),
 }
-
 
 impl Container {
     /// Return the number of entries and the data; reading it from disk if necessary
@@ -40,8 +39,8 @@ impl Container {
 /// Return a tuple indicating the number of elements in this basket
 /// and the content as a Vec<u8>
 fn tbasket2vec<'s, E>(input: Span<'s>) -> RResult<'s, (u32, Vec<u8>), E>
-    where
-        E : RootError<Span<'s>>
+where
+    E: RootError<Span<'s>>,
 {
     tuple((
         tkey_header.context("header"),
@@ -51,8 +50,9 @@ fn tbasket2vec<'s, E>(input: Span<'s>) -> RResult<'s, (u32, Vec<u8>), E>
         be_u32.context("number of entries in buffer"),
         be_u32.context("last"),
         be_i8.context("flags"),
-        rest.context("buffer")
-    )).map_res::<_, _, DecompressionError>(|(hdr, _, _, _, n_entry_buf, last, _, buf)| {
+        rest.context("buffer"),
+    ))
+    .map_res::<_, _, DecompressionError>(|(hdr, _, _, _, n_entry_buf, last, _, buf)| {
         let buf = if hdr.uncomp_len as usize > buf.len() {
             decompress(&buf)?
         } else {
@@ -63,7 +63,9 @@ fn tbasket2vec<'s, E>(input: Span<'s>) -> RResult<'s, (u32, Vec<u8>), E>
         // whereby we have to take the key_len into account...
         let useful_bytes = (last - hdr.key_len as u32) as usize;
         Ok((n_entry_buf, buf.as_slice()[..useful_bytes].to_vec()))
-    }).context("tbasket2vec").parse(input)
+    })
+    .context("tbasket2vec")
+    .parse(input)
 }
 
 #[cfg(test)]

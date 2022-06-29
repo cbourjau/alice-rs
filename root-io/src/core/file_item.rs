@@ -1,10 +1,10 @@
 use nom::multi::length_value;
 use nom_supreme::ParserExt;
 
-use crate::core::{checked_byte_count, Context, Source, TKeyHeader, wrap_parser};
 use crate::core::compression::decompress;
 use crate::core::ReadError;
-use crate::tree_reader::{Tree, ttree};
+use crate::core::{checked_byte_count, wrap_parser, Context, Source, TKeyHeader};
+use crate::tree_reader::{ttree, Tree};
 
 /// Describes a single item within this file (e.g. a `Tree`)
 #[derive(Debug)]
@@ -62,10 +62,11 @@ impl FileItem {
         let ctx = self.get_context().await?;
         let buf = ctx.s.as_slice();
 
-        let res = wrap_parser(length_value(checked_byte_count, ttree(&ctx))
-            .complete()
-            .all_consuming()
-            .context("ttree wrapper")
+        let res = wrap_parser(
+            length_value(checked_byte_count, ttree(&ctx))
+                .complete()
+                .all_consuming()
+                .context("ttree wrapper"),
         )(buf)?;
         Ok(res)
     }

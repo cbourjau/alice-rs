@@ -1,6 +1,6 @@
 use reqwest::{
-    Client,
-    header::{RANGE, USER_AGENT}, Url,
+    header::{RANGE, USER_AGENT},
+    Client, Url,
 };
 
 use std::fs::File;
