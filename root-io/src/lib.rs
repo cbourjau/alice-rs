@@ -13,7 +13,6 @@
 //! The API surface is deliberately small to make the processing of said
 //! files as easy as possible. If you are looking for a particular
 //! parser chances have it that it exists but it is not marked as `pub`.
-#![feature(negative_impls)]
 #![allow(clippy::cognitive_complexity)]
 #![recursion_limit = "256"]
 extern crate alice_open_data;
