@@ -73,7 +73,7 @@ mod tests {
     #[test]
     fn basket_simple() {
         let path = "./src/test_data/simple.root";
-        let f = File::open(&path).unwrap();
+        let f = File::open(path).unwrap();
         let mut reader = BufReader::new(f);
         // Go to first basket
         reader.seek(SeekFrom::Start(218)).unwrap();

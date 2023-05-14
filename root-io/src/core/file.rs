@@ -234,7 +234,6 @@ impl RootFile {
                 use parsers::utils::*;
                 use core_types::*;
             }
-            .to_string()
         )?;
         let streamer_infos = self.streamer_infos().await?;
         // generate structs

@@ -36,7 +36,7 @@ impl Source {
     pub async fn fetch(&self, start: u64, len: u64) -> Result<Vec<u8>, Error> {
         match &self.0 {
             SourceInner::Local(path) => {
-                let mut f = File::open(&path)?;
+                let mut f = File::open(path)?;
                 f.seek(SeekFrom::Start(start))?;
                 let mut buf = vec![0; len as usize];
                 f.read_exact(&mut buf)?;

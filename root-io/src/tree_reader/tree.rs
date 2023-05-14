@@ -89,7 +89,7 @@ pub struct Tree {
     fbranchref: Option<Pointer>,
 }
 
-impl<'s> Tree {
+impl Tree {
     /// Get all branches of a tree (including nested ones)
     pub(crate) fn branches(&self) -> Vec<&TBranch> {
         self.fbranches

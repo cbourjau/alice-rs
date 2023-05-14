@@ -185,7 +185,7 @@ pub fn decompress(input: &[u8]) -> nom::IResult<&[u8], Vec<u8>> {
 }
 
 /// Parse a null terminated string
-pub fn c_string<'s>(i: &'s [u8]) -> nom::IResult<&[u8], &str> {
+pub fn c_string(i: &[u8]) -> nom::IResult<&[u8], &str> {
     let (i, s) = map_res(take_until(b"\x00".as_ref()), str::from_utf8)(i)?;
     // consume the null tag
     let (i, _) = take(1usize)(i)?;
@@ -196,7 +196,7 @@ pub fn c_string<'s>(i: &'s [u8]) -> nom::IResult<&[u8], &str> {
 /// saved locally but rather in a reference to some other place in the
 /// buffer.This is modeled after ROOT's `TBufferFile::ReadObjectAny` and
 /// `TBufferFile::ReadClass`
-pub fn classinfo<'s>(i: &'s [u8]) -> nom::IResult<&[u8], ClassInfo> {
+pub fn classinfo(i: &[u8]) -> nom::IResult<&[u8], ClassInfo> {
     let (i, tag) = {
         let (i, bcnt) = be_u32(i)?;
         if !is_byte_count(&bcnt) || bcnt == Flags::NEW_CLASSTAG.bits() {
@@ -205,7 +205,7 @@ pub fn classinfo<'s>(i: &'s [u8]) -> nom::IResult<&[u8], ClassInfo> {
             be_u32(i)?
         }
     };
-    let (i, cl) = match tag as u32 {
+    let (i, cl) = match tag {
         0xFFFF_FFFF => {
             let (i, cl) = map(c_string, ClassInfo::New)(i)?;
             (i, cl)
@@ -293,7 +293,7 @@ pub fn raw_no_context(input: &[u8]) -> nom::IResult<&[u8], (ClassInfo, &[u8])> {
 /// different "menu" of available triggers. The trigger menu is saved
 /// as an `TObjArray` of `TNamed` objects for each event. This breaks
 /// it down to a simple vector
-pub fn parse_tobjarray_of_tnameds<'s>(input: &'s [u8]) -> nom::IResult<&[u8], Vec<String>> {
+pub fn parse_tobjarray_of_tnameds(input: &[u8]) -> nom::IResult<&[u8], Vec<String>> {
     // each element of the tobjarray has a Vec<u8>
     let (input, vals) = length_value(checked_byte_count, tobjarray_no_context)(input)?;
     let strings = vals
@@ -313,7 +313,7 @@ pub fn parse_tobjarray_of_tnameds<'s>(input: &'s [u8]) -> nom::IResult<&[u8], Ve
 /// number of bytes can be found in the comment string of the
 /// generated YAML code (for ALICE ESD files at least).  This function
 /// reconstructs a float from the exponent and mantissa
-pub fn parse_custom_mantissa<'s>(input: &'s [u8], nbits: usize) -> nom::IResult<&[u8], f32> {
+pub fn parse_custom_mantissa(input: &[u8], nbits: usize) -> nom::IResult<&[u8], f32> {
     // TODO: Use ByteOrder crate to be cross-platform?
     pair(be_u8, be_u16)(input).map(|(input, (exp, man))| {
         let mut s = u32::from(exp);

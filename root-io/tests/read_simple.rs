@@ -24,7 +24,7 @@ impl Model {
             t.branch_by_name("two")?
                 .as_fixed_size_iterator(|i| be_f32(i)),
             t.branch_by_name("three")?
-                .as_fixed_size_iterator(|i| string(i))
+                .as_fixed_size_iterator(string)
         )
         .map(|(one, two, three)| Self { one, two, three })
         .boxed_local())

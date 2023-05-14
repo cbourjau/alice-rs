@@ -17,7 +17,7 @@ pub(crate) fn alias_or_lifetime(t: &str) -> String {
     // All non-core types get a life time
     // This is over zealous, but currently, I don't have a proper way
     // to check if a type has a member with a lifetime
-    return format!("{}<'s>", t);
+    format!("{}<'s>", t)
 }
 
 pub(crate) fn sanitize(n: &str) -> String {
