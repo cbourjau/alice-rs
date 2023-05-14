@@ -58,7 +58,7 @@ async fn inspect_file(f: &RootFile, sub_matches: &ArgMatches<'_>) {
         if sub_matches.is_present("v") {
             println!("{:#?}", tree);
         } else {
-            for &(ref name, ref types) in &tree.branch_names_and_types() {
+            for (name, types) in &tree.branch_names_and_types() {
                 println!("{}: {:#?}", name, types);
             }
         }
