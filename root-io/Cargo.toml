@@ -18,21 +18,21 @@ bitflags = "1.0.0"
 failure = "0.1.5"
 flate2 = "^1"
 futures = "0.3"
+nom = { workspace=true }
+reqwest = { workspace=true }
 lzma-rs = "0.1.1"
 quote = "0.3.15"
-reqwest = "0.10"
 uuid = "0.8.2"
 lz4-compress = "0.1.1"
+regex = "1.8.1"
 
-[dependencies.nom]
-version = "^5"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4.10"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 criterion = "0.3"
-tokio = { version = "0.2", features = ["macros"] }
+tokio = { version = "1", features = ["macros"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = "0.2.60"

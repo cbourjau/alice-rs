@@ -1,7 +1,6 @@
 #![cfg(not(target_arch = "wasm32"))]
 
 use crate::core::*;
-use nom::error::VerboseError;
 use std::path::PathBuf;
 
 #[test]
@@ -35,9 +34,9 @@ fn list_of_rules() {
     };
     use nom::HexDisplay;
     println!("{}", s.to_hex(16));
-    let (_, (_name, obj)) = class_name_and_buffer::<VerboseError<_>>(s, &context).unwrap();
+    let (_, (_name, obj)) = class_name_and_buffer(s, &context).unwrap();
     println!("{}", obj.to_hex(16));
-    let (obj, _ci) = classinfo::<VerboseError<_>>(obj).unwrap();
+    let (obj, _ci) = classinfo(obj).unwrap();
     println!("{:?}", _ci);
     println!("{}", obj.to_hex(16));
     // let (_obj, l) = tlist(obj, &context).unwrap();

@@ -9,3 +9,7 @@ members = [
  "examples/simple-analysis",
  "examples/convert_to_msgpack",
 ]
+
+[workspace.dependencies]
+nom = "^7"
+reqwest = "0.11"

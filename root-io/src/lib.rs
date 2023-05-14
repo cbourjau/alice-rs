@@ -17,7 +17,6 @@
 #![recursion_limit = "256"]
 #[macro_use]
 extern crate bitflags;
-#[macro_use]
 extern crate nom;
 #[macro_use]
 extern crate quote;

@@ -37,29 +37,28 @@ impl Container {
 
 /// Return a tuple indicating the number of elements in this basket
 /// and the content as a Vec<u8>
-#[rustfmt::skip::macros(do_parse)]
 fn tbasket2vec(input: &[u8]) -> IResult<&[u8], (u32, Vec<u8>)> {
-    do_parse!(input,
-              hdr: tkey_header >>
-              _ver: be_u16 >>
-              _buf_size: be_u32 >>
-              _entry_size: be_u32 >>
-	      n_entry_buf: be_u32 >>
-	      last: be_u32 >>
-	      _flag: be_i8 >>
-              buf: rest >>
-              ({
-                  let buf = if hdr.uncomp_len as usize > buf.len() {
-                      decompress(buf).unwrap().1
-                  } else {
-                      buf.to_vec()
-                  };
-                  // Not the whole buffer is filled, no, no, no, that
-                  // would be to easy! Its only filled up to `last`,
-                  // whereby we have to take the key_len into account...
-                  let useful_bytes = (last - hdr.key_len as u32) as usize;
-                  (n_entry_buf, buf.as_slice()[..useful_bytes].to_vec())
-              }))
+    let (input, hdr) = tkey_header(input)?;
+    let (input, _ver) = be_u16(input)?;
+    let (input, _buf_size) = be_u32(input)?;
+    let (input, _entry_size) = be_u32(input)?;
+    let (input, n_entry_buf) = be_u32(input)?;
+    let (input, last) = be_u32(input)?;
+    let (input, _flag) = be_i8(input)?;
+    let (input, buf) = rest(input)?;
+    let buf = if hdr.uncomp_len as usize > buf.len() {
+        decompress(buf).unwrap().1
+    } else {
+        buf.to_vec()
+    };
+    // Not the whole buffer is filled, no, no, no, that
+    // would be to easy! Its only filled up to `last`,
+    // whereby we have to take the key_len into account...
+    let useful_bytes = (last - hdr.key_len as u32) as usize;
+    Ok((
+        input,
+        (n_entry_buf, buf.as_slice()[..useful_bytes].to_vec()),
+    ))
 }
 
 #[cfg(test)]

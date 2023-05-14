@@ -1,5 +1,5 @@
 use failure::Error;
-use nom::{error::VerboseError, multi::length_value};
+use nom::multi::length_value;
 
 use crate::core::{checked_byte_count, decompress, Context, Source, TKeyHeader};
 use crate::tree_reader::{ttree, Tree};
@@ -61,11 +61,11 @@ impl FileItem {
         let ctx = self.get_context().await?;
         let buf = ctx.s.as_slice();
 
-        let res = length_value(checked_byte_count, |i| ttree::<VerboseError<_>>(i, &ctx))(buf);
+        let res = length_value(checked_byte_count, |i| ttree(i, &ctx))(buf);
         match res {
             Ok((_, obj)) => Ok(obj),
             Err(nom::Err::Error(e)) | Err(nom::Err::Failure(e)) => {
-                Err(format_err!("Supplied parser failed! {:?}", e.errors))
+                Err(format_err!("Supplied parser failed! {:?}", e))
             }
             _ => panic!(),
         }

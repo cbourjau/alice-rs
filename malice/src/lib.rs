@@ -35,10 +35,6 @@
 #[macro_use]
 extern crate bitflags;
 
-#[cfg(feature = "cpp")]
-pub mod dataset_cpp;
-#[cfg(feature = "cpp")]
-mod esd;
 mod event;
 mod primary_vertex;
 mod track;

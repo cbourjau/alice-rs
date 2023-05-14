@@ -1,6 +1,6 @@
-use nom::combinator::map;
-use nom::number::complete::*;
-use nom::*;
+use nom::{
+    bytes::complete::take, combinator::map, multi::length_count, number::complete::*, IResult,
+};
 
 use crate::core::*;
 
@@ -28,38 +28,38 @@ pub struct TKey {
     pub(crate) obj: Vec<u8>,
 }
 
-#[rustfmt::skip::macros(do_parse)]
-named!(
-    #[doc=r#"Header of a TKey Usually, TKeys are followed up by their
-content, but there is one "index" in ever root file where only the
-TKey headers are stored for faster later `Seek`ing"#],
-    pub tkey_header<&[u8], TKeyHeader>,
-    do_parse!(total_size: be_u32 >>
-              version: be_u16 >>
-              uncomp_len: be_u32 >>
-              datime: be_u32 >>
-              key_len: be_i16 >>
-              cycle: be_i16 >>
-              seek_key: call!(seek_point, version) >>
-              seek_pdir: call!(seek_point, version) >>
-              class_name: string >>
-              obj_name: string >>
-              obj_title: string >>
-              (TKeyHeader {
-                  total_size,
-                  version,
-                  uncomp_len,
-                  datime,
-                  key_len,
-                  cycle,
-                  seek_key,
-                  seek_pdir,
-                  class_name,
-                  obj_name,
-                  obj_title,
-              })
-    )
-);
+/// Header of a TKey Usually, TKeys are followed up by their
+/// content, but there is one "index" in ever root file where only the
+/// TKey headers are stored for faster later `Seek`ing
+pub fn tkey_header(input: &[u8]) -> nom::IResult<&[u8], TKeyHeader> {
+    let (input, total_size) = be_u32(input)?;
+    let (input, version) = be_u16(input)?;
+    let (input, uncomp_len) = be_u32(input)?;
+    let (input, datime) = be_u32(input)?;
+    let (input, key_len) = be_i16(input)?;
+    let (input, cycle) = be_i16(input)?;
+    let (input, seek_key) = seek_point(input, version)?;
+    let (input, seek_pdir) = seek_point(input, version)?;
+    let (input, class_name) = string(input)?;
+    let (input, obj_name) = string(input)?;
+    let (input, obj_title) = string(input)?;
+    Ok((
+        input,
+        TKeyHeader {
+            total_size,
+            version,
+            uncomp_len,
+            datime,
+            key_len,
+            cycle,
+            seek_key,
+            seek_pdir,
+            class_name,
+            obj_name,
+            obj_title,
+        },
+    ))
+}
 
 /// Parse a file-pointer based on the version of the file
 fn seek_point(input: &[u8], version: u16) -> nom::IResult<&[u8], u64> {
@@ -70,24 +70,19 @@ fn seek_point(input: &[u8], version: u16) -> nom::IResult<&[u8], u64> {
     }
 }
 
-#[rustfmt::skip::macros(do_parse)]
-named!(
-    #[doc="Parse a full TKey including its payload"],
-    pub tkey<&[u8], TKey>,
-    do_parse!(hdr: tkey_header >>
-              obj: take!(hdr.total_size - hdr.key_len as u32) >>
-              ({
-                  let obj = if hdr.uncomp_len as usize > obj.len() {
-                      decompress(obj).unwrap().1
-                  } else {
-                      obj.to_vec()
-                  };
-                  TKey {hdr, obj}
-              })
-    )
-);
+/// Parse a full TKey including its payload
+pub fn tkey(input: &[u8]) -> nom::IResult<&[u8], TKey> {
+    let (input, hdr) = tkey_header(input)?;
+    let (input, obj) = take(hdr.total_size - hdr.key_len as u32)(input)?;
+    let obj = if hdr.uncomp_len as usize > obj.len() {
+        decompress(obj).unwrap().1
+    } else {
+        obj.to_vec()
+    };
+    Ok((input, TKey { hdr, obj }))
+}
 
 /// Special thing for the keylist in the file header
 pub(crate) fn tkey_headers(input: &[u8]) -> IResult<&[u8], Vec<TKeyHeader>> {
-    length_count!(input, be_i32, tkey_header)
+    length_count(be_u32, tkey_header)(input)
 }

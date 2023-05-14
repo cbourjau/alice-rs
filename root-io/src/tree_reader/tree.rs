@@ -4,9 +4,8 @@ use std::ops::Deref;
 
 use failure::Error;
 use nom::{
-    combinator::{cond, verify},
-    error::ParseError,
-    multi::{count, length_value},
+    combinator::{cond, peek, verify},
+    multi::{count, length_data, length_value},
     number::complete::*,
     sequence::preceded,
     IResult,
@@ -126,21 +125,19 @@ impl<'s> Tree {
 }
 
 /// Parse a `Tree` from the given buffer. Usually used through `FileItem::parse_with`.
-#[allow(clippy::unnecessary_unwrap)]
-pub fn ttree<'s, E>(i: &'s [u8], context: &'s Context) -> IResult<&'s [u8], Tree, E>
-where
-    E: ParseError<&'s [u8]> + Debug,
-{
+pub fn ttree<'s>(i: &'s [u8], context: &'s Context) -> IResult<&'s [u8], Tree> {
     let _curried_raw = |i| raw(i, context);
-    let none_or_u8_buf = |i: &'s [u8]| {
-        switch!(i, peek!(be_u32),
-                0 => map!(call!(be_u32), | _ | None) |
-                _ => map!(
-                    map!(call!(_curried_raw), |r| r.obj.to_vec()),
-                    Some)
-        )
+    let none_or_u8_buf = |i: &'s [u8]| match peek(be_u32)(i)? {
+        (i, 0) => be_u32(i).map(|(i, _)| (i, None)),
+        (i, _) => _curried_raw(i).map(|(i, r)| (i, Some(r.obj.to_vec()))),
     };
-    let grab_checked_byte_count = |i| length_data!(i, checked_byte_count);
+    let grab_checked_byte_count = move |i| {
+        length_data(|i| {
+            let (i, cnt) = checked_byte_count(i)?;
+            std::dbg!(cnt);
+            Ok((i, cnt))
+        })(i)
+    };
     let (i, ver) = verify(be_u16, |v| [16, 17, 18, 19].contains(v))(i)?;
     let (i, tnamed) = length_value(checked_byte_count, tnamed)(i)?;
     let (i, _tattline) = grab_checked_byte_count(i)?;

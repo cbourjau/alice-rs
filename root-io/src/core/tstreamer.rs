@@ -1,9 +1,8 @@
 use std::fmt::Debug;
 
 use nom::{
-    error::{ParseError, VerboseError},
-    multi::length_data,
-    multi::length_value,
+    combinator::{map, map_res},
+    multi::{count, length_data, length_value},
     number::complete::*,
     IResult,
 };
@@ -99,70 +98,86 @@ pub(crate) struct TStreamerElement {
 
 /// Parse a `TStreamer` from a `Raw` buffer. This is usually the case
 /// after reading the `TList` of `TStreamerInfo`s from a ROOT file
-#[rustfmt::skip::macros(do_parse)]
-pub(crate) fn tstreamer<'s, E>(raw: &Raw<'s>) -> IResult<&'s [u8], TStreamer, E>
-where
-    E: ParseError<&'s [u8]> + Debug,
-{
-    let wrapped_tstreamerelem = |i| length_value!(i, checked_byte_count, tstreamerelement);
+/// Parse a `TStreamer` from a `Raw` buffer. This is usually the case
+/// after reading the `TList` of `TStreamerInfo`s from a ROOT file
+pub(crate) fn tstreamer<'s>(raw: &Raw<'s>) -> IResult<&'s [u8], TStreamer> {
+    let wrapped_tstreamerelem = parse_sized_object(tstreamerelement);
+    let (i, _ver) = be_u16(raw.obj)?;
     match raw.classinfo {
-        "TStreamerBase" => do_parse!(raw.obj,
-                                     _ver: be_u16 >>
-                                     el: wrapped_tstreamerelem >>
-                                     version_base: be_i32 >>
-                                     (TStreamer::Base {el, version_base})),
-        "TStreamerBasicType" => do_parse!(raw.obj,
-                                          _ver: be_u16 >>
-                                          el: wrapped_tstreamerelem >>
-                                          (TStreamer::BasicType {el})),
-        "TStreamerBasicPointer" => do_parse!(raw.obj,
-                                             _ver: be_u16 >>
-                                             el: wrapped_tstreamerelem >>
-                                             cvers: be_i32 >>
-                                             cname: string >>
-                                             ccls: string >>
-                                             (TStreamer::BasicPointer {el, cvers, cname, ccls})),
-        "TStreamerLoop" => do_parse!(raw.obj,
-                                     _ver: be_u16 >>
-                                     el: wrapped_tstreamerelem >>
-                                     cvers: be_i32 >>
-                                     cname: string >>
-                                     ccls: string >>
-                                     (TStreamer::Loop {el, cvers, cname, ccls})),
-        "TStreamerObject" => do_parse!(raw.obj,
-                                       _ver: be_u16 >>
-                                       el: wrapped_tstreamerelem >>
-                                       (TStreamer::Object {el})),
-        "TStreamerObjectPointer" => do_parse!(raw.obj,
-                                              _ver: be_u16 >>
-                                              el: wrapped_tstreamerelem >>
-                                              (TStreamer::ObjectPointer {el})),
-        "TStreamerObjectAny" => do_parse!(raw.obj,
-                                    _ver: be_u16 >>
-                                    el: wrapped_tstreamerelem >>
-                                          (TStreamer::ObjectAny {el})),
-        "TStreamerObjectAnyPointer" => do_parse!(raw.obj,
-                                                 _ver: be_u16 >>
-                                                 el: wrapped_tstreamerelem >>
-                                                 (TStreamer::ObjectAnyPointer {el})),
-        "TStreamerString" => do_parse!(raw.obj,
-                                       _ver: be_u16 >>
-                                       el: wrapped_tstreamerelem >>
-                                       (TStreamer::String {el})),
-        "TStreamerSTL" => do_parse!(raw.obj,
-                                    _ver: be_u16 >>
-                                    el: wrapped_tstreamerelem >>
-                                    vtype: map!(be_i32, StlTypeID::new) >>
-                                    ctype: map_res!(be_i32, TypeID::new) >>
-                                    (TStreamer::Stl {el, vtype, ctype})),
+        "TStreamerBase" => {
+            let (i, el) = wrapped_tstreamerelem(i)?;
+            let (i, version_base) = be_i32(i)?;
+            Ok((i, TStreamer::Base { el, version_base }))
+        }
+        "TStreamerBasicType" => {
+            let (i, el) = wrapped_tstreamerelem(i)?;
+            Ok((i, TStreamer::BasicType { el }))
+        }
+        "TStreamerBasicPointer" => {
+            let (i, el) = wrapped_tstreamerelem(i)?;
+            let (i, cvers) = be_i32(i)?;
+            let (i, cname) = string(i)?;
+            let (i, ccls) = string(i)?;
+            Ok((
+                i,
+                TStreamer::BasicPointer {
+                    el,
+                    cvers,
+                    cname,
+                    ccls,
+                },
+            ))
+        }
+        "TStreamerLoop" => {
+            let (i, el) = wrapped_tstreamerelem(i)?;
+            let (i, cvers) = be_i32(i)?;
+            let (i, cname) = string(i)?;
+            let (i, ccls) = string(i)?;
+            Ok((
+                i,
+                TStreamer::Loop {
+                    el,
+                    cvers,
+                    cname,
+                    ccls,
+                },
+            ))
+        }
+        "TStreamerObject" => {
+            let (i, el) = wrapped_tstreamerelem(i)?;
+            Ok((i, TStreamer::Object { el }))
+        }
+        "TStreamerObjectPointer" => {
+            let (i, el) = wrapped_tstreamerelem(i)?;
+            Ok((i, TStreamer::ObjectPointer { el }))
+        }
+        "TStreamerObjectAny" => {
+            let (i, el) = wrapped_tstreamerelem(i)?;
+            Ok((i, TStreamer::ObjectAny { el }))
+        }
+        "TStreamerObjectAnyPointer" => {
+            let (i, el) = wrapped_tstreamerelem(i)?;
+            Ok((i, TStreamer::ObjectAnyPointer { el }))
+        }
+        "TStreamerString" => {
+            let (i, el) = wrapped_tstreamerelem(i)?;
+            Ok((i, TStreamer::String { el }))
+        }
+        "TStreamerSTL" => {
+            let (i, el) = wrapped_tstreamerelem(i)?;
+            let (i, vtype) = map(be_i32, StlTypeID::new)(i)?;
+            let (i, ctype) = map_res(be_i32, |id| TypeID::new(id, &el.name.title))(i)?;
+            Ok((i, TStreamer::Stl { el, vtype, ctype }))
+        }
         "TStreamerSTLstring" => {
             // Two version bcs `stlstring` derives from `stl`
             let (i, _ver) = be_u16(raw.obj)?;
             let (_, stl_buffer) = length_data(checked_byte_count)(i)?;
             let (stl_buffer, _ver) = be_u16(stl_buffer)?;
             let (stl_buffer, el) = wrapped_tstreamerelem(stl_buffer)?;
-            let (stl_buffer, vtype) = map!(stl_buffer, be_i32, StlTypeID::new)?;
-            let (_stl_buffer, ctype) = map_res!(stl_buffer, be_i32, TypeID::new)?;
+            let (stl_buffer, vtype) = map(be_i32, StlTypeID::new)(stl_buffer)?;
+            let (_stl_buffer, ctype) =
+                map_res(be_i32, |id| TypeID::new(id, &el.name.title))(stl_buffer)?;
             Ok((i, TStreamer::StlString { el, vtype, ctype }))
         }
         ci => unimplemented!("Unknown TStreamer {}", ci),
@@ -170,10 +185,7 @@ where
 }
 
 /// Return all `TSreamerInfo` for the data in this file
-pub fn streamers<'s, E>(i: &'s [u8], ctx: &'s Context) -> IResult<&'s [u8], Vec<TStreamerInfo>, E>
-where
-    E: ParseError<&'s [u8]> + Debug,
-{
+pub fn streamers<'s>(i: &'s [u8], ctx: &'s Context) -> IResult<&'s [u8], Vec<TStreamerInfo>> {
     // Dunno why we are 4 bytes off with the size of the streamer info...
 
     // This TList in the payload has a bytecount in front...
@@ -186,7 +198,7 @@ where
             "TStreamerInfo" => Some(raw.obj),
             _ => None,
         })
-        .map(|i| tstreamerinfo::<VerboseError<&'s [u8]>>(i, ctx).unwrap().1)
+        .map(|i| tstreamerinfo(i, ctx).unwrap().1)
         .collect();
     // Parse the "rules", if any, from the same tlist
     let _rules: Vec<_> = tlist_objs
@@ -196,7 +208,7 @@ where
             _ => None,
         })
         .map(|i| {
-            let tl = tlist::<VerboseError<&[u8]>>(i, ctx).unwrap().1;
+            let tl = tlist(i, ctx).unwrap().1;
             // Each `Rule` is a TList of `TObjString`s
             tl.iter()
                 .map(|el| tobjstring(el.obj).unwrap().1)
@@ -206,34 +218,38 @@ where
     Ok((i, streamers))
 }
 
-#[rustfmt::skip::macros(do_parse)]
 /// The element which is wrapped in a TStreamer
-fn tstreamerelement<'s, E>(i: &'s [u8]) -> IResult<&'s [u8], TStreamerElement, E>
-where
-    E: ParseError<&'s [u8]> + Debug,
-{
-    do_parse!(i,
-              ver: be_u16 >>
-              name: length_value!(checked_byte_count, tnamed) >>
-              el_type: map_res!(be_i32, TypeID::new) >>
-              size: be_i32 >>
-              array_len: be_i32 >>
-              array_dim: be_i32 >>
-              max_idx: switch!(value!(ver),
-                               1 => length_count!(be_i32, be_u32) |
-                               _ => count!(be_u32, 5)) >>
-              type_name: string >>
-              _eof: eof!() >>
-              ({
-                  if ver <= 3 {
-                      unimplemented!();
-                  }
-                  TStreamerElement {
-                      ver, name, el_type, size, array_len,
-                      array_dim, max_idx, type_name
-                  }
-              })
-    )
+fn tstreamerelement(i: &[u8]) -> IResult<&[u8], TStreamerElement> {
+    let (i, ver) = be_u16(i)?;
+    if ver <= 3 {
+        unimplemented!();
+    }
+    let (i, name) = parse_sized_object(tnamed)(i)?;
+    let (i, el_type) = map_res(be_i32, |id| TypeID::new(id, &name.title))(i)?;
+    let (i, size) = be_i32(i)?;
+    let (i, array_len) = be_i32(i)?;
+    let (i, array_dim) = be_i32(i)?;
+    let (i, max_idx) = match ver {
+        1 => {
+            let (i, n_times) = be_i32(i)?;
+            count(be_u32, n_times as usize)(i)?
+        }
+        _ => count(be_u32, 5)(i)?,
+    };
+    let (i, type_name) = string(i)?;
+    Ok((
+        i,
+        TStreamerElement {
+            ver,
+            name,
+            el_type,
+            size,
+            array_len,
+            array_dim,
+            max_idx,
+            type_name,
+        },
+    ))
 }
 
 impl TStreamer {
