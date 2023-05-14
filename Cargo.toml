@@ -11,5 +11,10 @@ members = [
 ]
 
 [workspace.dependencies]
+alice-open-data = { version="0.5", path="alice-open-data" }
 nom = "^7"
 reqwest = "0.11"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+failure = "0.1"
+futures = "0.3"
+root-io = { version="0.3.0", path="root-io" }

@@ -9,15 +9,14 @@ readme = "README.md"
 keywords = ["root", "cern", "alice", "lhc", "physics"]
 categories = ["parser-implementations", "science", "data-structures"]
 license = "MPL-2.0"
-edition = "2018"
-
+edition = "2021"
 
 [dependencies]
-alice-open-data = { version="0.5", path="../alice-open-data/" }
+alice-open-data = { workspace=true }
 bitflags = "1.0.0"
-failure = "0.1.5"
+failure = { workspace=true }
 flate2 = "^1"
-futures = "0.3"
+futures = { workspace=true }
 nom = { workspace=true }
 reqwest = { workspace=true }
 lzma-rs = "0.1.1"
@@ -32,7 +31,7 @@ wasm-bindgen-futures = "0.4.10"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 criterion = "0.3"
-tokio = { version = "1", features = ["macros"] }
+tokio = { workspace=true }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = "0.2.60"
