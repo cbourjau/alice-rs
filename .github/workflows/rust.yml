@@ -12,6 +12,7 @@ jobs:
           components: clippy, rustfmt
       - run: cargo clippy
       - run: cargo fmt -- --check
+      - run: cargo run --bin alice-download --release -- 1
       - run: cargo test --all-features
         env:
           RUST_BACKTRACE: 1
