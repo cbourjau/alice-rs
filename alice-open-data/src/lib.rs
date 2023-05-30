@@ -101,7 +101,7 @@ pub async fn get_file_list(run: u32) -> Result<Vec<Url>, Error> {
     })?;
 
     let req = Client::new().get(uri);
-    let resp = dbg!(req.send().await?);
+    let resp = req.send().await?;
     if resp.status().is_success() {
         let content = resp.text().await?;
         content

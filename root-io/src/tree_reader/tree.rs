@@ -134,7 +134,6 @@ pub fn ttree<'s>(i: &'s [u8], context: &'s Context) -> IResult<&'s [u8], Tree> {
     let grab_checked_byte_count = move |i| {
         length_data(|i| {
             let (i, cnt) = checked_byte_count(i)?;
-            std::dbg!(cnt);
             Ok((i, cnt))
         })(i)
     };
