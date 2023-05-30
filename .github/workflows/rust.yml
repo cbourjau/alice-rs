@@ -13,3 +13,5 @@ jobs:
       - run: cargo clippy
       - run: cargo fmt -- --check
       - run: cargo test --all-features
+        env:
+          RUST_BACKTRACE: 1
