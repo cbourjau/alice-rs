@@ -28,7 +28,7 @@ fn fixed_size_branch() {
         })
         .await
     };
-    let mut rt = Runtime::new().unwrap();
+    let rt = Runtime::new().unwrap();
     rt.block_on(fut);
 }
 
@@ -55,7 +55,7 @@ fn var_size_branch() {
         })
         .await
     };
-    let mut rt = Runtime::new().unwrap();
+    let rt = Runtime::new().unwrap();
     rt.block_on(fut);
 }
 

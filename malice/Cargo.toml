@@ -9,29 +9,23 @@ readme = "README.md"
 keywords = ["root", "cern", "alice", "lhc", "physics"]
 categories = ["science", "data-structures"]
 license = "MPL-2.0"
-edition = "2018"
-
-[features]
-default = []
-cpp = ["alice-sys"]
+edition = "2021"
 
 [dependencies]
 bitflags = "1"
-failure = "0.1"
-futures = "0.3"
-nom = "^5"
-root-io = { version="0.3", path="../root-io" }
-# Optional dependencies
-alice-sys = { version="0.1", optional = true }
+failure = { workspace=true }
+futures = { workspace=true }
+nom = { workspace=true }
+root-io = { workspace=true }
 itertools = "0.10"
 wasm-bindgen = "0.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Tokio is used in the entry helper function to iterate over files
-tokio = { version = "1", features = ["macros"] }
+tokio = { workspace=true }
 
 [dev-dependencies]
-alice-open-data = { version="0.5", path="../alice-open-data" }
+alice-open-data = { workspace=true }
 criterion = "0.3"
 
 [[bench]]

@@ -3,7 +3,7 @@ name = "simple-analysis"
 version = "0.1.0"
 authors = ["cbourjau <c.bourjau@posteo.de>"]
 workspace = "../../"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 alice-open-data = { version="0.5", path="../../alice-open-data" }

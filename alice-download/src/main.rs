@@ -55,7 +55,7 @@ fn do_thing() -> Result<(), failure::Error> {
         .iter()
         .map(|r| rt.block_on(get_file_list(*r)))
         .collect::<Result<Vec<_>, _>>()?;
-    let pbar = ProgressBar::new(max_vol as u64);
+    let pbar = ProgressBar::new(max_vol);
     pbar.set_style(
         ProgressStyle::default_bar().template("[{elapsed_precise}] {bar:40.cyan/blue} ETA: {eta}"),
     );

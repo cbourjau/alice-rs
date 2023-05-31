@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use nom::{error::ParseError, multi::length_value, number::complete::*, IResult};
+use nom::{combinator::eof, multi::length_value, number::complete::*, IResult};
 
 use quote::*;
 
@@ -21,27 +21,20 @@ pub struct TStreamerInfo {
 }
 
 /// Parse one `TStreamerInfo` object (as found in the `TList`)
-#[rustfmt::skip::macros(do_parse)]
-pub(crate) fn tstreamerinfo<'s, E>(
+pub(crate) fn tstreamerinfo<'s>(
     i: &'s [u8],
     context: &'s Context,
-) -> IResult<&'s [u8], TStreamerInfo, E>
-where
-    E: ParseError<&'s [u8]> + Debug,
-{
+) -> IResult<&'s [u8], TStreamerInfo> {
     let parse_members = |i| tobjarray(|raw_obj, _context| tstreamer(raw_obj), i, context);
 
     let (i, tstreamerinfo_ver) = be_u16(i)?;
-    let (i, named) = length_value!(i, checked_byte_count, tnamed)?;
+    let (i, named) = length_value(checked_byte_count, tnamed)(i)?;
     let (i, checksum) = be_u32(i)?;
     let (i, new_class_version) = be_u32(i)?;
     let (i, _size_tobjarray_with_class_info) = checked_byte_count(i)?;
     let (i, _class_info_objarray) = classinfo(i)?;
-    let (i, data_members) = length_value(
-        nom::dbg_dmp(checked_byte_count, "byte count"),
-        nom::dbg_dmp(parse_members, "parse_members"),
-    )(i)?;
-    let (i, _eof) = eof!(i,)?;
+    let (i, data_members) = length_value(checked_byte_count, parse_members)(i)?;
+    let (i, _eof) = eof(i)?;
     Ok((
         i,
         TStreamerInfo {

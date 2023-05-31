@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use failure::Error;
 use futures::prelude::*;
 use itertools::izip;
-use nom::{combinator::map, error::ParseError, number::complete::*, sequence::tuple, IResult};
+use nom::{combinator::map, number::complete::*, sequence::tuple, IResult};
 use wasm_bindgen::prelude::*;
 
 use root_io::core::parsers::{parse_custom_mantissa, parse_tobjarray_of_tnameds};
@@ -145,7 +145,7 @@ pub async fn event_stream_from_tree(t: &Tree) -> Result<impl Stream<Item = Event
         t.branch_by_name("AliESDRun.fRunNumber")?
             .as_fixed_size_iterator(|i| be_i32(i)),
         t.branch_by_name("AliESDRun.fTriggerClasses")?
-            .as_fixed_size_iterator(|i| parse_tobjarray_of_tnameds(i)),
+            .as_fixed_size_iterator(parse_tobjarray_of_tnameds),
         t.branch_by_name("AliESDHeader.fTriggerMask")?
             .as_fixed_size_iterator(|i| be_u64(i)),
         t.branch_by_name("PrimaryVertex.AliVertex.fPosition[3]")?
@@ -180,7 +180,7 @@ pub async fn event_stream_from_tree(t: &Tree) -> Result<impl Stream<Item = Event
         t.branch_by_name("Tracks.fTPCchi2")?
             .as_var_size_iterator(|i| parse_custom_mantissa(i, 8), track_counter.to_owned()),
         t.branch_by_name("Tracks.fR[5]")?
-            .as_var_size_iterator(|i| parse_pid_probabilities(i), track_counter),
+            .as_var_size_iterator(parse_pid_probabilities, track_counter),
     )
     .map(
         |(
@@ -241,10 +241,7 @@ fn string_to_mask(s: &str, run_number: i32) -> TriggerMask {
     }
 }
 
-fn parse_pid_probabilities<'s, E>(input: &'s [u8]) -> IResult<&'s [u8], PidProbabilities, E>
-where
-    E: ParseError<&'s [u8]> + Debug,
-{
+fn parse_pid_probabilities(input: &[u8]) -> IResult<&[u8], PidProbabilities> {
     let (input, electron) = parse_custom_mantissa(input, 8)?;
     let (input, muon) = parse_custom_mantissa(input, 8)?;
     let (input, pion) = parse_custom_mantissa(input, 8)?;

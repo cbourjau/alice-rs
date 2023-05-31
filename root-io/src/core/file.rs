@@ -4,7 +4,7 @@ use failure::Error;
 use nom::{
     self,
     bytes::complete::tag,
-    error::VerboseError,
+    combinator::map,
     number::complete::{be_i16, be_i32, be_u128, be_u16, be_u32, be_u64, be_u8},
     IResult,
 };
@@ -115,29 +115,34 @@ fn versioned_pointer(input: &[u8], version: i16) -> nom::IResult<&[u8], u64> {
     if version > 1000 {
         be_u64(input)
     } else {
-        map!(input, be_i32, |val| val as u64)
+        map(be_i32, |val| val as u64)(input)
     }
 }
 
-#[rustfmt::skip::macros(do_parse)]
-named!(
-    #[doc="Directory within a root file; exists on ever file"],
-    directory<&[u8], Directory>,
-    do_parse!(
-        version: be_i16 >>
-            c_time: be_u32 >>
-            m_time: be_u32 >>
-            n_bytes_keys: be_i32 >>
-            n_bytes_name: be_i32 >>
-            seek_dir: call!(versioned_pointer, version) >>
-            seek_parent: call!(versioned_pointer, version) >>
-            seek_keys: call!(versioned_pointer, version) >>
-            ({
-                Directory {version, c_time, m_time, n_bytes_keys,
-                           n_bytes_name, seek_dir, seek_parent, seek_keys,
-                }})
-    )
-);
+/// Directory within a root file; exists on ever file
+fn directory(input: &[u8]) -> nom::IResult<&[u8], Directory> {
+    let (input, version) = be_i16(input)?;
+    let (input, c_time) = be_u32(input)?;
+    let (input, m_time) = be_u32(input)?;
+    let (input, n_bytes_keys) = be_i32(input)?;
+    let (input, n_bytes_name) = be_i32(input)?;
+    let (input, seek_dir) = versioned_pointer(input, version)?;
+    let (input, seek_parent) = versioned_pointer(input, version)?;
+    let (input, seek_keys) = versioned_pointer(input, version)?;
+    Ok((
+        input,
+        Directory {
+            version,
+            c_time,
+            m_time,
+            n_bytes_keys,
+            n_bytes_name,
+            seek_dir,
+            seek_parent,
+            seek_keys,
+        },
+    ))
+}
 
 impl RootFile {
     /// Open a new ROOT file either from a `Url`, or from a `Path`
@@ -203,8 +208,8 @@ impl RootFile {
     pub async fn streamer_infos(&self) -> Result<Vec<TStreamerInfo>, Error> {
         let ctx = self.get_streamer_context().await?;
         let buf = ctx.s.as_slice();
-        let (_, streamer_vec) = streamers::<VerboseError<_>>(buf, &ctx)
-            .map_err(|_| format_err!("Failed to parse TStreamers"))?;
+        let (_, streamer_vec) =
+            streamers(buf, &ctx).map_err(|_| format_err!("Failed to parse TStreamers"))?;
         Ok(streamer_vec)
     }
 
@@ -229,7 +234,6 @@ impl RootFile {
                 use parsers::utils::*;
                 use core_types::*;
             }
-            .to_string()
         )?;
         let streamer_infos = self.streamer_infos().await?;
         // generate structs
@@ -260,7 +264,6 @@ mod test {
     use super::*;
     use std::path::Path;
 
-    use nom::error::VerboseError;
     use nom::multi::length_value;
     use reqwest::Url;
     use tokio;
@@ -389,10 +392,7 @@ mod test {
             s: key.obj,
         };
 
-        match length_value(checked_byte_count, |i| {
-            tlist::<VerboseError<_>>(i, &context)
-        })(&context.s)
-        {
+        match length_value(checked_byte_count, |i| tlist(i, &context))(&context.s) {
             Ok((_, l)) => {
                 assert_eq!(l.len(), 19);
             }

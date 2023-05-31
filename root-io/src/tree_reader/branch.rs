@@ -2,9 +2,10 @@ use std::fmt::Debug;
 
 use futures::prelude::*;
 use nom::{
-    error::{ParseError, VerboseError},
-    multi::{count, length_value},
+    combinator::verify,
+    multi::{count, length_data, length_value},
     number::complete::*,
+    sequence::preceded,
     IResult,
 };
 
@@ -119,7 +120,7 @@ impl TBranch {
     /// ```
     pub fn as_fixed_size_iterator<T, P>(&self, p: P) -> impl Stream<Item = T>
     where
-        P: Fn(&[u8]) -> IResult<&[u8], T, VerboseError<&[u8]>>,
+        P: Fn(&[u8]) -> IResult<&[u8], T>,
     {
         stream::iter(self.containers().to_owned())
             .then(|basket| async move { basket.raw_data().await.unwrap() })
@@ -145,7 +146,7 @@ impl TBranch {
         el_counter: Vec<u32>,
     ) -> impl Stream<Item = Vec<T>>
     where
-        P: Fn(&[u8]) -> IResult<&[u8], T, VerboseError<&[u8]>>,
+        P: Fn(&[u8]) -> IResult<&[u8], T>,
     {
         let mut elems_per_event = el_counter.into_iter();
         stream::iter(self.containers().to_owned())
@@ -172,28 +173,21 @@ impl TBranch {
 
 /// `TBranchElements` are a subclass of `TBranch` if the content is an Object
 /// We ignore the extra information for now and just parse the TBranch"Header" in either case
-pub(crate) fn tbranch_hdr<'s, E>(raw: &Raw<'s>, ctxt: &'s Context) -> IResult<&'s [u8], TBranch, E>
-where
-    E: ParseError<&'s [u8]> + Debug,
-{
+pub fn tbranch_hdr<'s>(raw: &Raw<'s>, ctxt: &'s Context) -> IResult<&'s [u8], TBranch> {
     match raw.classinfo {
         "TBranchElement" | "TBranchObject" => {
             let (i, _ver) = be_u16(raw.obj)?;
-            length_value!(i, checked_byte_count, call!(tbranch, ctxt))
+            length_value(checked_byte_count, |i| tbranch(i, ctxt))(i)
         }
         "TBranch" => tbranch(raw.obj, ctxt),
         name => panic!("Unexpected Branch type {}", name),
     }
 }
 
-#[rustfmt::skip::macros(do_parse)]
-fn tbranch<'s, E>(i: &'s [u8], context: &'s Context) -> IResult<&'s [u8], TBranch, E>
-where
-    E: ParseError<&'s [u8]> + Debug,
-{
-    let (i, _ver) = verify!(i, be_u16, |v| [11, 12].contains(v))?;
-    let (i, tnamed) = length_value!(i, checked_byte_count, tnamed)?;
-    let (i, _tattfill) = length_data!(i, checked_byte_count)?;
+pub fn tbranch<'s>(i: &'s [u8], context: &'s Context) -> IResult<&'s [u8], TBranch> {
+    let (i, _ver) = verify(be_u16, |v| [11, 12].contains(v))(i)?;
+    let (i, tnamed) = length_value(checked_byte_count, tnamed)(i)?;
+    let (i, _tattfill) = length_data(checked_byte_count)(i)?;
     let (i, fcompress) = be_i32(i)?;
     let (i, fbasketsize) = be_i32(i)?;
     let (i, fentryoffsetlen) = be_i32(i)?;
@@ -214,9 +208,9 @@ where
     let (i, fbaskets) = length_value(checked_byte_count, |i| {
         tobjarray(|r, _context| Ok((&[], r.obj)), i, context)
     })(i)?;
-    let (i, fbasketbytes) = preceded!(i, be_u8, count!(be_i32, fmaxbaskets as usize))?;
-    let (i, fbasketentry) = preceded!(i, be_u8, count!(be_i64, fmaxbaskets as usize))?;
-    let (i, fbasketseek) = preceded!(i, be_u8, count!(be_u64, fmaxbaskets as usize))?;
+    let (i, fbasketbytes) = preceded(be_u8, count(be_i32, fmaxbaskets as usize))(i)?;
+    let (i, fbasketentry) = preceded(be_u8, count(be_i64, fmaxbaskets as usize))(i)?;
+    let (i, fbasketseek) = preceded(be_u8, count(be_u64, fmaxbaskets as usize))(i)?;
     let (i, ffilename) = string(i)?;
 
     let name = tnamed.name;
