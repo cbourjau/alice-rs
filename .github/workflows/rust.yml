@@ -1,5 +1,5 @@
 name: test suite
-on: [push, pull_request]
+on: [push]
 
 jobs:
   test:
@@ -16,3 +16,12 @@ jobs:
       - run: cargo test --all-features
         env:
           RUST_BACKTRACE: 1
+  wasm:
+    name: build wasm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - run: cargo build -p malice --target wasm32-unknown-unknown
